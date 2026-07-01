@@ -18,6 +18,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { AuditModule } from "./modules/audit/audit.module";
+import { SettingsModule } from "./modules/settings/settings.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AuditModule } from "./modules/audit/audit.module";
     NotificationsModule,
     DashboardModule,
     AuditModule,
+    SettingsModule,
     BackupModule,
   ],
   providers: [

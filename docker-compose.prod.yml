@@ -65,16 +65,19 @@ services:
     depends_on:
       - api
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: aqua_nginx_prod
+  caddy:
+    image: caddy:2-alpine
+    container_name: aqua_caddy_prod
     restart: always
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - web
       - api
@@ -83,3 +86,5 @@ volumes:
   postgres_data:
   redis_data:
   backups:
+  caddy_data:
+  caddy_config:

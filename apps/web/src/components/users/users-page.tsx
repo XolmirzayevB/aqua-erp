@@ -102,7 +102,7 @@ export function UsersPage() {
           <tbody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50">
+                <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                   {Array.from({ length: 6 }).map((_, j) => (
                     <td key={j} className="px-5 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></td>
                   ))}
@@ -111,7 +111,7 @@ export function UsersPage() {
             ) : users.map((u) => {
               const meta = ROLE_META[u.role];
               return (
-                <tr key={u.id} className={cn("border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group", !u.isActive && "opacity-50")}>
+                <tr key={u.id} className={cn("border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group", !u.isActive && "opacity-50")}>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-xs">

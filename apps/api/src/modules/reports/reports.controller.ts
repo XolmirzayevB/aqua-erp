@@ -47,6 +47,13 @@ export class ReportsController {
     return this.reportsService.getTopRegions(query);
   }
 
+  @Get("debt-payments")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Qarz to'lovlari — kim qancha to'lagani" })
+  getDebtPayments(@Query() query: ReportQueryDto) {
+    return this.reportsService.getDebtPayments(query);
+  }
+
   @Get("export/excel")
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: "Excel eksport" })

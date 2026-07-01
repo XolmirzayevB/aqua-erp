@@ -84,6 +84,7 @@ function DriverCard({ driver, onToggle }: { driver: DriverFull; onToggle: () => 
     : { label: "Boshmagan", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400", dot: "bg-yellow-500" };
 
   return (
+    <>
     <div className={cn(
       "bg-white dark:bg-gray-900 rounded-2xl border p-5 flex flex-col gap-4 transition-all",
       driver.isActive
@@ -175,21 +176,22 @@ function DriverCard({ driver, onToggle }: { driver: DriverFull; onToggle: () => 
       </div>
     </div>
 
-    /* Modals */
-    , showOpen && (
-      <SessionOpenModal
-        driverId={driver.id}
-        driverName={driver.name}
-        onClose={() => setShowOpen(false)}
-      />
-    ),
-    showClose && session && (
-      <SessionCloseModal
-        driverId={driver.id}
-        driverName={driver.name}
-        session={session}
-        onClose={() => setShowClose(false)}
-      />
-    )
+      {/* Modals */}
+      {showOpen && (
+        <SessionOpenModal
+          driverId={driver.id}
+          driverName={driver.name}
+          onClose={() => setShowOpen(false)}
+        />
+      )}
+      {showClose && session && (
+        <SessionCloseModal
+          driverId={driver.id}
+          driverName={driver.name}
+          session={session}
+          onClose={() => setShowClose(false)}
+        />
+      )}
+    </>
   );
 }

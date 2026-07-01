@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Bell, Sun, Moon, LogOut, Search } from "lucide-react";
+import { Bell, Sun, Moon, LogOut, Search, Menu, Droplets } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth.store";
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -22,19 +22,35 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-6 flex items-center justify-between flex-shrink-0">
-      {/* Search */}
-      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 w-64">
-        <Search className="w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="search"
-          placeholder="Qidirish... (Ctrl+K)"
-          className="bg-transparent text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none w-full"
-        />
+    <header className="h-14 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-3 md:px-6 flex items-center justify-between flex-shrink-0 gap-2">
+      {/* Chap: menyu tugmasi (mobil) + qidiruv */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <button
+          onClick={onMenuClick}
+          className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        {/* Mobil logo */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+            <Droplets className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-gray-900 dark:text-white text-sm">AquaERP</span>
+        </div>
+        {/* Qidiruv — faqat katta ekranda */}
+        <div className="hidden md:flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 w-64">
+          <Search className="w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="search"
+            placeholder="Qidirish... (Ctrl+K)"
+            className="bg-transparent text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none w-full"
+          />
+        </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

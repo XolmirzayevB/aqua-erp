@@ -1,5 +1,5 @@
 import {
-  IsString, IsOptional, IsNumber, Matches, MaxLength, MinLength,
+  IsString, IsOptional, IsNumber, IsInt, Min, Matches, MaxLength, MinLength,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
@@ -24,8 +24,26 @@ export class CreateCustomerDto {
 
   @ApiProperty({ example: "Yunusobod 5-kv, 23-uy" })
   @IsString()
-  @MinLength(5)
+  @MinLength(3)
   address: string;
+
+  @ApiPropertyOptional({ example: "A", description: "Hudud" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  zone?: string;
+
+  @ApiPropertyOptional({ example: "https://maps.google.com/...", description: "Lokatsiya havolasi" })
+  @IsOptional()
+  @IsString()
+  locationLink?: string;
+
+  @ApiPropertyOptional({ example: 5, description: "Mijozda allaqachon bor tara soni (daftar ko'chirish uchun)" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  bottlesOwned?: number;
 
   @ApiPropertyOptional({ example: 41.2995 })
   @IsOptional()

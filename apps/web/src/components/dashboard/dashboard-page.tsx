@@ -144,7 +144,7 @@ export function DashboardPage() {
               </thead>
               <tbody>
                 {(data?.recentOrders || []).map((order: any, i: number) => (
-                  <tr key={order.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                  <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                     <td className="px-5 py-3 font-mono text-xs text-gray-500">{order.orderNumber}</td>
                     <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{order.customer?.name}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{order.quantity} ta</td>

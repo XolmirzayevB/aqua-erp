@@ -1,0 +1,17 @@
+# Caddy — avtomatik bepul HTTPS (Let's Encrypt) + reverse proxy
+{$DOMAIN} {
+	# API
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+	# Socket.io (real-time)
+	handle /notifications/* {
+		reverse_proxy api:3001
+	}
+	# Frontend (Next.js)
+	handle {
+		reverse_proxy web:3000
+	}
+
+	encode gzip
+}

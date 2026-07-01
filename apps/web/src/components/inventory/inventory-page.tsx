@@ -68,7 +68,27 @@ export function InventoryPage() {
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Soddalashtirilgan: Omborda / Mijozlarda / Jami */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-600 rounded-2xl p-5 text-white">
+          <Package className="w-7 h-7 mb-2 opacity-80" />
+          <p className="text-4xl font-bold">{isLoading ? "—" : inv?.warehouseBottles ?? 0}</p>
+          <p className="text-sm text-blue-100 mt-1">Omborda tara</p>
+        </div>
+        <div className="bg-green-600 rounded-2xl p-5 text-white">
+          <Archive className="w-7 h-7 mb-2 opacity-80" />
+          <p className="text-4xl font-bold">{isLoading ? "—" : inv?.customerBottles ?? 0}</p>
+          <p className="text-sm text-green-100 mt-1">Mijozlarda tara</p>
+        </div>
+        <div className="bg-gray-800 dark:bg-gray-700 rounded-2xl p-5 text-white">
+          <RefreshCw className="w-7 h-7 mb-2 opacity-80" />
+          <p className="text-4xl font-bold">{isLoading ? "—" : inv?.totalCirculation ?? 0}</p>
+          <p className="text-sm text-gray-300 mt-1">Jami aylanmadagi tara</p>
+        </div>
+      </div>
+
+      {/* Batafsil (to'la/bo'sh/singan/yo'qolgan) */}
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">Ombor tafsiloti</p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map(({ type, value }) => {
           const meta = TYPE_META[type];
@@ -116,7 +136,7 @@ export function InventoryPage() {
               const meta = TYPE_META[action.inventory.type];
               const isPositive = action.quantity > 0;
               return (
-                <tr key={action.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                <tr key={action.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-5 py-3">
                     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full", meta?.bg, meta?.color)}>
                       <meta.icon className="w-3 h-3" />

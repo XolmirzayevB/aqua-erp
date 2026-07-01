@@ -163,6 +163,36 @@ export class ReportsService {
       .slice(0, query.limit);
   }
 
+  // Qarz to'lovlari — kim qancha to'lagani (davr bo'yicha)
+  async getDebtPayments(query: ReportQueryDto) {
+    const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);
+
+    const payments = await this.prisma.payment.findMany({
+      where: { createdAt: { gte: from, lte: to } },
+      orderBy: { createdAt: "desc" },
+      include: { customer: { select: { id: true, name: true, phone: true, balance: true } } },
+    });
+
+    const total = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const cash = payments.filter((p) => p.method === "CASH").reduce((s, p) => s + Number(p.amount), 0);
+    const card = payments.filter((p) => p.method === "CARD").reduce((s, p) => s + Number(p.amount), 0);
+
+    return {
+      payments: payments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        method: p.method,
+        notes: p.notes,
+        createdAt: p.createdAt,
+        customer: p.customer
+          ? { ...p.customer, balance: Number(p.customer.balance) }
+          : null,
+      })),
+      summary: { total, cash, card, count: payments.length },
+      period: { from, to },
+    };
+  }
+
   // Aggregated data for export (returns flat rows)
   async getExportData(query: ReportQueryDto) {
     const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);

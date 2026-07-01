@@ -8,6 +8,7 @@ import {
   Edit, Trash2, DollarSign,
 } from "lucide-react";
 import { useCustomers, useCreateCustomer, useDeleteCustomer, Customer } from "@/hooks/use-customers";
+import { useSettings } from "@/hooks/use-settings";
 import { CustomerForm } from "./customer-form";
 import { formatCurrency, formatPhone, getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -17,14 +18,19 @@ export function CustomersTable() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [debtorsOnly, setDebtorsOnly] = useState(false);
+  const [zoneFilter, setZoneFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  const { data: settings } = useSettings();
+  const zones = settings?.zones || [];
 
   const { data, isLoading } = useCustomers({
     search: debouncedSearch,
     page,
     limit: 20,
     debtorsOnly: debtorsOnly || undefined,
+    zone: zoneFilter || undefined,
   });
 
   const createCustomer = useCreateCustomer();
@@ -98,6 +104,28 @@ export function CustomersTable() {
         </button>
       </div>
 
+      {/* Zone filter */}
+      {zones.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Hudud:</span>
+          <button
+            onClick={() => { setZoneFilter(""); setPage(1); }}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", zoneFilter === "" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300")}
+          >
+            Barchasi
+          </button>
+          {zones.map((z) => (
+            <button
+              key={z}
+              onClick={() => { setZoneFilter(zoneFilter === z ? "" : z); setPage(1); }}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", zoneFilter === z ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300")}
+            >
+              {z}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="overflow-x-auto">
@@ -114,7 +142,7 @@ export function CustomersTable() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50">
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                     {Array.from({ length: 6 }).map((_, j) => (
                       <td key={j} className="px-5 py-3">
                         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" style={{ width: `${60 + j * 10}%` }} />
@@ -214,7 +242,7 @@ function CustomerRow({
   const bottlesOwed = customer.bottlesGiven - customer.bottlesReturned;
 
   return (
-    <tr className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
+    <tr className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
       {/* Name + avatar */}
       <td className="px-5 py-3">
         <Link href={`/customers/${customer.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -222,8 +250,22 @@ function CustomerRow({
             {getInitials(customer.name)}
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-gray-900 dark:text-white truncate max-w-[160px]">{customer.name}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">ID: {customer.id.slice(0, 8)}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-gray-900 dark:text-white truncate max-w-[140px]">{customer.name}</p>
+              {customer.zone && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold flex-shrink-0">{customer.zone}</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              {customer.locationLink && (
+                <span
+                  role="link"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(customer.locationLink, "_blank"); }}
+                  className="text-green-600 dark:text-green-400 hover:underline mr-2 cursor-pointer"
+                >📍 Lokatsiya</span>
+              )}
+              ID: {customer.id.slice(0, 8)}
+            </p>
           </div>
         </Link>
       </td>

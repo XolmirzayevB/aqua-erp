@@ -237,7 +237,7 @@ export function DriverDetail({ id }: Props) {
               {sessions.length === 0 ? (
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400 text-sm">Sessiyalar yo'q</td></tr>
               ) : sessions.map((sess) => (
-                <tr key={sess.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                <tr key={sess.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{formatDate(sess.date, "dd.MM.yyyy")}</td>
                   <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{sess.bottlesTaken} ta</td>
                   <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{sess.bottlesSold} ta</td>
@@ -273,7 +273,7 @@ export function DriverDetail({ id }: Props) {
               {(report?.orders || []).length === 0 ? (
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">Bu davrda buyurtmalar yo'q</td></tr>
               ) : (report?.orders || []).map((order: any) => (
-                <tr key={order.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-5 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">
                     <Link href={`/orders/${order.id}`} className="hover:underline">{order.orderNumber}</Link>
                   </td>

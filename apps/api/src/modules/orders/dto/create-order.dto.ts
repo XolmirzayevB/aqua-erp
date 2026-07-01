@@ -1,6 +1,5 @@
 import {
-  IsString, IsInt, IsEnum, IsOptional, IsBoolean,
-  IsNumber, Min, IsUUID,
+  IsString, IsInt, IsEnum, IsOptional, Min, IsUUID,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
@@ -10,23 +9,25 @@ export class CreateOrderDto {
   @IsUUID()
   customerId: string;
 
-  @ApiProperty({ example: 5 })
+  @ApiPropertyOptional({ example: 3, description: "Almashtiriladigan (to'ldiriladigan) tara soni — 12 mingdan" })
+  @IsOptional()
   @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  quantity: number;
-
-  @ApiProperty({ example: 15000 })
-  @IsNumber()
   @Min(0)
   @Type(() => Number)
-  pricePerUnit: number;
+  refillCount?: number;
+
+  @ApiPropertyOptional({ example: 2, description: "Yangi sotib olinadigan tara soni — 45 mingdan" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  newBottles?: number;
 
   @ApiProperty({ enum: ["CASH", "CARD", "DEBT"] })
   @IsEnum(["CASH", "CARD", "DEBT"])
   paymentType: "CASH" | "CARD" | "DEBT";
 
-  @ApiPropertyOptional({ example: 2, description: "Qaytarilgan bo'sh taralar soni" })
+  @ApiPropertyOptional({ example: 3, description: "Qaytarilgan bo'sh tara soni (odatda = almashtirilgan)" })
   @IsOptional()
   @IsInt()
   @Min(0)

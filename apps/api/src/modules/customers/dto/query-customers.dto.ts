@@ -45,4 +45,9 @@ export class QueryCustomersDto {
   @Transform(({ value }) => value === true || value === "true")
   @IsBoolean()
   debtorsOnly?: boolean;
+
+  @ApiPropertyOptional({ description: "Hudud bo'yicha filtr" })
+  @IsOptional()
+  @IsString()
+  zone?: string;
 }

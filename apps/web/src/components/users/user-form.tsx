@@ -1,6 +1,7 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+import { PhoneInput } from "@/components/shared/phone-input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
@@ -28,7 +29,7 @@ export function UserForm({ user, onSubmit, onClose, isLoading }: Props) {
   const [showPass, setShowPass] = useState(false);
   const isEdit = !!user;
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(isEdit ? schema : schema.extend({ password: z.string().min(6) })),
     defaultValues: {
       name: user?.name || "",
@@ -60,8 +61,10 @@ export function UserForm({ user, onSubmit, onClose, isLoading }: Props) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Telefon *</label>
-            <input {...register("phone")} type="tel" placeholder="+998901234567"
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            <Controller name="phone" control={control} render={({ field }) => (
+              <PhoneInput value={field.value} onChange={field.onChange}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            )} />
             {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone.message}</p>}
           </div>
 

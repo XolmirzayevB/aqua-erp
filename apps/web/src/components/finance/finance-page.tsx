@@ -184,7 +184,7 @@ export function FinancePage() {
               const meta = TYPE_META[t.type];
               const isIncome = t.type === "INCOME";
               return (
-                <tr key={t.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                <tr key={t.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-5 py-3">
                     <span className={cn("inline-flex items-center gap-1 text-xs font-medium", meta.color)}>
                       {isIncome ? <ArrowUpCircle className="w-3.5 h-3.5" /> : <ArrowDownCircle className="w-3.5 h-3.5" />}

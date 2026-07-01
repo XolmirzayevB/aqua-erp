@@ -3,18 +3,11 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 
 export class IntakeDto {
-  @ApiProperty({ example: 100, description: "Yetkazib beruvchidan kelgan to'la butilkalar" })
+  @ApiProperty({ example: 500, description: "Omborga qo'shiladigan tara soni" })
   @IsInt()
   @Min(1)
   @Type(() => Number)
-  fullBottles: number;
-
-  @ApiPropertyOptional({ example: 50, description: "Yangi bo'sh taralar (sotib olingan)" })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Type(() => Number)
-  emptyBottles?: number;
+  quantity: number;
 
   @ApiPropertyOptional()
   @IsOptional()

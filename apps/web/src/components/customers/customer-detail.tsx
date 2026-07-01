@@ -56,7 +56,7 @@ export function CustomerDetail({ id }: Props) {
 
   if (!customer) return <div className="text-gray-400 text-center py-20">Mijoz topilmadi</div>;
 
-  const bottlesOwed = customer.bottlesGiven - customer.bottlesReturned;
+  const bottlesOwed = customer.bottlesOwned;
 
   return (
     <div className="space-y-5 max-w-5xl">
@@ -105,20 +105,23 @@ export function CustomerDetail({ id }: Props) {
               {customer.phone2 && (
                 <InfoRow icon={Phone} label="Qo'shimcha" value={formatPhone(customer.phone2)} />
               )}
+              {customer.zone && (
+                <InfoRow icon={MapPin} label="Hudud" value={`Hudud ${customer.zone}`} />
+              )}
               <InfoRow icon={MapPin} label="Manzil" value={customer.address} className="col-span-2" />
               {customer.notes && (
                 <InfoRow icon={AlertCircle} label="Izoh" value={customer.notes} className="col-span-2" />
               )}
-              {customer.lat && customer.lng && (
+              {customer.locationLink && (
                 <div className="col-span-2">
                   <a
-                    href={`https://maps.google.com/?q=${customer.lat},${customer.lng}`}
+                    href={customer.locationLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    Google Mapda ko'rish
+                    Lokatsiyani ochish (Google Maps)
                   </a>
                 </div>
               )}
@@ -142,7 +145,6 @@ export function CustomerDetail({ id }: Props) {
           <StatMini
             label="Taralar (uyida)"
             value={<span className={bottlesOwed > 0 ? "text-orange-600" : "text-gray-700 dark:text-gray-300"}>{bottlesOwed} ta</span>}
-            sub={`Berildi: ${customer.bottlesGiven} | Qaytdi: ${customer.bottlesReturned}`}
             icon={<Package className="w-4 h-4" />}
             color="bg-orange-50 dark:bg-orange-950/30 text-orange-600"
           />
@@ -211,9 +213,9 @@ export function CustomerDetail({ id }: Props) {
                 {(orders?.data || []).length === 0 ? (
                   <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400 text-sm">Buyurtmalar yo'q</td></tr>
                 ) : (
-                  (orders?.data || []).map((order: any) => (
-                    <tr key={order.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                      <td className="px-5 py-3 font-mono text-xs text-gray-500">{order.orderNumber}</td>
+                  (orders?.data || []).map((order: any, i: number) => (
+                    <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="px-5 py-3 text-sm font-semibold text-gray-400">{(orders?.meta ? (orders.meta.page - 1) * orders.meta.limit : 0) + i + 1}</td>
                       <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{order.quantity} ta</td>
                       <td className="px-5 py-3 text-gray-900 dark:text-white">{formatCurrency(order.totalAmount)}</td>
                       <td className="px-5 py-3 text-gray-500">
@@ -253,7 +255,7 @@ export function CustomerDetail({ id }: Props) {
                   <tr><td colSpan={4} className="px-5 py-10 text-center text-gray-400 text-sm">To'lovlar tarixi yo'q</td></tr>
                 ) : (
                   (payments?.data || []).map((payment: any) => (
-                    <tr key={payment.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                    <tr key={payment.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                       <td className="px-5 py-3 font-semibold text-green-600 dark:text-green-400">
                         +{formatCurrency(payment.amount)}
                       </td>

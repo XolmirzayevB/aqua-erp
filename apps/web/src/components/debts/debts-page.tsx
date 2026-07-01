@@ -76,7 +76,7 @@ export function DebtsPage() {
           <tbody>
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50">
+                <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                   {Array.from({ length: 6 }).map((_, j) => (
                     <td key={j} className="px-5 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></td>
                   ))}
@@ -90,7 +90,7 @@ export function DebtsPage() {
                 </td>
               </tr>
             ) : debtors.map((d) => (
-              <tr key={d.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
+              <tr key={d.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
                 <td className="px-5 py-3">
                   <Link href={`/customers/${d.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center text-orange-700 dark:text-orange-400 font-semibold text-xs flex-shrink-0">

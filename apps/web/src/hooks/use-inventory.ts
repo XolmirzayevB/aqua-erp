@@ -12,6 +12,9 @@ export interface InventoryItem {
 }
 
 export interface InventoryOverview {
+  warehouseBottles: number;
+  customerBottles: number;
+  totalCirculation: number;
   fullBottles: number;
   emptyBottles: number;
   brokenBottles: number;
@@ -49,7 +52,7 @@ export function useInventoryHistory(page = 1, type?: string) {
 export function useInventoryIntake() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { fullBottles: number; emptyBottles?: number; description?: string }) =>
+    mutationFn: (data: { quantity: number; description?: string }) =>
       api.post("/inventory/intake", data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inventory"] });

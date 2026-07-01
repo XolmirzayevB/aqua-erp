@@ -21,8 +21,8 @@ export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER)
-  @ApiOperation({ summary: "Yangi buyurtma yaratish" })
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @ApiOperation({ summary: "Yangi buyurtma yaratish (faqat operator/menejer/admin)" })
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser("sub") userId: string,

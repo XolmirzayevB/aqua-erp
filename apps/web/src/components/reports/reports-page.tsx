@@ -6,8 +6,8 @@ import {
   XCircle, Droplets, Package, TrendingUp, TrendingDown,
   Wallet, UserPlus, Download,
 } from "lucide-react";
-import { useReportOverview, downloadReport } from "@/hooks/use-reports";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useReportOverview, useDebtPayments, downloadReport } from "@/hooks/use-reports";
+import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const PERIODS = [
@@ -42,6 +42,8 @@ export function ReportsPage() {
     { label: "Chiqim", value: data?.finance.expense ?? 0, icon: TrendingDown, color: "text-red-500" },
     { label: "Sof foyda", value: data?.finance.profit ?? 0, icon: Wallet, color: "text-blue-600 dark:text-blue-400" },
   ];
+
+  const { data: debts } = useDebtPayments(period);
 
   return (
     <div className="space-y-5">
@@ -137,6 +139,45 @@ export function ReportsPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Qarz to'lovlari — kim qancha to'lagani */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Qarz to'lovlari (kim qancha to'ladi)</h2>
+          {debts && (
+            <span className="text-sm font-bold text-green-600 dark:text-green-400">
+              Jami: {formatCurrency(debts.summary.total)} · {debts.summary.count} ta
+            </span>
+          )}
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+              {["Mijoz", "Telefon", "To'lagan", "Usul", "Qolgan qarz", "Sana"].map((h) => (
+                <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {!debts?.payments?.length ? (
+              <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">Bu davrda qarz to'lovi yo'q</td></tr>
+            ) : debts.payments.map((p) => (
+              <tr key={p.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{p.customer?.name ?? "—"}</td>
+                <td className="px-5 py-3 text-gray-500 text-xs font-mono">{p.customer ? formatPhone(p.customer.phone) : "—"}</td>
+                <td className="px-5 py-3 font-semibold text-green-600 dark:text-green-400">+{formatCurrency(p.amount)}</td>
+                <td className="px-5 py-3 text-gray-500 text-xs">{p.method === "CASH" ? "Naqd" : "Karta"}</td>
+                <td className="px-5 py-3">
+                  {p.customer && p.customer.balance < 0
+                    ? <span className="text-red-500 text-xs">{formatCurrency(Math.abs(p.customer.balance))}</span>
+                    : <span className="text-green-600 text-xs">Qarzi yo'q</span>}
+                </td>
+                <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(p.createdAt, "dd.MM.yyyy HH:mm")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

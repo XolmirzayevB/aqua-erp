@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus, Search, Filter, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle,
-  Phone, MapPin,
+  Phone, MapPin, Navigation,
 } from "lucide-react";
 import { useOrders, useCancelOrder, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderForm } from "./order-form";
@@ -14,6 +14,7 @@ import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
 
 const STATUS_FILTERS = [
   { value: "", label: "Barchasi" },
@@ -33,6 +34,8 @@ export function OrdersTable() {
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const userRole = useAuthStore((s) => s.user?.role);
+  const isDriver = userRole === "DRIVER";
 
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
@@ -77,13 +80,15 @@ export function OrdersTable() {
             {meta ? `Jami: ${meta.total} ta buyurtma` : "Yuklanmoqda..."}
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-blue-900/30"
-        >
-          <Plus className="w-4 h-4" />
-          Yangi buyurtma
-        </button>
+        {!isDriver && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-blue-900/30"
+          >
+            <Plus className="w-4 h-4" />
+            Yangi buyurtma
+          </button>
+        )}
       </div>
 
       {/* Search + Status filters */}
@@ -131,7 +136,7 @@ export function OrdersTable() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50">
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
@@ -149,7 +154,7 @@ export function OrdersTable() {
                 orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group"
+                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group"
                   >
                     {/* Order number */}
                     <td className="px-4 py-3">
@@ -161,7 +166,12 @@ export function OrdersTable() {
                     {/* Customer */}
                     <td className="px-4 py-3">
                       <Link href={`/customers/${order.customerId}`} className="block hover:opacity-80 transition-opacity">
-                        <p className="font-medium text-gray-900 dark:text-white text-sm">{order.customer.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 dark:text-white text-sm">{order.customer.name}</p>
+                          {order.customer.zone && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold">{order.customer.zone}</span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-gray-400" />
                           <span className="text-xs text-gray-400 font-mono">{formatPhone(order.customer.phone)}</span>
@@ -171,14 +181,23 @@ export function OrdersTable() {
                           <span className="text-xs text-gray-400 truncate max-w-[140px]">{order.customer.address}</span>
                         </div>
                       </Link>
+                      {order.customer.locationLink && (
+                        <a href={order.customer.locationLink} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-lg bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                          <Navigation className="w-3 h-3" />
+                          Lokatsiya
+                        </a>
+                      )}
                     </td>
 
-                    {/* Qty/Price */}
+                    {/* Qty — to'ldirish / yangi taqsimot */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{order.quantity} ta</p>
-                      <p className="text-xs text-gray-400">{formatCurrency(order.pricePerUnit)} / ta</p>
-                      {order.bottlesReturned > 0 && (
-                        <p className="text-xs text-green-600 dark:text-green-400">↩ {order.bottlesReturned} tara</p>
+                      {order.refillCount > 0 && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400">{order.refillCount} to'ldirish</p>
+                      )}
+                      {order.newBottles > 0 && (
+                        <p className="text-xs text-green-600 dark:text-green-400">{order.newBottles} yangi tara</p>
                       )}
                     </td>
 
@@ -228,10 +247,22 @@ export function OrdersTable() {
 
                     {/* Actions */}
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 justify-end">
+                        {/* To'g'ridan-to'g'ri "Yetkazildi" (haydovchi uchun, telefonda ham ko'rinadi) */}
+                        {order.status === "ASSIGNED" && (
+                          <button
+                            onClick={() => handleQuickDeliver(order.id)}
+                            disabled={updateStatus.isPending}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Yetkazildi
+                          </button>
+                        )}
                       <div className="relative">
                         <button
                           onClick={() => setOpenMenu(openMenu === order.id ? null : order.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
@@ -264,7 +295,7 @@ export function OrdersTable() {
                                 Haydovchi
                               </button>
                             )}
-                            {["NEW", "PROCESSING"].includes(order.status) && (
+                            {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
                               <button
                                 onClick={() => handleCancel(order.id, order.orderNumber)}
                                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
@@ -275,6 +306,7 @@ export function OrdersTable() {
                             )}
                           </div>
                         )}
+                      </div>
                       </div>
                     </td>
                   </tr>

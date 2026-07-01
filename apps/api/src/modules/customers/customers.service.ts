@@ -25,11 +25,12 @@ export class CustomersService {
   }
 
   async findAll(query: QueryCustomersDto) {
-    const { search, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc", debtorsOnly } = query;
+    const { search, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc", debtorsOnly, zone } = query;
 
     const where: Prisma.CustomerWhereInput = {
       isActive: true,
       ...(debtorsOnly ? { balance: { lt: 0 } } : {}),
+      ...(zone ? { zone } : {}),
       ...(search
         ? {
             OR: [

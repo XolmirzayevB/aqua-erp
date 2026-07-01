@@ -105,9 +105,12 @@ model Customer {
   phone            String   @db.VarChar(20)
   phone2           String?  @db.VarChar(20)
   address          String   @db.Text
+  zone             String?  @db.VarChar(50)
+  locationLink     String?  @map("location_link") @db.Text
   lat              Decimal? @db.Decimal(10, 8)
   lng              Decimal? @db.Decimal(11, 8)
   notes            String?  @db.Text
+  bottlesOwned     Int      @default(0) @map("bottles_owned")
   bottlesGiven     Int      @default(0) @map("bottles_given")
   bottlesReturned  Int      @default(0) @map("bottles_returned")
   balance          Decimal  @default(0) @db.Decimal(12, 2)
@@ -137,6 +140,10 @@ model Order {
   createdById      String      @map("created_by_id")
   quantity         Int
   pricePerUnit     Decimal     @map("price_per_unit") @db.Decimal(10, 2)
+  refillCount      Int         @default(0) @map("refill_count")
+  newBottles       Int         @default(0) @map("new_bottles")
+  refillPrice      Decimal     @default(0) @map("refill_price") @db.Decimal(10, 2)
+  newBottlePrice   Decimal     @default(0) @map("new_bottle_price") @db.Decimal(10, 2)
   totalAmount      Decimal     @map("total_amount") @db.Decimal(12, 2)
   bottlesReturned  Int         @default(0) @map("bottles_returned")
   paymentType      PaymentType @map("payment_type")
@@ -210,6 +217,16 @@ model InventoryAction {
   @@index([inventoryId])
   @@index([createdAt])
   @@map("inventory_actions")
+}
+
+// ─── Settings (sozlanadigan narxlar, hududlar) ─────────────────────────────────
+
+model Setting {
+  key       String   @id @db.VarChar(50)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("settings")
 }
 
 // ─── Finance ─────────────────────────────────────────────────────────────────

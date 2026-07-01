@@ -10,9 +10,12 @@ export interface Customer {
   phone: string;
   phone2?: string;
   address: string;
+  zone?: string;
+  locationLink?: string;
   lat?: number;
   lng?: number;
   notes?: string;
+  bottlesOwned: number;
   bottlesGiven: number;
   bottlesReturned: number;
   balance: number;
@@ -29,6 +32,7 @@ export interface CustomerQueryParams {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   debtorsOnly?: boolean;
+  zone?: string;
 }
 
 export function useCustomers(params: CustomerQueryParams = {}) {

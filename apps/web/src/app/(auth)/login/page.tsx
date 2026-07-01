@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Eye, EyeOff, Droplets, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth.store";
-import type { Metadata } from "next";
+import { PhoneInput } from "@/components/shared/phone-input";
+import { InstallPWA } from "@/components/shared/install-pwa";
 
 const loginSchema = z.object({
   phone: z
@@ -29,8 +30,9 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { phone: "", password: "" } });
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -39,7 +41,11 @@ export default function LoginPage() {
       const { user, accessToken, refreshToken } = res.data.data;
       setAuth(user, accessToken, refreshToken);
       toast.success(`Xush kelibsiz, ${user.name}!`);
-      router.push(user.role === "DRIVER" ? "/orders" : "/");
+      router.push(
+        user.role === "DRIVER" ? "/orders"
+        : user.role === "OPERATOR" ? "/customers"
+        : "/"
+      );
     } catch (err: any) {
       const msg = err?.response?.data?.message?.[0] || "Telefon yoki parol noto'g'ri";
       toast.error(msg);
@@ -77,13 +83,13 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Telefon raqam
               </label>
-              <input
-                {...register("phone")}
-                type="tel"
-                placeholder="+998901234567"
-                autoComplete="tel"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-              />
+              <Controller name="phone" control={control} render={({ field }) => (
+                <PhoneInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                />
+              )} />
               {errors.phone && (
                 <p className="mt-1 text-xs text-red-500">{errors.phone.message}</p>
               )}
@@ -131,6 +137,11 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* PWA install */}
+        <div className="mt-4">
+          <InstallPWA />
         </div>
 
         {/* Test accounts hint */}

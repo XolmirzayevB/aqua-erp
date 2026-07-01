@@ -11,6 +11,10 @@ export interface Order {
   driverId?: string;
   quantity: number;
   pricePerUnit: number;
+  refillCount: number;
+  newBottles: number;
+  refillPrice: number;
+  newBottlePrice: number;
   totalAmount: number;
   bottlesReturned: number;
   paymentType: "CASH" | "CARD" | "DEBT";
@@ -18,7 +22,7 @@ export interface Order {
   notes?: string;
   deliveredAt?: string;
   createdAt: string;
-  customer: { id: string; name: string; phone: string; address: string; balance?: number };
+  customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
 }
@@ -56,13 +60,24 @@ export function useOrder(id: string) {
   });
 }
 
+export interface CreateOrderPayload {
+  customerId: string;
+  refillCount?: number;
+  newBottles?: number;
+  paymentType: "CASH" | "CARD" | "DEBT";
+  bottlesReturned?: number;
+  driverId?: string;
+  notes?: string;
+}
+
 export function useCreateOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Order> & { customerId: string }) =>
+    mutationFn: (data: CreateOrderPayload) =>
       api.post("/orders", data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Buyurtma yaratildi");
     },

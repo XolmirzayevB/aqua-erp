@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Phone, MapPin, Package, DollarSign,
   Truck, CheckCircle, XCircle, Clock, User,
-  ChevronRight, Banknote, CreditCard, FileText,
+  ChevronRight, Banknote, CreditCard, FileText, Navigation,
 } from "lucide-react";
 import { useOrder, useUpdateOrderStatus, useAssignDriver } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
@@ -123,20 +123,31 @@ export function OrderDetail({ id }: Props) {
                 {order.customer.name[0]}
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
+                  {order.customer.zone && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold">Hudud {order.customer.zone}</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="flex items-center gap-1 text-xs text-gray-400">
                     <Phone className="w-3 h-3" />{formatPhone(order.customer.phone)}
                   </span>
-                  {order.customer.phone && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
-                      <MapPin className="w-3 h-3" />{order.customer.address}
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <MapPin className="w-3 h-3" />{order.customer.address}
+                  </span>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
+            {/* Lokatsiya — haydovchi uchun navigatsiya */}
+            {order.customer.locationLink && (
+              <a href={order.customer.locationLink} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors">
+                <Navigation className="w-4 h-4" />
+                Lokatsiyani ochish (Google Maps)
+              </a>
+            )}
             {order.customer.balance !== undefined && Number(order.customer.balance) < 0 && (
               <div className="mt-3 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
                 <p className="text-xs text-orange-600 dark:text-orange-400">
@@ -188,14 +199,18 @@ export function OrderDetail({ id }: Props) {
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Moliya</h3>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">Miqdori</span>
-                <span className="font-medium text-gray-900 dark:text-white">{order.quantity} ta</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">Narxi</span>
-                <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.pricePerUnit)}</span>
-              </div>
+              {order.refillCount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">To'ldirish (almashtirish)</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{order.refillCount} × {formatCurrency(order.refillPrice)}</span>
+                </div>
+              )}
+              {order.newBottles > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Yangi tara</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{order.newBottles} × {formatCurrency(order.newBottlePrice)}</span>
+                </div>
+              )}
               <div className="h-px bg-gray-100 dark:bg-gray-800 my-1" />
               <div className="flex justify-between">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Jami</span>

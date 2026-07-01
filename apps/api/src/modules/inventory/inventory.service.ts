@@ -29,12 +29,25 @@ export class InventoryService {
 
     const map = Object.fromEntries(items.map((i) => [i.type, i.quantity]));
 
+    // Mijozlardagi jami tara
+    const customerAgg = await this.prisma.customer.aggregate({
+      where: { isActive: true },
+      _sum: { bottlesOwned: true },
+    });
+    const customerBottles = customerAgg._sum.bottlesOwned ?? 0;
+    const warehouseBottles = (map.FULL_BOTTLE ?? 0) + (map.EMPTY_BOTTLE ?? 0);
+
     return {
+      // Soddalashtirilgan: omborda + mijozlarda
+      warehouseBottles,
+      customerBottles,
+      totalCirculation: warehouseBottles + customerBottles,
+      // Batafsil (ixtiyoriy)
       fullBottles: map.FULL_BOTTLE ?? 0,
       emptyBottles: map.EMPTY_BOTTLE ?? 0,
       brokenBottles: map.BROKEN_BOTTLE ?? 0,
       lostBottles: map.LOST_BOTTLE ?? 0,
-      totalBottles: (map.FULL_BOTTLE ?? 0) + (map.EMPTY_BOTTLE ?? 0),
+      totalBottles: warehouseBottles,
       items,
     };
   }
@@ -86,46 +99,27 @@ export class InventoryService {
     return updated;
   }
 
-  // Intake from supplier: add full bottles (+ optionally new empties)
+  // Omborga tara qo'shish (boshlang'ich zaxira yoki yetkazib beruvchidan)
   async intake(dto: IntakeDto) {
     await this.ensureTypes();
 
     const full = await this.prisma.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
-    const empty = await this.prisma.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
 
-    const ops: any[] = [
+    await this.prisma.$transaction([
       this.prisma.inventory.update({
         where: { type: "FULL_BOTTLE" },
-        data: { quantity: { increment: dto.fullBottles } },
+        data: { quantity: { increment: dto.quantity } },
       }),
       this.prisma.inventoryAction.create({
         data: {
           inventoryId: full!.id,
           actionType: "INTAKE",
-          quantity: dto.fullBottles,
-          description: dto.description || "Yetkazib beruvchidan qabul",
+          quantity: dto.quantity,
+          description: dto.description || "Omborga tara qo'shildi",
         },
       }),
-    ];
+    ]);
 
-    if (dto.emptyBottles && dto.emptyBottles > 0) {
-      ops.push(
-        this.prisma.inventory.update({
-          where: { type: "EMPTY_BOTTLE" },
-          data: { quantity: { increment: dto.emptyBottles } },
-        }),
-        this.prisma.inventoryAction.create({
-          data: {
-            inventoryId: empty!.id,
-            actionType: "INTAKE",
-            quantity: dto.emptyBottles,
-            description: dto.description || "Yangi bo'sh tara qabul",
-          },
-        })
-      );
-    }
-
-    await this.prisma.$transaction(ops);
     return this.getOverview();
   }
 

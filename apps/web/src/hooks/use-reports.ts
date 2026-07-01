@@ -44,6 +44,17 @@ export function useTopRegions(period: Period = "monthly", limit = 10) {
   });
 }
 
+export function useDebtPayments(period: Period = "monthly") {
+  return useQuery({
+    queryKey: ["debt-payments-report", period],
+    queryFn: () => api.get("/reports/debt-payments", { params: { period } }).then((r) => r.data.data as {
+      payments: { id: string; amount: number; method: string; notes?: string; createdAt: string; customer: { id: string; name: string; phone: string; balance: number } | null }[];
+      summary: { total: number; cash: number; card: number; count: number };
+      period: { from: string; to: string };
+    }),
+  });
+}
+
 // Download helper with auth token
 export async function downloadReport(type: "excel" | "pdf", period: Period) {
   const token = useAuthStore.getState().accessToken;

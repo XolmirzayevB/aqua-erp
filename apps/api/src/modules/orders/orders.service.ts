@@ -8,6 +8,7 @@ import { UpdateOrderDto } from "./dto/update-order.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";
 import { AssignDriverDto } from "./dto/assign-driver.dto";
 import { QueryOrdersDto } from "./dto/query-orders.dto";
+import { SettingsService } from "../settings/settings.service";
 import { Prisma, OrderStatus, Role } from "@aqua/database";
 
 // Valid status transitions
@@ -24,6 +25,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsGateway,
+    private settings: SettingsService,
   ) {}
 
   async create(dto: CreateOrderDto, userId: string) {
@@ -39,7 +41,28 @@ export class OrdersService {
       if (!driver) throw new NotFoundException("Haydovchi topilmadi");
     }
 
-    const totalAmount = dto.quantity * dto.pricePerUnit;
+    const refillCount = dto.refillCount ?? 0;
+    const newBottles = dto.newBottles ?? 0;
+
+    if (refillCount + newBottles <= 0) {
+      throw new BadRequestException("Kamida 1 ta tara to'ldirish yoki yangi tara bo'lishi kerak");
+    }
+
+    // Tara qoidasi: mijoz o'zidagidan ko'p tara to'ldira olmaydi.
+    // Ko'proq kerak bo'lsa — yangi tara sotib olishi shart.
+    if (refillCount > customer.bottlesOwned) {
+      throw new BadRequestException(
+        `Mijozda faqat ${customer.bottlesOwned} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
+      );
+    }
+
+    // Narxlar — sozlamadan (o'zgaruvchan)
+    const refillPrice = await this.settings.getNumber("refillPrice");
+    const newBottlePrice = await this.settings.getNumber("newBottlePrice");
+    const totalAmount = refillCount * refillPrice + newBottles * newBottlePrice;
+    const quantity = refillCount + newBottles; // jami yetkazilgan suv
+    const bottlesReturned = dto.bottlesReturned ?? refillCount; // odatda almashtirilgan = qaytarilgan
+
     const orderNumber = await this.generateOrderNumber();
 
     const order = await this.prisma.$transaction(async (tx) => {
@@ -49,41 +72,56 @@ export class OrdersService {
           customerId: dto.customerId,
           driverId: dto.driverId || null,
           createdById: userId,
-          quantity: dto.quantity,
-          pricePerUnit: dto.pricePerUnit,
+          quantity,
+          pricePerUnit: refillPrice,
+          refillCount,
+          newBottles,
+          refillPrice,
+          newBottlePrice,
           totalAmount,
-          bottlesReturned: dto.bottlesReturned || 0,
+          bottlesReturned,
           paymentType: dto.paymentType as any,
           status: dto.driverId ? "ASSIGNED" : "NEW",
           notes: dto.notes,
         },
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
           driver: { select: { id: true, name: true, phone: true } },
           createdBy: { select: { id: true, name: true } },
         },
       });
 
-      // Update customer bottles
+      // Mijoz tarasi: yangi sotib olingan tara mijozники bo'ladi
       await tx.customer.update({
         where: { id: dto.customerId },
         data: {
-          bottlesGiven: { increment: dto.quantity },
-          bottlesReturned: { increment: dto.bottlesReturned || 0 },
-          // If debt payment, adjust balance
+          bottlesOwned: { increment: newBottles },
+          bottlesGiven: { increment: quantity },
+          bottlesReturned: { increment: bottlesReturned },
           ...(dto.paymentType === "DEBT" ? { balance: { decrement: totalAmount } } : {}),
         },
       });
 
-      // Create income transaction for cash/card
+      // Ombordan yangi sotilgan tara chiqadi (almashtirish ombor sonini o'zgartirmaydi)
+      if (newBottles > 0) {
+        await tx.inventory.updateMany({
+          where: { type: "FULL_BOTTLE" },
+          data: { quantity: { decrement: newBottles } },
+        });
+      }
+
+      // Naqd/karta uchun kirim yozuvi
       if (dto.paymentType !== "DEBT") {
+        const parts: string[] = [];
+        if (refillCount > 0) parts.push(`${refillCount} ta to'ldirish`);
+        if (newBottles > 0) parts.push(`${newBottles} ta yangi tara`);
         await tx.transaction.create({
           data: {
             type: "INCOME",
             amount: totalAmount,
             paymentMethod: dto.paymentType === "CASH" ? "CASH" : "CARD",
             category: "Suv sotuvi",
-            description: `${customer.name} — ${dto.quantity} ta suv`,
+            description: `${customer.name} — ${parts.join(" + ")}`,
             orderId: created.id,
             customerId: dto.customerId,
             createdById: userId,
@@ -157,7 +195,7 @@ export class OrdersService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
           driver: { select: { id: true, name: true } },
           createdBy: { select: { id: true, name: true } },
         },
@@ -175,7 +213,7 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true } },
+        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true } },
         driver: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true } },
         transactions: true,
@@ -232,6 +270,11 @@ export class OrdersService {
         });
       }
 
+      // Bekor qilinganda — tara/ombor/pul qaytariladi
+      if (dto.status === "CANCELLED") {
+        await this.reverseEffects(tx, order);
+      }
+
       return result;
     });
 
@@ -269,7 +312,7 @@ export class OrdersService {
       where: { id },
       data: { driverId: dto.driverId, status: "ASSIGNED" },
       include: {
-        customer: { select: { id: true, name: true, phone: true, address: true } },
+        customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
         driver: { select: { id: true, name: true } },
       },
     });
@@ -299,31 +342,59 @@ export class OrdersService {
       throw new BadRequestException("Faqat yangi yoki jarayondagi buyurtmani tahrirlash mumkin");
     }
 
-    const totalAmount = dto.quantity && dto.pricePerUnit
-      ? dto.quantity * dto.pricePerUnit
-      : dto.quantity
-        ? dto.quantity * Number(order.pricePerUnit)
-        : dto.pricePerUnit
-          ? Number(order.quantity) * dto.pricePerUnit
-          : undefined;
-
+    // Tara/narx o'zgarishi murakkab — faqat izoh tahrirlanadi.
+    // Boshqa o'zgarish kerak bo'lsa: bekor qilib, qayta yarating.
     return this.prisma.order.update({
       where: { id },
-      data: { ...dto, ...(totalAmount ? { totalAmount } : {}) },
+      data: { notes: dto.notes },
       include: {
-        customer: { select: { id: true, name: true, phone: true, address: true } },
+        customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
         driver: { select: { id: true, name: true } },
       },
     });
   }
 
+  // Bekor qilishda tara/ombor/pul o'zgarishlarini qaytaradi
+  private async reverseEffects(tx: Prisma.TransactionClient, order: any) {
+    await tx.customer.update({
+      where: { id: order.customerId },
+      data: {
+        bottlesOwned: { decrement: order.newBottles },
+        bottlesGiven: { decrement: order.quantity },
+        bottlesReturned: { decrement: order.bottlesReturned },
+        // Nasiya bo'lsa, yaratishda kamaytirilgan balansni qaytaramiz
+        ...(order.paymentType === "DEBT" ? { balance: { increment: order.totalAmount } } : {}),
+      },
+    });
+    // Yangi sotilgan tara omborga qaytadi
+    if (order.newBottles > 0) {
+      await tx.inventory.updateMany({
+        where: { type: "FULL_BOTTLE" },
+        data: { quantity: { increment: order.newBottles } },
+      });
+    }
+    // Shu buyurtmaga bog'liq kirim yozuvlarini o'chiramiz
+    await tx.transaction.deleteMany({ where: { orderId: order.id } });
+  }
+
   async remove(id: string) {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
-    if (!["NEW", "PROCESSING"].includes(order.status)) {
-      throw new BadRequestException("Faqat yangi yoki jarayondagi buyurtmani o'chirish mumkin");
+    if (order.status === "DELIVERED") {
+      throw new BadRequestException("Yetkazilgan buyurtmani bekor qilib bo'lmaydi");
     }
-    await this.prisma.order.update({ where: { id }, data: { status: "CANCELLED" } });
+    if (order.status === "CANCELLED") {
+      throw new BadRequestException("Buyurtma allaqachon bekor qilingan");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.reverseEffects(tx, order);
+      await tx.order.update({ where: { id }, data: { status: "CANCELLED" } });
+    });
+
+    this.notifications.emitToAll("order_status_changed", {
+      orderId: id, orderNumber: order.orderNumber, newStatus: "CANCELLED",
+    });
     return { message: "Buyurtma bekor qilindi" };
   }
 
@@ -339,7 +410,7 @@ export class OrdersService {
       },
       orderBy: { createdAt: "asc" },
       include: {
-        customer: { select: { id: true, name: true, phone: true, address: true, lat: true, lng: true } },
+        customer: { select: { id: true, name: true, phone: true, address: true, lat: true, lng: true, zone: true, locationLink: true } },
       },
     });
   }
