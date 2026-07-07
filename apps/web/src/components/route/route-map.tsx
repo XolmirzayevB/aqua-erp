@@ -28,6 +28,7 @@ interface Stop {
   amount: number;
   status: string;
   locationLink?: string;
+  zone?: string | null;
 }
 
 export function RouteMap({ driverId, date }: { driverId?: string; date?: string }) {
@@ -114,7 +115,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
         id: o.id, seq: o.seq, n: stops.length + 1, lat, lng,
         name: o.customer.name, phone: o.customer.phone, address: o.customer.address,
         quantity: o.quantity, amount: Number(o.totalAmount), status: o.status,
-        locationLink: o.customer.locationLink,
+        locationLink: o.customer.locationLink, zone: o.customer.zone,
       });
     } else {
       noCoords.push(o);
@@ -164,7 +165,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
         const gmaps = s.locationLink || `https://maps.google.com/?q=${s.lat},${s.lng}`;
         const popup = `
           <div style="font-family:Inter,sans-serif;min-width:190px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.n}. ${s.name}</div>
+            <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.n}. ${s.name}${s.zone ? ` <span style="background:#EFF4FF;color:#2563EB;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;vertical-align:middle;">${s.zone} hudud</span>` : ""}</div>
             <div style="font-size:12px;color:#6B7280;margin-bottom:6px;">#${s.seq} · ${s.quantity} ta suv · ${new Intl.NumberFormat("uz-UZ").format(s.amount)} so'm</div>
             <div style="font-size:12px;color:#374151;margin-bottom:8px;">${s.address}</div>
             <div style="display:flex;gap:6px;">

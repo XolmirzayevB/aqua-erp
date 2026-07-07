@@ -81,6 +81,48 @@ export function OrdersTable() {
   const orders = data?.data || [];
   const meta = data?.meta;
 
+  // Sahifalash — mobil kartalar va jadval ostida bir xil ishlatiladi
+  const pagination = meta && meta.totalPages > 1 ? (
+    <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+      <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+        {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setPage(page - 1)}
+          disabled={page <= 1}
+          className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        {Array.from({ length: Math.min(meta.totalPages, 7) }).map((_, i) => {
+          const p = i + 1;
+          return (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={cn(
+                "w-8 h-8 flex items-center justify-center rounded-[9px] text-xs font-semibold transition-colors tabular-nums",
+                page === p
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              )}
+            >
+              {p}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setPage(page + 1)}
+          disabled={page >= meta.totalPages}
+          className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div>
       <PageHeader
@@ -118,8 +160,105 @@ export function OrdersTable() {
         />
       </div>
 
-      {/* Jadval */}
-      <div className={cn(cardClass, "overflow-hidden")}>
+      {/* MOBIL: ixcham kartalar — muhim narsalar aylantirmasdan ko'rinadi */}
+      <div className={cn(cardClass, "overflow-hidden md:hidden")}>
+        {isLoading ? (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-4">
+                <div className="h-4 w-1/2 bg-gray-100 dark:bg-gray-800 rounded animate-pulse mb-2" />
+                <div className="h-4 w-3/4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : orders.length === 0 ? (
+          <p className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">Buyurtma topilmadi</p>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {orders.map((order) => (
+              <div key={order.id} className="p-4">
+                {/* 1-qator: raqam + holat */}
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    href={`/orders/${order.id}`}
+                    className="font-mono text-[15px] font-bold text-blue-600 dark:text-blue-400 tabular-nums"
+                  >
+                    #{order.seq}
+                  </Link>
+                  <StatusBadge status={order.status} />
+                </div>
+
+                {/* 2-qator: mijoz + hudud, telefon + vaqt */}
+                <Link
+                  href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`}
+                  className="block mt-1.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-medium text-gray-900 dark:text-white truncate">
+                      {order.customer.name}
+                    </span>
+                    {order.customer.zone && (
+                      <Pill tone="primary" className="!text-[11px] !py-0.5">{order.customer.zone}</Pill>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-mono text-xs text-gray-400 dark:text-gray-500">
+                      {formatPhone(order.customer.phone)}
+                    </span>
+                    <span className="text-[11.5px] text-gray-400 dark:text-gray-500">
+                      {formatDate(order.createdAt, "dd.MM HH:mm")}
+                    </span>
+                  </div>
+                </Link>
+
+                {/* 3-qator: tara/summa + asosiy tugma */}
+                <div className="flex items-center justify-between gap-2 mt-2.5">
+                  <div className="text-[13px] text-gray-700 dark:text-gray-300">
+                    <span className="font-semibold tabular-nums">{order.quantity} ta</span>
+                    <span className="text-gray-300 dark:text-gray-600"> · </span>
+                    <span className="font-bold tabular-nums">{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {order.customer.locationLink && (
+                      <a
+                        href={order.customer.locationLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-gray-100 dark:border-gray-800 text-green-600 dark:text-green-400"
+                      >
+                        <Navigation className="w-4 h-4" />
+                      </a>
+                    )}
+                    {order.status === "ASSIGNED" && canDeliver && (
+                      <button
+                        onClick={() => handleQuickDeliver(order.id)}
+                        disabled={updateStatus.isPending}
+                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors disabled:opacity-60"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Yetkazildi
+                      </button>
+                    )}
+                    {!isDriver && !order.driver && ["NEW", "PROCESSING"].includes(order.status) && (
+                      <button
+                        onClick={() => { setAssignOrderId(order.id); setAssignDriverId(undefined); }}
+                        className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors"
+                      >
+                        <Truck className="w-4 h-4" />
+                        Biriktirish
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {pagination}
+      </div>
+
+      {/* Jadval (planshet/kompyuter) */}
+      <div className={cn(cardClass, "overflow-hidden hidden md:block")}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
@@ -323,47 +462,7 @@ export function OrdersTable() {
           </table>
         </div>
 
-        {/* Sahifalash */}
-        {meta && meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-              {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: Math.min(meta.totalPages, 7) }).map((_, i) => {
-                const p = i + 1;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={cn(
-                      "w-8 h-8 flex items-center justify-center rounded-[9px] text-xs font-semibold transition-colors tabular-nums",
-                      page === p
-                        ? "bg-blue-600 text-white"
-                        : "border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    )}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        {pagination}
       </div>
 
       {showForm && <OrderForm onClose={() => setShowForm(false)} />}
