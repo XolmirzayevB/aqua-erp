@@ -187,7 +187,7 @@ function RankList({
       <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight mb-3 flex items-center gap-2">
         <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {title}
       </h2>
-      <div className="flex flex-col">
+      <div className="flex flex-col divide-y divide-gray-300 dark:divide-gray-700">
         {items.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-10">Ma'lumot yo'q</p>
         ) : items.map((item, i) => {

@@ -64,7 +64,7 @@ export function AssignDriverModal({ orderId, currentDriverId, onClose }: Props) 
           ))}
         </div>
 
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700/70 flex gap-3">
+        <div className="p-4 border-t border-gray-300 dark:border-gray-700 flex gap-3">
           <button
             type="button"
             onClick={onClose}

@@ -130,7 +130,7 @@ export function DashboardPage() {
 
       {/* Bugungi xulosa — bo'lingan qatorli karta (4 holat + tushum) */}
       <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-card mb-5 overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-gray-200 dark:divide-gray-700/70">
+        <div className="flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-gray-300 dark:divide-gray-700">
           {summaryChips.map((c) => (
             <div key={c.label} className="flex-1 flex items-center gap-3 px-5 py-4">
               <span className={`w-2.5 h-2.5 rounded-full flex-none ${c.dot}`} />
@@ -201,7 +201,7 @@ export function DashboardPage() {
                 {(data?.recentOrders || []).map((order: any) => (
                   <tr
                     key={order.id}
-                    className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                    className="border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                   >
                     <td className="px-4 pl-5 py-3">
                       <div className="font-mono text-[13.5px] font-bold text-blue-600 dark:text-blue-400 tabular-nums" title={order.orderNumber}>
@@ -230,7 +230,7 @@ export function DashboardPage() {
                 ))}
                 {!data?.recentOrders?.length && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-200 dark:border-gray-700/70">
+                    <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-300 dark:border-gray-700">
                       Hali buyurtmalar yo'q
                     </td>
                   </tr>

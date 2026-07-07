@@ -339,7 +339,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
               <LocateFixed className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex items-center gap-4 px-4 py-2.5 border-t border-gray-200 dark:border-gray-700/70 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
+          <div className="flex items-center gap-4 px-4 py-2.5 border-t border-gray-300 dark:border-gray-700 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow flex-none" /> Navbatdagi
             </span>
@@ -382,7 +382,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
         <div>
           {/* Navbatdagi buyurtmalar — optimallashtirilgan tartibda */}
           {stops.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-200 dark:border-gray-700/70">
+            <div key={s.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25">
               <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-none tabular-nums bg-blue-600">
                 {s.n}
               </span>
@@ -412,7 +412,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
 
           {/* Lokatsiyasi yo'q buyurtmalar */}
           {noCoords.map((o) => (
-            <div key={o.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 bg-amber-50/40 dark:bg-amber-500/5">
+            <div key={o.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-300 dark:border-gray-700 bg-amber-50/40 dark:bg-amber-500/5">
               <span className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400 flex-none">
                 <MapPinOff className="w-3.5 h-3.5" />
               </span>
@@ -439,7 +439,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
 
           {/* Yetkazilganlar — ro'yxat oxirida, xiraroq */}
           {deliveredOrders.map((o) => (
-            <div key={o.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 opacity-60">
+            <div key={o.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-300 dark:border-gray-700 opacity-60">
               <span className="w-7 h-7 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex-none">
                 <CheckCircle className="w-4 h-4" />
               </span>

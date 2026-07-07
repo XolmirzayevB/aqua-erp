@@ -83,7 +83,7 @@ export function OrdersTable() {
 
   // Sahifalash — mobil kartalar va jadval ostida bir xil ishlatiladi
   const pagination = meta && meta.totalPages > 1 ? (
-    <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 flex items-center justify-between">
+    <div className="px-5 py-3 border-t border-gray-300 dark:border-gray-700 flex items-center justify-between">
       <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
         {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
       </p>
@@ -163,7 +163,7 @@ export function OrdersTable() {
       {/* MOBIL: ixcham kartalar — muhim narsalar aylantirmasdan ko'rinadi */}
       <div className={cn(cardClass, "overflow-hidden md:hidden")}>
         {isLoading ? (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700/70">
+          <div className="divide-y divide-gray-300 dark:divide-gray-700">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="p-4">
                 <div className="h-4 w-1/2 bg-gray-100 dark:bg-gray-800 rounded animate-pulse mb-2" />
@@ -174,9 +174,9 @@ export function OrdersTable() {
         ) : orders.length === 0 ? (
           <p className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">Buyurtma topilmadi</p>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700/70">
+          <div className="divide-y divide-gray-300 dark:divide-gray-700">
             {orders.map((order) => (
-              <div key={order.id} className="p-4">
+              <div key={order.id} className="p-4 even:bg-gray-50 dark:even:bg-gray-800/25">
                 {/* 1-qator: raqam + holat */}
                 <div className="flex items-center justify-between gap-2">
                   <Link
@@ -276,7 +276,7 @@ export function OrdersTable() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-t border-gray-200 dark:border-gray-700/70">
+                  <tr key={i} className="border-t border-gray-300 dark:border-gray-700">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
@@ -294,7 +294,7 @@ export function OrdersTable() {
                 orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                    className="border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                   >
                     {/* Buyurtma: oddiy sanoq raqam + vaqt */}
                     <td className="px-4 pl-5 py-3 whitespace-nowrap">

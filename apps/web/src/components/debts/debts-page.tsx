@@ -79,7 +79,7 @@ export function DebtsPage() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} className="border-t border-gray-200 dark:border-gray-700/70">
+                  <tr key={i} className="border-t border-gray-300 dark:border-gray-700">
                     {Array.from({ length: 6 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></td>
                     ))}
@@ -87,13 +87,13 @@ export function DebtsPage() {
                 ))
               ) : debtors.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center border-t border-gray-200 dark:border-gray-700/70">
+                  <td colSpan={6} className="px-5 py-12 text-center border-t border-gray-300 dark:border-gray-700">
                     <div className="text-green-500 text-xl mb-1">✓</div>
                     <p className="text-gray-400 dark:text-gray-500">Qarzdor mijozlar yo'q</p>
                   </td>
                 </tr>
               ) : debtors.map((d) => (
-                <tr key={d.id} className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                <tr key={d.id} className="border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 pl-5 py-3">
                     <Link href={`/customers/${d.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
                       <Avatar name={d.name} size={38} />
@@ -143,7 +143,7 @@ export function DebtsPage() {
         </div>
 
         {data?.meta && data.meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 flex items-center justify-between">
+          <div className="px-5 py-3 border-t border-gray-300 dark:border-gray-700 flex items-center justify-between">
             <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{data.meta.total} ta jami</p>
             <div className="flex items-center gap-1">
               <button
