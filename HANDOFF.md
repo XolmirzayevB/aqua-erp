@@ -188,6 +188,19 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
+✅ **Push xabarnoma + Android APK (2026-07-07):**
+- **Web Push (VAPID):** yangi buyurtma haydovchiga biriktirilganda telefoniga push tushadi (ilova yopiq bo'lsa ham).
+  - Backend: `apps/api/src/modules/notifications/push.service.ts` (web-push paketi) + `notifications.controller.ts` (GET push/public-key, POST/DELETE push/subscribe). Yuborish nuqtalari: orders.service create (driverId bilan) + assignDriver.
+  - DB: `push_subscriptions` jadvali (migratsiya `20260707100000_push_subscriptions`), User.pushSubscriptions relation. Eskirgan obuna (404/410) avtomatik o'chiriladi.
+  - Frontend: `apps/web/src/hooks/use-push.ts` (dashboard layout'da chaqiriladi; MANAGER'dan tashqari barcha rollar obuna bo'ladi; ruxsat so'raladi, rad etilsa jim). `public/sw.js` da push + notificationclick handlerlar (CACHE v2).
+  - **VAPID kalitlari:** lokal `.env` va server `.env.production` da (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY). Yo'qolsa: `web-push generateVAPIDKeys` — lekin eski obunalar bekor bo'ladi!
+- **Android APK (TWA — saytni o'raydi):** `android/` papkasi.
+  - Bubblewrap CLI (npx @bubblewrap/cli). Sozlama: `~/.bubblewrap/config.json` (JDK 17: `~/.bubblewrap/jdk-17.0.19+10`, SDK: `~/Library/Android/sdk`, build-tools 34.0.0 o'rnatilgan).
+  - **Imzo kaliti:** `android/android.keystore` (alias `aquaerp`), parol `android/keystore-password.txt` da — IKKALASI COMMIT QILINGAN (private repo; kalit yo'qolsa ilova yangilab bo'lmaydi!).
+  - **Qayta build:** `cd android && export BUBBLEWRAP_KEYSTORE_PASSWORD=$(cut -d= -f2 keystore-password.txt) && export BUBBLEWRAP_KEY_PASSWORD=$BUBBLEWRAP_KEYSTORE_PASSWORD && npx -y @bubblewrap/cli update --skipVersionUpgrade && npx -y @bubblewrap/cli build --skipVersionUpgrade`. Versiya oshirish: twa-manifest.json'da appVersionCode/appVersionName.
+  - **Digital Asset Links:** `apps/web/public/.well-known/assetlinks.json` (packageId `uz.aquaerp.app`, keystore SHA-256). Bu fayl bo'lmasa ilova URL panel bilan ochiladi.
+  - **APK tarqatish:** tayyor APK `apps/web/public/aquaerp.apk` ga ko'chiriladi → https://116-203-220-83.nip.io/aquaerp.apk dan yuklab olinadi. Ichi sayt bo'lgani uchun keyingi deploylar APKni qayta qurishni TALAB QILMAYDI (faqat ikonka/nom/domen o'zgarsa kerak).
+
 ✅ **Haydovchi marshruti xaritada (2026-07-06):**
 - **Xarita:** Leaflet + OpenStreetMap (bepul, API kalitsiz; plitkalar brauzerdan yuklanadi). `apps/web/src/components/route/route-map.tsx` — RouteMap komponenti. Leaflet SSR'da ishlamaydi → useEffect ichida dinamik import.
 - **Sahifa:** `/route` ("Bugungi marshrut") — sidebar'da faqat DRIVER ko'radi. Admin xuddi shu xaritani haydovchi tafsiloti sahifasida ("Bugungi marshrut" bo'limi) ko'radi.
@@ -265,7 +278,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   DIQQAT: foydalanuvchi allaqachon REAL mijozlar kirita boshlagan (Behruz, Alisher aka, Hudud Test, Gulbaybek...) — reset oldidan aniqlashtiring!
 - **Test parollarni o'zgartirish** (foydalanuvchiga eslatish — xavfsizlik).
 - **ESKIRDI — Haydovchi sessiyalari**: "Kun boshlash" UI'dan OLIB TASHLANGAN (2026-07-04, foydalanuvchi so'rovi). Ombor harakati endi buyurtma orqali. Backend openSession qolgan, lekin ishlatilmaydi — qayta tiklamang.
-- **GitHub'ni yangilash** — lokalда commit qilinmagan KO'P o'zgarishlar bor (redesign + RBAC + marshrut), push qilinsa yaxshi.
+- ~~GitHub'ni yangilash~~ — ✅ 2026-07-07 da commit + push qilindi (GitHub main = lokal).
 
 ---
 

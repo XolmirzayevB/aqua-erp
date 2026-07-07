@@ -3,6 +3,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsGateway } from "../notifications/notifications.gateway";
+import { PushService } from "../notifications/push.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";
@@ -26,6 +27,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsGateway,
+    private push: PushService,
     private settings: SettingsService,
   ) {}
 
@@ -170,6 +172,13 @@ export class OrdersService {
         quantity: order.quantity,
         address: order.customer.address,
       });
+      // Push: ilova yopiq bo'lsa ham telefonga xabar boradi
+      this.push.sendToUser(order.driverId, {
+        title: `Yangi buyurtma #${order.seq}`,
+        body: `${order.customer.name} — ${order.quantity} ta suv${order.customer.address ? ", " + order.customer.address : ""}`,
+        url: `/orders/${order.id}`,
+        tag: `order-${order.id}`,
+      }).catch(() => {});
     }
 
     // Notify operators/admins
@@ -352,6 +361,13 @@ export class OrdersService {
       quantity: order.quantity,
       address: updated.customer.address,
     });
+    // Push: ilova yopiq bo'lsa ham telefonga xabar boradi
+    this.push.sendToUser(dto.driverId, {
+      title: `Yangi buyurtma #${updated.seq}`,
+      body: `${updated.customer.name} — ${updated.quantity} ta suv${updated.customer.address ? ", " + updated.customer.address : ""}`,
+      url: `/orders/${id}`,
+      tag: `order-${id}`,
+    }).catch(() => {});
 
     this.notifications.emitToAll("order_status_changed", {
       orderId: id, orderNumber: order.orderNumber,

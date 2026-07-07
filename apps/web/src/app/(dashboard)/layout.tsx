@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { useRealtimeNotifications } from "@/hooks/use-notifications";
+import { usePushSubscription } from "@/hooks/use-push";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -13,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useRealtimeNotifications();
+  usePushSubscription();
 
   // Mount'dan keyin zustand localStorage'dan o'qib bo'lgan bo'ladi
   useEffect(() => {

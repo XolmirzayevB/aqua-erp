@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uz.aquaerp.app",
+      "sha256_cert_fingerprints": [
+        "AF:C6:01:43:98:E1:A4:6E:06:F1:CA:B7:68:52:D5:ED:F1:10:B1:AB:23:22:98:DF:0E:7A:F3:B7:78:3A:89:33"
+      ]
+    }
+  }
+]

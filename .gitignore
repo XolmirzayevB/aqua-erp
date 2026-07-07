@@ -24,3 +24,10 @@ nginx/certs
 # Generatsiya qilingan tahlil fayllari
 graphify-out/
 AquaERP.dc.html
+
+# Android TWA — faqat manba fayllar commit qilinadi
+# (android.keystore, keystore-password.txt, twa-manifest.json COMMIT QILINADI — kalit yo'qolmasin!)
+android/*
+!android/android.keystore
+!android/keystore-password.txt
+!android/twa-manifest.json

@@ -1,0 +1,42 @@
+{
+  "packageId": "uz.aquaerp.app",
+  "host": "116-203-220-83.nip.io",
+  "name": "AquaERP",
+  "launcherName": "AquaERP",
+  "display": "standalone",
+  "themeColor": "#2563EB",
+  "themeColorDark": "#0A0B0D",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#0A0B0D",
+  "navigationDividerColor": "#ECEEF3",
+  "navigationDividerColorDark": "#141619",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://116-203-220-83.nip.io/icons/icon-512.png",
+  "maskableIconUrl": "https://116-203-220-83.nip.io/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "aquaerp"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://116-203-220-83.nip.io/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://116-203-220-83.nip.io/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
