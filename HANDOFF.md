@@ -194,6 +194,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   - DB: `push_subscriptions` jadvali (migratsiya `20260707100000_push_subscriptions`), User.pushSubscriptions relation. Eskirgan obuna (404/410) avtomatik o'chiriladi.
   - Frontend: `apps/web/src/hooks/use-push.ts` (dashboard layout'da chaqiriladi; MANAGER'dan tashqari barcha rollar obuna bo'ladi; ruxsat so'raladi, rad etilsa jim). `public/sw.js` da push + notificationclick handlerlar (CACHE v2).
   - **VAPID kalitlari:** lokal `.env` va server `.env.production` da (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY). Yo'qolsa: `web-push generateVAPIDKeys` — lekin eski obunalar bekor bo'ladi!
+  - ⚠️ GOTCHA: server env'ga qo'shishning o'zi yetmaydi — `docker-compose.prod.yml` api `environment:` bo'limida ham ro'yxatda bo'lishi SHART (aks holda konteyner ko'rmaydi, "VAPID kalitlari yo'q" warning chiqadi).
 - **Android APK (TWA — saytni o'raydi):** `android/` papkasi.
   - Bubblewrap CLI (npx @bubblewrap/cli). Sozlama: `~/.bubblewrap/config.json` (JDK 17: `~/.bubblewrap/jdk-17.0.19+10`, SDK: `~/Library/Android/sdk`, build-tools 34.0.0 o'rnatilgan).
   - **Imzo kaliti:** `android/android.keystore` (alias `aquaerp`), parol `android/keystore-password.txt` da — IKKALASI COMMIT QILINGAN (private repo; kalit yo'qolsa ilova yangilab bo'lmaydi!).
