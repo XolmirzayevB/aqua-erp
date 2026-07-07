@@ -202,6 +202,11 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   - **Digital Asset Links:** `apps/web/public/.well-known/assetlinks.json` (packageId `uz.aquaerp.app`, keystore SHA-256). Bu fayl bo'lmasa ilova URL panel bilan ochiladi.
   - **APK tarqatish:** tayyor APK `apps/web/public/aquaerp.apk` ga ko'chiriladi → https://116-203-220-83.nip.io/aquaerp.apk dan yuklab olinadi. Ichi sayt bo'lgani uchun keyingi deploylar APKni qayta qurishni TALAB QILMAYDI (faqat ikonka/nom/domen o'zgarsa kerak).
 
+✅ **Haydovchi UX tuzatishlari (2026-07-07, APK chiqqandan keyin):**
+- **Rol bo'yicha sahifa himoyasi:** `(dashboard)/layout.tsx` da `ROLE_ROUTES` xaritasi — rolga mos kelmagan sahifa ochilsa avtomatik o'z "uy" sahifasiga redirect (DRIVER→/orders, OPERATOR→/customers, MANAGER→/ va ko'rish sahifalari, ADMIN→hammasi). Sabab: APK/PWA start_url="/" — haydovchi ilovani qayta ochganda dashboard ko'rinardi.
+- **Buyurtmalar mobilda karta ko'rinishida:** orders-table.tsx — `md:hidden` kartalar (raqam, mijoz+hudud, tel, holat, tara·summa, Yetkazildi/Biriktirish tugmalari), jadval `hidden md:block`. Sahifalash ikkalasida umumiy (`pagination` const).
+- **Xaritada hudud:** route-map.tsx popup'ida mijoz hududi ko'k chip bo'lib chiqadi ("B hudud").
+
 ✅ **Haydovchi marshruti xaritada (2026-07-06):**
 - **Xarita:** Leaflet + OpenStreetMap (bepul, API kalitsiz; plitkalar brauzerdan yuklanadi). `apps/web/src/components/route/route-map.tsx` — RouteMap komponenti. Leaflet SSR'da ishlamaydi → useEffect ichida dinamik import.
 - **Sahifa:** `/route` ("Bugungi marshrut") — sidebar'da faqat DRIVER ko'radi. Admin xuddi shu xaritani haydovchi tafsiloti sahifasida ("Bugungi marshrut" bo'limi) ko'radi.
