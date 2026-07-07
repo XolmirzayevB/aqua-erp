@@ -93,6 +93,7 @@ export function useCreateOrder() {
       api.post("/orders", data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Buyurtma yaratildi");
@@ -108,6 +109,7 @@ export function useUpdateOrderStatus() {
       api.patch(`/orders/${id}/status`, { status, notes }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Status yangilandi");
@@ -123,6 +125,7 @@ export function useAssignDriver() {
       api.patch(`/orders/${id}/assign`, { driverId }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
       toast.success("Haydovchi biriktirildi");
     },
@@ -137,6 +140,7 @@ export function useUpdateOrder() {
       api.patch(`/orders/${id}`, data).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
       toast.success("Buyurtma yangilandi");
     },
@@ -150,6 +154,7 @@ export function useCancelOrder() {
     mutationFn: (id: string) => api.delete(`/orders/${id}`).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Buyurtma bekor qilindi");
     },

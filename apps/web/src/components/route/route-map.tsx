@@ -1,14 +1,17 @@
 "use client";
 
 // Haydovchi kunlik marshruti — Leaflet + OpenStreetMap (bepul, API kalitsiz).
-// Pinlar yurish tartibida raqamlangan (buyurtma yaratilish tartibi),
-// yetkazilganlar yashil, kutilayotganlar ko'k. Punktir chiziq marshrutni bog'laydi.
+// YURISH TARTIBI ENG QISQA YO'L bo'yicha avtomatik hisoblanadi:
+// nearest-neighbor + 2-opt; boshlang'ich nuqta — haydovchining joriy GPS joyi
+// (ruxsat berilmagan bo'lsa birinchi zakazdan boshlanadi).
+// Yetkazilganlar XARITADA KO'RSATILMAYDI, ro'yxatda pastga tushadi.
+// Xarita sticky — ro'yxat aylantirilganda ham ko'rinib turadi.
 // Leaflet `window` talab qiladi — shuning uchun useEffect ichida dinamik import.
 
 import "leaflet/dist/leaflet.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Navigation, MapPinOff, Phone, LocateFixed } from "lucide-react";
+import { Navigation, MapPinOff, Phone, LocateFixed, CheckCircle } from "lucide-react";
 import { useDriverDayOrders } from "@/hooks/use-orders";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { formatCurrency, formatPhone } from "@/lib/utils";
@@ -18,7 +21,7 @@ import { cardClass } from "@/components/shared/page-ui";
 interface Stop {
   id: string;
   seq: number;
-  n: number; // yurish tartibi (1,2,3...)
+  n: number; // yurish tartibi (1,2,3...) — optimallashtirilgandan keyin
   lat: number;
   lng: number;
   name: string;
@@ -29,6 +32,72 @@ interface Stop {
   status: string;
   locationLink?: string;
   zone?: string | null;
+  legKm: number; // oldingi nuqtadan masofa
+}
+
+// ─── Masofa (haversine, km) ───
+function distKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+const fmtKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`);
+
+// ─── Eng qisqa yo'l: nearest-neighbor + 2-opt ───
+// start — haydovchining joriy joyi (bo'lsa); undan boshlab umumiy yo'l minimallashtiriladi.
+function optimizeRoute<T extends { lat: number; lng: number }>(points: T[], start: { lat: number; lng: number } | null): T[] {
+  if (points.length <= 1) return [...points];
+
+  // 1) Nearest-neighbor: har safar eng yaqiniga boramiz
+  const rem = [...points];
+  let route: T[] = [];
+  let cur: { lat: number; lng: number };
+  if (start) {
+    cur = start;
+  } else {
+    route.push(rem.shift()!);
+    cur = route[0];
+  }
+  while (rem.length) {
+    let bi = 0;
+    let bd = Infinity;
+    rem.forEach((p, i) => {
+      const d = distKm(cur, p);
+      if (d < bd) { bd = d; bi = i; }
+    });
+    const next = rem.splice(bi, 1)[0];
+    route.push(next);
+    cur = next;
+  }
+
+  // 2) 2-opt: bo'laklarni teskari aylantirib umumiy yo'lni qisqartiramiz
+  const total = (r: T[]) => {
+    let t = 0;
+    let prev: { lat: number; lng: number } = start ?? r[0];
+    const list = start ? r : r.slice(1);
+    for (const p of list) { t += distKm(prev, p); prev = p; }
+    return t;
+  };
+  let improved = true;
+  let guard = 0;
+  while (improved && guard++ < 25) {
+    improved = false;
+    for (let i = 0; i < route.length - 1; i++) {
+      for (let j = i + 1; j < route.length; j++) {
+        const cand = [...route.slice(0, i), ...route.slice(i, j + 1).reverse(), ...route.slice(j + 1)];
+        if (total(cand) + 1e-9 < total(route)) {
+          route = cand;
+          improved = true;
+        }
+      }
+    }
+  }
+  return route;
 }
 
 export function RouteMap({ driverId, date }: { driverId?: string; date?: string }) {
@@ -43,6 +112,9 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
   const followRef = useRef(false); // kuzatish: yoqilsa xarita men bilan birga yuradi
   const [following, setFollowing] = useState(false);
   const [geoState, setGeoState] = useState<"off" | "on" | "denied">("off");
+  // Marshrut hisobi uchun joriy joy (50m dan ko'p siljigandagina yangilanadi —
+  // aks holda har GPS tebranishida marshrut qayta hisoblanib "sakrab" turadi)
+  const [geoPos, setGeoPos] = useState<{ lat: number; lng: number } | null>(null);
 
   // Ko'k nuqtani chizish/yangilash (harakatda jonli suriladi)
   const drawMyLocation = async (pan = false) => {
@@ -85,12 +157,10 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       (p) => {
-        posRef.current = {
-          lat: p.coords.latitude,
-          lng: p.coords.longitude,
-          acc: p.coords.accuracy || 30,
-        };
+        const cur = { lat: p.coords.latitude, lng: p.coords.longitude };
+        posRef.current = { ...cur, acc: p.coords.accuracy || 30 };
         setGeoState("on");
+        setGeoPos((prev) => (!prev || distKm(prev, cur) > 0.05 ? cur : prev));
         drawMyLocation();
       },
       (err) => {
@@ -102,28 +172,53 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Bekor qilinganlar marshrutga kirmaydi
+  // Bekor qilinganlar marshrutga kirmaydi; yetkazilganlar alohida (pastda)
   const active = orders.filter((o) => o.status !== "CANCELLED");
+  const deliveredOrders = active.filter((o) => o.status === "DELIVERED");
+  const pendingOrders = active.filter((o) => o.status !== "DELIVERED");
 
-  const stops: Stop[] = [];
-  const noCoords: typeof active = [];
-  active.forEach((o) => {
-    const lat = o.customer.lat != null ? Number(o.customer.lat) : NaN;
-    const lng = o.customer.lng != null ? Number(o.customer.lng) : NaN;
-    if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
-      stops.push({
-        id: o.id, seq: o.seq, n: stops.length + 1, lat, lng,
-        name: o.customer.name, phone: o.customer.phone, address: o.customer.address,
-        quantity: o.quantity, amount: Number(o.totalAmount), status: o.status,
-        locationLink: o.customer.locationLink, zone: o.customer.zone,
-      });
-    } else {
-      noCoords.push(o);
-    }
-  });
+  // Kutilayotganlar: koordinatalilarni ENG QISQA YO'L bo'yicha tartiblaymiz
+  const pendingKey = JSON.stringify(pendingOrders.map((o) => [o.id, o.customer.lat, o.customer.lng]));
+  const { stops, noCoords, totalKm } = useMemo(() => {
+    const withCoords: Stop[] = [];
+    const noC: typeof pendingOrders = [];
+    pendingOrders.forEach((o) => {
+      const lat = o.customer.lat != null ? Number(o.customer.lat) : NaN;
+      const lng = o.customer.lng != null ? Number(o.customer.lng) : NaN;
+      if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
+        withCoords.push({
+          id: o.id, seq: o.seq, n: 0, lat, lng,
+          name: o.customer.name, phone: o.customer.phone, address: o.customer.address,
+          quantity: o.quantity, amount: Number(o.totalAmount), status: o.status,
+          locationLink: o.customer.locationLink, zone: o.customer.zone, legKm: 0,
+        });
+      } else {
+        noC.push(o);
+      }
+    });
+
+    const ordered = optimizeRoute(withCoords, geoPos);
+    let prev: { lat: number; lng: number } | null = geoPos;
+    let total = 0;
+    ordered.forEach((s, i) => {
+      s.n = i + 1;
+      s.legKm = prev ? distKm(prev, s) : 0;
+      total += s.legKm;
+      prev = s;
+    });
+    return { stops: ordered, noCoords: noC, totalKm: total };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey, geoPos?.lat, geoPos?.lng]);
 
   useEffect(() => {
-    if (!mapRef.current || stops.length === 0) return;
+    if (!mapRef.current || stops.length === 0) {
+      // Barchasi yetkazilgan bo'lsa xaritani tozalaymiz
+      if (stops.length === 0 && mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+      return;
+    }
     let cancelled = false;
 
     (async () => {
@@ -144,20 +239,22 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
-      // Marshrut chizig'i (punktir)
-      if (stops.length > 1) {
-        L.polyline(stops.map((s) => [s.lat, s.lng]), {
+      // Marshrut chizig'i (punktir) — joriy joydan boshlanadi
+      const linePoints: [number, number][] = [
+        ...(geoPos ? [[geoPos.lat, geoPos.lng] as [number, number]] : []),
+        ...stops.map((s) => [s.lat, s.lng] as [number, number]),
+      ];
+      if (linePoints.length > 1) {
+        L.polyline(linePoints, {
           color: "#2563EB", weight: 3, opacity: 0.45, dashArray: "6 10",
         }).addTo(map);
       }
 
-      // Raqamlangan pinlar
+      // Raqamlangan pinlar — faqat kutilayotganlar (yetkazilganlar chiqarilmaydi)
       stops.forEach((s) => {
-        const delivered = s.status === "DELIVERED";
-        const bg = delivered ? "#16A34A" : "#2563EB";
         const icon = L.divIcon({
           className: "",
-          html: `<div style="width:34px;height:34px;border-radius:50% 50% 50% 4px;transform:rotate(0deg);background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-family:Inter,sans-serif;border:3px solid #fff;box-shadow:0 2px 8px rgba(16,24,40,.35);">${s.n}</div>`,
+          html: `<div style="width:34px;height:34px;border-radius:50% 50% 50% 4px;transform:rotate(0deg);background:#2563EB;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-family:Inter,sans-serif;border:3px solid #fff;box-shadow:0 2px 8px rgba(16,24,40,.35);">${s.n}</div>`,
           iconSize: [34, 34],
           iconAnchor: [17, 30],
           popupAnchor: [0, -28],
@@ -200,9 +297,9 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
         mapInstance.current = null;
       }
     };
-    // stops mazmuni orders'dan keladi — orders o'zgarsa qayta chizamiz
+    // stops tartibi optimallashtirishdan keladi — o'zgarsa qayta chizamiz
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(stops.map((s) => [s.id, s.status]))]);
+  }, [JSON.stringify(stops.map((s) => s.id)), geoPos?.lat, geoPos?.lng]);
 
   if (isLoading) {
     return <div className="h-[380px] md:h-[480px] bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />;
@@ -218,12 +315,12 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
   }
 
   return (
-    <div className="space-y-4">
-      {/* Xarita */}
+    <div className="space-y-3">
+      {/* Xarita — sticky: ro'yxat aylantirilganda ham tepada ko'rinib turadi */}
       {stops.length > 0 ? (
-        <div className={cn(cardClass, "overflow-hidden")}>
+        <div className={cn(cardClass, "overflow-hidden sticky top-0 z-20")}>
           <div className="relative">
-            <div ref={mapRef} className="h-[380px] md:h-[480px] w-full z-0" />
+            <div ref={mapRef} className="h-[38vh] min-h-[260px] md:h-[420px] w-full z-0" />
             {/* Joyimga qaytish / kuzatish tugmasi */}
             <button
               onClick={() => {
@@ -244,10 +341,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
           </div>
           <div className="flex items-center gap-4 px-4 py-2.5 border-t border-gray-200 dark:border-gray-700/70 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow flex-none" /> Kutilmoqda
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-green-600 border-2 border-white shadow flex-none" /> Yetkazildi
+              <span className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow flex-none" /> Navbatdagi
             </span>
             {geoState === "on" && (
               <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
@@ -259,44 +353,51 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
                 Lokatsiyaga ruxsat bering (brauzer sozlamasi)
               </span>
             )}
-            <span className="ml-auto tabular-nums">{stops.length} nuqta</span>
+            <span className="ml-auto tabular-nums">
+              {stops.length} nuqta{totalKm > 0 ? ` · ≈${fmtKm(totalKm)}` : ""}
+            </span>
           </div>
         </div>
       ) : (
         <div className={cn(cardClass, "p-6 text-center")}>
-          <MapPinOff className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-700" />
-          <p className="text-sm text-gray-400">
-            Buyurtmalarda lokatsiya yo'q — mijoz kartasiga Google Maps havolasini qo'shsangiz, xaritada chiqadi
+          <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {noCoords.length > 0
+              ? "Xaritada ko'rsatiladigan buyurtma qolmadi (qolganlarida lokatsiya yo'q)"
+              : "Barcha buyurtmalar yetkazildi! 🎉"}
           </p>
         </div>
       )}
 
-      {/* Yurish tartibi ro'yxati */}
+      {/* Yurish tartibi ro'yxati — eng qisqa yo'l bo'yicha */}
       <div className={cn(cardClass, "overflow-hidden")}>
-        <div className="px-4 md:px-5 py-3.5 text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
-          Yurish tartibi
+        <div className="px-4 md:px-5 py-3.5 flex items-baseline gap-2 flex-wrap">
+          <span className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">Yurish tartibi</span>
+          {stops.length > 1 && (
+            <span className="text-[11.5px] text-gray-400 dark:text-gray-500">
+              eng qisqa yo'l bo'yicha hisoblangan{geoPos ? " (joyingizdan boshlab)" : ""}
+            </span>
+          )}
         </div>
         <div>
+          {/* Navbatdagi buyurtmalar — optimallashtirilgan tartibda */}
           {stops.map((s) => (
             <div key={s.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-200 dark:border-gray-700/70">
-              <span className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-none tabular-nums",
-                s.status === "DELIVERED" ? "bg-green-600" : "bg-blue-600"
-              )}>
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-none tabular-nums bg-blue-600">
                 {s.n}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <Link href={`/orders/${s.id}`} className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href={`/orders/${s.id}?from=route`} className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     {s.name}
                   </Link>
                   <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 flex-none">#{s.seq}</span>
                 </div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                  {s.legKm > 0 && <span className="text-blue-600/80 dark:text-blue-400/80 font-medium">≈{fmtKm(s.legKm)} · </span>}
                   {s.quantity} ta · {formatCurrency(s.amount)} · {s.address}
                 </div>
               </div>
-              <span className="hidden sm:inline-flex"><StatusBadge status={s.status as any} /></span>
               <a
                 href={s.locationLink || `https://maps.google.com/?q=${s.lat},${s.lng}`}
                 target="_blank"
@@ -317,7 +418,7 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <Link href={`/orders/${o.id}`} className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href={`/orders/${o.id}?from=route`} className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     {o.customer.name}
                   </Link>
                   <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 flex-none">#{o.seq}</span>
@@ -326,7 +427,6 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
                   Lokatsiya yo'q · {o.customer.address}
                 </div>
               </div>
-              <span className="hidden sm:inline-flex"><StatusBadge status={o.status as any} /></span>
               <a
                 href={`tel:${o.customer.phone}`}
                 title={formatPhone(o.customer.phone)}
@@ -334,6 +434,27 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
               >
                 <Phone className="w-4 h-4" />
               </a>
+            </div>
+          ))}
+
+          {/* Yetkazilganlar — ro'yxat oxirida, xiraroq */}
+          {deliveredOrders.map((o) => (
+            <div key={o.id} className="flex items-center gap-3 px-4 md:px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 opacity-60">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex-none">
+                <CheckCircle className="w-4 h-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Link href={`/orders/${o.id}?from=route`} className="text-[13.5px] font-semibold text-gray-600 dark:text-gray-300 truncate line-through decoration-gray-300 dark:decoration-gray-600 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    {o.customer.name}
+                  </Link>
+                  <span className="font-mono text-xs font-bold text-gray-400 flex-none">#{o.seq}</span>
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                  {o.quantity} ta · {formatCurrency(Number(o.totalAmount))}
+                </div>
+              </div>
+              <span className="flex-none"><StatusBadge status={o.status as any} /></span>
             </div>
           ))}
         </div>

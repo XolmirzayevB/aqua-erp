@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Phone, MapPin, Package, DollarSign,
@@ -33,6 +33,14 @@ export function OrderDetail({ id }: Props) {
   const { canManageOrders, canDeliver, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
+
+  // Qayerdan kelgan bo'lsa — orqaga o'sha yerga qaytamiz (?from=route → marshrut)
+  const [backHref, setBackHref] = useState("/orders");
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "route") {
+      setBackHref("/route");
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -68,7 +76,7 @@ export function OrderDetail({ id }: Props) {
       {/* Back + header (mobilda tugmalar pastki qatorga tushadi) */}
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          href="/orders"
+          href={backHref}
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-none"
         >
           <ArrowLeft className="w-4 h-4" />
