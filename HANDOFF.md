@@ -202,6 +202,13 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   - **Digital Asset Links:** `apps/web/public/.well-known/assetlinks.json` (packageId `uz.aquaerp.app`, keystore SHA-256). Bu fayl bo'lmasa ilova URL panel bilan ochiladi.
   - **APK tarqatish:** tayyor APK `apps/web/public/aquaerp.apk` ga ko'chiriladi → https://116-203-220-83.nip.io/aquaerp.apk dan yuklab olinadi. Ichi sayt bo'lgani uchun keyingi deploylar APKni qayta qurishni TALAB QILMAYDI (faqat ikonka/nom/domen o'zgarsa kerak).
 
+✅ **Marshrut optimallashtirish (2026-07-07 kech):**
+- **Eng qisqa yo'l:** route-map.tsx da `optimizeRoute` (nearest-neighbor + 2-opt, haversine). Boshlang'ich nuqta — haydovchining GPS joyi (`geoPos` state, 50m+ siljigandagina yangilanadi, aks holda marshrut "sakraydi"); GPS yo'q bo'lsa birinchi zakaz. Har nuqtaga masofa (`legKm`) va jami yo'l footer'da ko'rsatiladi.
+- **Yetkazilganlar xaritada YO'Q** — faqat kutilayotganlar pin bo'ladi (hammasi ko'k); ro'yxatda yetkazilganlar pastda (opacity-60, line-through, ✓). Hammasi yetkazilsa "🎉" karta.
+- **Xarita sticky** (`sticky top-0 z-20`) — ro'yxat aylantirilganda ham ko'rinib turadi; mobilda h-[38vh].
+- **Jonli yangilanish:** use-orders.ts dagi BARCHA mutatsiyalar (create/status/assign/update/cancel) `["driver-day-orders"]` cache'ni invalidate qiladi. YANGI mutatsiya yozsangiz buni unutmang.
+- **Orqaga qaytish:** marshrut ro'yxatidagi linklar `?from=route` bilan; order-detail back tugmasi shunda `/route` ga qaytadi (window.location.search orqali — useSearchParams EMAS, Suspense talab qilmasin deb).
+
 ✅ **Haydovchi UX tuzatishlari (2026-07-07, APK chiqqandan keyin):**
 - **Rol bo'yicha sahifa himoyasi:** `(dashboard)/layout.tsx` da `ROLE_ROUTES` xaritasi — rolga mos kelmagan sahifa ochilsa avtomatik o'z "uy" sahifasiga redirect (DRIVER→/orders, OPERATOR→/customers, MANAGER→/ va ko'rish sahifalari, ADMIN→hammasi). Sabab: APK/PWA start_url="/" — haydovchi ilovani qayta ochganda dashboard ko'rinardi.
 - **Buyurtmalar mobilda karta ko'rinishida:** orders-table.tsx — `md:hidden` kartalar (raqam, mijoz+hudud, tel, holat, tara·summa, Yetkazildi/Biriktirish tugmalari), jadval `hidden md:block`. Sahifalash ikkalasida umumiy (`pagination` const).
