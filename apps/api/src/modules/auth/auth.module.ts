@@ -7,6 +7,7 @@ import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
+import { ManagerReadOnlyGuard } from "../../common/guards/manager-readonly.guard";
 
 @Module({
   imports: [PassportModule, JwtModule.register({})],
@@ -16,6 +17,8 @@ import { RolesGuard } from "../../common/guards/roles.guard";
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Menejer = faqat ko'rish (barcha yozish so'rovlarini bloklaydi)
+    { provide: APP_GUARD, useClass: ManagerReadOnlyGuard },
   ],
   exports: [AuthService],
 })

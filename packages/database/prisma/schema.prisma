@@ -135,6 +135,8 @@ model Customer {
 model Order {
   id               String      @id @default(uuid())
   orderNumber      String      @unique @map("order_number") @db.VarChar(20)
+  // Oddiy sanoq raqam — UI'da #12 ko'rinishida (foydalanuvchi so'rovi)
+  seq              Int         @unique @default(autoincrement())
   customerId       String      @map("customer_id")
   driverId         String?     @map("driver_id")
   createdById      String      @map("created_by_id")

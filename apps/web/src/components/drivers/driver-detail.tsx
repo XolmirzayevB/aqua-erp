@@ -4,13 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Phone, Package, DollarSign, BarChart2,
-  TrendingUp, Banknote, CreditCard, Clock, Archive,
+  TrendingUp, Banknote, CreditCard, Clock, Archive, Map as MapIcon,
 } from "lucide-react";
+import { RouteMap } from "@/components/route/route-map";
 import {
   useDriverDetail, useTodaySession, useDriverSessions,
   useDriverReport, useOpenSession, useCloseSession,
 } from "@/hooks/use-driver-sessions";
-import { SessionOpenModal } from "./session-open-modal";
 import { SessionCloseModal } from "./session-close-modal";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
@@ -30,7 +30,6 @@ interface Props { id: string }
 
 export function DriverDetail({ id }: Props) {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
-  const [showOpen, setShowOpen] = useState(false);
   const [showClose, setShowClose] = useState(false);
   const [activeTab, setActiveTab] = useState<"sessions" | "orders">("sessions");
 
@@ -74,11 +73,6 @@ export function DriverDetail({ id }: Props) {
 
         {/* Session actions */}
         <div className="flex items-center gap-2">
-          {!session && (
-            <button onClick={() => setShowOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors">
-              🚀 Kun boshlash
-            </button>
-          )}
           {session?.status === "OPEN" && (
             <button onClick={() => setShowClose(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-colors">
               🌙 Kun yopish
@@ -140,6 +134,14 @@ export function DriverDetail({ id }: Props) {
         </div>
       )}
 
+      {/* Bugungi marshrut xaritasi */}
+      <div>
+        <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+          <MapIcon className="w-4 h-4 text-blue-600" /> Bugungi marshrut
+        </h2>
+        <RouteMap driverId={id} />
+      </div>
+
       {/* Report period selector + stats */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
         <div className="flex items-center justify-between mb-5">
@@ -192,7 +194,7 @@ export function DriverDetail({ id }: Props) {
                       }
                       labelStyle={{ fontSize: 11 }}
                     />
-                    <Bar dataKey="bottlesSold" name="Butilka" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="bottlesSold" name="Butilka" fill="#2563EB" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="orders" name="Buyurtma" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -275,7 +277,7 @@ export function DriverDetail({ id }: Props) {
               ) : (report?.orders || []).map((order: any) => (
                 <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-5 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">
-                    <Link href={`/orders/${order.id}`} className="hover:underline">{order.orderNumber}</Link>
+                    <Link href={`/orders/${order.id}`} className="hover:underline font-mono font-bold text-blue-600 dark:text-blue-400 tabular-nums" title={order.orderNumber}>#{order.seq}</Link>
                   </td>
                   <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{order.customer?.name}</td>
                   <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{order.quantity} ta</td>
@@ -289,7 +291,6 @@ export function DriverDetail({ id }: Props) {
         )}
       </div>
 
-      {showOpen && <SessionOpenModal driverId={id} driverName={driver.name} onClose={() => setShowOpen(false)} />}
       {showClose && session && <SessionCloseModal driverId={id} driverName={driver.name} session={session} onClose={() => setShowClose(false)} />}
     </div>
   );

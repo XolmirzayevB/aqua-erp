@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Plus, Search, Filter, ChevronLeft, ChevronRight,
-  Truck, MoreHorizontal, Eye, XCircle, CheckCircle,
-  Phone, MapPin, Navigation,
+  Plus, Search, ChevronLeft, ChevronRight,
+  Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
 } from "lucide-react";
 import { useOrders, useCancelOrder, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderForm } from "./order-form";
@@ -14,7 +13,11 @@ import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth.store";
+import {
+  PageHeader, Avatar, Pill, SegmentTabs, btnPrimary, thClass, cardClass, rowBtnClass,
+} from "@/components/shared/page-ui";
+import type { Tone } from "@/components/shared/page-ui";
+import { usePermissions } from "@/hooks/use-permissions";
 
 const STATUS_FILTERS = [
   { value: "", label: "Barchasi" },
@@ -25,6 +28,15 @@ const STATUS_FILTERS = [
   { value: "CANCELLED", label: "Bekor" },
 ];
 
+// To'lov turi → pill toni (dizayn: To'langan=green, Qarz=red, boshqa=amber)
+const PAYMENT_TONES: Record<string, Tone> = {
+  CASH: "success",
+  CARD: "primary",
+  CLICK: "primary",
+  DEBT: "danger",
+  PARTIAL: "warning",
+};
+
 export function OrdersTable() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -34,8 +46,7 @@ export function OrdersTable() {
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const userRole = useAuthStore((s) => s.user?.role);
-  const isDriver = userRole === "DRIVER";
+  const { isDriver, canCreateOrder, canDeliver } = usePermissions();
 
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
@@ -61,8 +72,8 @@ export function OrdersTable() {
     setOpenMenu(null);
   };
 
-  const handleCancel = async (id: string, orderNumber: string) => {
-    if (!confirm(`"${orderNumber}" buyurtmani bekor qilmoqchimisiz?`)) return;
+  const handleCancel = async (id: string, seq: number) => {
+    if (!confirm(`#${seq} buyurtmani bekor qilmoqchimisiz?`)) return;
     await cancelOrder.mutateAsync(id);
     setOpenMenu(null);
   };
@@ -71,72 +82,62 @@ export function OrdersTable() {
   const meta = data?.meta;
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Buyurtmalar</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {meta ? `Jami: ${meta.total} ta buyurtma` : "Yuklanmoqda..."}
-          </p>
-        </div>
-        {!isDriver && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-blue-900/30"
-          >
-            <Plus className="w-4 h-4" />
+    <div>
+      <PageHeader
+        title="Buyurtmalar"
+        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${STATUS_FILTERS.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
+      >
+        {/* Zakazni faqat operator (yoki admin) yozadi */}
+        {canCreateOrder && (
+          <button onClick={() => setShowForm(true)} className={btnPrimary}>
+            <Plus className="w-4 h-4 flex-none" />
             Yangi buyurtma
           </button>
         )}
-      </div>
+      </PageHeader>
 
-      {/* Search + Status filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 flex-1 min-w-48">
-          <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      {/* Qidiruv + status tablar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex items-center gap-2.5 h-10 px-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[11px] flex-1 min-w-[200px] max-w-sm focus-within:border-blue-300 dark:focus-within:border-blue-700 transition-colors">
+          <Search className="w-4 h-4 text-gray-400 flex-none" />
           <input
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Buyurtma #, mijoz nomi yoki telefon..."
-            className="bg-transparent text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none w-full"
+            placeholder="№ raqam, mijoz yoki telefon..."
+            className="bg-transparent text-[13.5px] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none w-full"
           />
         </div>
-        <div className="flex items-center gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => { setStatus(f.value); setPage(1); }}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
-                status === f.value
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <SegmentTabs
+          options={STATUS_FILTERS.map((f) => ({
+            value: f.value,
+            label: f.label,
+            count: status === f.value ? meta?.total : undefined,
+          }))}
+          value={status}
+          onChange={(v) => { setStatus(v); setPage(1); }}
+        />
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+      {/* Jadval */}
+      <div className={cn(cardClass, "overflow-hidden")}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[900px]">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                {["#", "Mijoz", "Soni / Narx", "Summa", "To'lov", "Haydovchi", "Status", "Vaqt", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
+              <tr>
+                <th className={cn(thClass, "pl-5")}>Buyurtma</th>
+                <th className={thClass}>Mijoz</th>
+                <th className={cn(thClass, "text-center")}>Tara</th>
+                <th className={cn(thClass, "text-right")}>Summa</th>
+                <th className={thClass}>To'lov</th>
+                <th className={thClass}>Holat</th>
+                <th className={thClass}>Haydovchi</th>
+                <th className={cn(thClass, "pr-5")}></th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
@@ -146,7 +147,7 @@ export function OrdersTable() {
                 ))
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center">
+                  <td colSpan={8} className="px-5 py-12 text-center">
                     <p className="text-gray-400 dark:text-gray-500">Buyurtma topilmadi</p>
                   </td>
                 </tr>
@@ -154,159 +155,165 @@ export function OrdersTable() {
                 orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group"
+                    className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                   >
-                    {/* Order number */}
-                    <td className="px-4 py-3">
-                      <Link href={`/orders/${order.id}`} className="font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
-                        {order.orderNumber}
+                    {/* Buyurtma: oddiy sanoq raqam + vaqt */}
+                    <td className="px-4 pl-5 py-3 whitespace-nowrap">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        title={order.orderNumber}
+                        className="font-mono text-[14px] font-bold text-blue-600 dark:text-blue-400 hover:underline tabular-nums"
+                      >
+                        #{order.seq}
                       </Link>
+                      <div className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5">
+                        {formatDate(order.createdAt, "dd.MM HH:mm")}
+                      </div>
                     </td>
 
-                    {/* Customer */}
+                    {/* Mijoz — haydovchi /customers ga kira olmaydi, shuning uchun
+                        haydovchida buyurtma tafsilotiga (mijoz ma'lumoti u yerda) yo'naltiramiz */}
                     <td className="px-4 py-3">
-                      <Link href={`/customers/${order.customerId}`} className="block hover:opacity-80 transition-opacity">
+                      <Link href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`} className="block hover:opacity-80 transition-opacity">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900 dark:text-white text-sm">{order.customer.name}</p>
+                          <span className="text-[13px] font-medium text-gray-900 dark:text-white whitespace-nowrap max-w-[150px] truncate">
+                            {order.customer.name}
+                          </span>
                           {order.customer.zone && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold">{order.customer.zone}</span>
+                            <Pill tone="primary" className="!text-[11px] !py-0.5">{order.customer.zone}</Pill>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3 text-gray-400" />
-                          <span className="text-xs text-gray-400 font-mono">{formatPhone(order.customer.phone)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-gray-400" />
-                          <span className="text-xs text-gray-400 truncate max-w-[140px]">{order.customer.address}</span>
+                        <div className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5 whitespace-nowrap">
+                          {formatPhone(order.customer.phone)}
                         </div>
                       </Link>
                       {order.customer.locationLink && (
-                        <a href={order.customer.locationLink} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-lg bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                        <a
+                          href={order.customer.locationLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline"
+                        >
                           <Navigation className="w-3 h-3" />
                           Lokatsiya
                         </a>
                       )}
                     </td>
 
-                    {/* Qty — to'ldirish / yangi taqsimot */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{order.quantity} ta</p>
-                      {order.refillCount > 0 && (
-                        <p className="text-xs text-blue-600 dark:text-blue-400">{order.refillCount} to'ldirish</p>
-                      )}
-                      {order.newBottles > 0 && (
-                        <p className="text-xs text-green-600 dark:text-green-400">{order.newBottles} yangi tara</p>
-                      )}
-                    </td>
-
-                    {/* Total */}
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">
-                        {formatCurrency(order.totalAmount)}
+                    {/* Tara: soni + taqsimot */}
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white tabular-nums">
+                        {order.quantity}
                       </span>
+                      {(order.refillCount > 0 || order.newBottles > 0) && (
+                        <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          {order.refillCount > 0 && <span className="text-blue-600 dark:text-blue-400">{order.refillCount} to'ldirish</span>}
+                          {order.refillCount > 0 && order.newBottles > 0 && " · "}
+                          {order.newBottles > 0 && <span className="text-green-600 dark:text-green-400">{order.newBottles} yangi</span>}
+                        </div>
+                      )}
                     </td>
 
-                    {/* Payment */}
+                    {/* Summa */}
+                    <td className="px-4 py-3 text-right text-[13.5px] font-bold text-gray-900 dark:text-white tabular-nums whitespace-nowrap">
+                      {formatCurrency(order.totalAmount)}
+                    </td>
+
+                    {/* To'lov */}
                     <td className="px-4 py-3">
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-medium",
-                        order.paymentType === "CASH" ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400" :
-                        order.paymentType === "CARD" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" :
-                        "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400"
-                      )}>
+                      <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
                         {PAYMENT_TYPE_LABELS[order.paymentType]}
-                      </span>
+                      </Pill>
                     </td>
 
-                    {/* Driver */}
-                    <td className="px-4 py-3">
-                      {order.driver ? (
-                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{order.driver.name}</p>
-                      ) : (
-                        <button
-                          onClick={() => { setAssignOrderId(order.id); setAssignDriverId(undefined); }}
-                          className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          <Truck className="w-3 h-3" />
-                          Biriktirish
-                        </button>
-                      )}
-                    </td>
-
-                    {/* Status */}
+                    {/* Holat */}
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
                     </td>
 
-                    {/* Time */}
-                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                      {formatDate(order.createdAt, "dd.MM HH:mm")}
+                    {/* Haydovchi */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.driver ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar name={order.driver.name} size={26} />
+                          <span className="text-[12.5px] text-gray-500 dark:text-gray-400">{order.driver.name}</span>
+                        </div>
+                      ) : !isDriver && ["NEW", "PROCESSING"].includes(order.status) ? (
+                        <button
+                          onClick={() => { setAssignOrderId(order.id); setAssignDriverId(undefined); }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          Biriktirish
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 justify-end">
-                        {/* To'g'ridan-to'g'ri "Yetkazildi" (haydovchi uchun, telefonda ham ko'rinadi) */}
-                        {order.status === "ASSIGNED" && (
+                    {/* Amallar */}
+                    <td className="px-4 pr-5 py-3">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {/* "Yetkazildi"ni faqat haydovchi (yoki admin) bosadi */}
+                        {order.status === "ASSIGNED" && canDeliver && (
                           <button
                             onClick={() => handleQuickDeliver(order.id)}
                             disabled={updateStatus.isPending}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap disabled:opacity-60"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             Yetkazildi
                           </button>
                         )}
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenMenu(openMenu === order.id ? null : order.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenMenu(openMenu === order.id ? null : order.id)}
+                            className={rowBtnClass}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
 
-                        {openMenu === order.id && (
-                          <div className="absolute right-0 top-9 z-20 w-44 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-lg overflow-hidden">
-                            <Link
-                              href={`/orders/${order.id}`}
-                              onClick={() => setOpenMenu(null)}
-                              className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              Ko'rish
-                            </Link>
-                            {order.status === "ASSIGNED" && (
-                              <button
-                                onClick={() => handleQuickDeliver(order.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
+                          {openMenu === order.id && (
+                            <div className="absolute right-0 top-9 z-20 w-44 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-card-hover overflow-hidden">
+                              <Link
+                                href={`/orders/${order.id}`}
+                                onClick={() => setOpenMenu(null)}
+                                className="flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                               >
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                Yetkazildi
-                              </button>
-                            )}
-                            {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
-                              <button
-                                onClick={() => { setAssignOrderId(order.id); setAssignDriverId(order.driverId); setOpenMenu(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
-                              >
-                                <Truck className="w-3.5 h-3.5" />
-                                Haydovchi
-                              </button>
-                            )}
-                            {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
-                              <button
-                                onClick={() => handleCancel(order.id, order.orderNumber)}
-                                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                Bekor qilish
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                <Eye className="w-3.5 h-3.5" />
+                                Ko'rish
+                              </Link>
+                              {order.status === "ASSIGNED" && canDeliver && (
+                                <button
+                                  onClick={() => handleQuickDeliver(order.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Yetkazildi
+                                </button>
+                              )}
+                              {/* Haydovchi/tayinlash/bekor — operator/admin ishi (haydovchi emas) */}
+                              {!isDriver && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
+                                <button
+                                  onClick={() => { setAssignOrderId(order.id); setAssignDriverId(order.driverId); setOpenMenu(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                                >
+                                  <Truck className="w-3.5 h-3.5" />
+                                  Haydovchi
+                                </button>
+                              )}
+                              {!isDriver && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
+                                <button
+                                  onClick={() => handleCancel(order.id, order.seq)}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Bekor qilish
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -316,17 +323,17 @@ export function OrdersTable() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Sahifalash */}
         {meta && meta.totalPages > 1 && (
           <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -337,8 +344,10 @@ export function OrdersTable() {
                     key={p}
                     onClick={() => setPage(p)}
                     className={cn(
-                      "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors",
-                      page === p ? "bg-blue-600 text-white" : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      "w-8 h-8 flex items-center justify-center rounded-[9px] text-xs font-semibold transition-colors tabular-nums",
+                      page === p
+                        ? "bg-blue-600 text-white"
+                        : "border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                     )}
                   >
                     {p}
@@ -348,7 +357,7 @@ export function OrdersTable() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

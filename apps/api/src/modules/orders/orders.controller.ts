@@ -21,8 +21,8 @@ export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
-  @ApiOperation({ summary: "Yangi buyurtma yaratish (faqat operator/menejer/admin)" })
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Yangi buyurtma yaratish (faqat operator, admin)" })
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser("sub") userId: string,
@@ -48,6 +48,7 @@ export class OrdersController {
   }
 
   @Patch(":id/status")
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.DRIVER)
   @ApiOperation({ summary: "Buyurtma statusini o'zgartirish" })
   updateStatus(
     @Param("id", ParseUUIDPipe) id: string,
@@ -85,12 +86,15 @@ export class OrdersController {
   }
 
   @Get("driver/:driverId")
-  @ApiOperation({ summary: "Haydovchi buyurtmalari (sanaga ko'ra)" })
+  @ApiOperation({ summary: "Haydovchi buyurtmalari (sanaga ko'ra, xarita koordinatalari bilan)" })
   @ApiQuery({ name: "date", required: false, example: "2025-01-15" })
   getDriverOrders(
     @Param("driverId", ParseUUIDPipe) driverId: string,
+    @CurrentUser() user: JwtPayload,
     @Query("date") date?: string,
   ) {
-    return this.ordersService.getDriverOrders(driverId, date);
+    // Haydovchi faqat O'Z marshrutini ko'radi
+    const targetId = user.role === Role.DRIVER ? user.sub : driverId;
+    return this.ordersService.getDriverOrders(targetId, date);
   }
 }

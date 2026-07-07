@@ -7,6 +7,7 @@ import { toast } from "sonner";
 export interface Order {
   id: string;
   orderNumber: string;
+  seq: number;
   customerId: string;
   driverId?: string;
   quantity: number;
@@ -25,6 +26,21 @@ export interface Order {
   customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
+}
+
+// Haydovchining kunlik buyurtmalari (marshrut xaritasi uchun, lat/lng bilan)
+export function useDriverDayOrders(driverId?: string, date?: string) {
+  return useQuery({
+    queryKey: ["driver-day-orders", driverId, date],
+    queryFn: () =>
+      api
+        .get(`/orders/driver/${driverId}`, { params: date ? { date } : {} })
+        .then((r) => r.data.data as (Order & {
+          customer: Order["customer"] & { lat?: number | string | null; lng?: number | string | null };
+        })[]),
+    enabled: !!driverId,
+    refetchInterval: 60_000,
+  });
 }
 
 export interface OrderQueryParams {

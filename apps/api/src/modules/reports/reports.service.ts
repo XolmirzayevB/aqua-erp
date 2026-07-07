@@ -33,7 +33,7 @@ export class ReportsService {
     ] = await Promise.all([
       this.prisma.order.findMany({
         where: { createdAt: { gte: from, lte: to } },
-        select: { quantity: true, totalAmount: true, status: true, bottlesReturned: true },
+        select: { quantity: true, totalAmount: true, status: true, bottlesReturned: true, newBottles: true },
       }),
       this.prisma.order.count({ where: { status: "DELIVERED", deliveredAt: { gte: from, lte: to } } }),
       this.prisma.order.count({ where: { status: "CANCELLED", updatedAt: { gte: from, lte: to } } }),
@@ -50,8 +50,11 @@ export class ReportsService {
 
     const income = transactions.filter(t => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
     const expense = transactions.filter(t => t.type !== "INCOME").reduce((s, t) => s + Number(t.amount), 0);
-    const waterSold = orders.reduce((s, o) => s + o.quantity, 0);
-    const bottlesReturned = orders.reduce((s, o) => s + o.bottlesReturned, 0);
+    // Bekor qilinganlar hisobga kirmaydi
+    const activeOrders = orders.filter(o => o.status !== "CANCELLED");
+    const waterSold = activeOrders.reduce((s, o) => s + o.quantity, 0);
+    const bottlesReturned = activeOrders.reduce((s, o) => s + o.bottlesReturned, 0);
+    const newBottlesSold = activeOrders.reduce((s, o) => s + o.newBottles, 0);
 
     return {
       orders: {
@@ -68,8 +71,14 @@ export class ReportsService {
       water: {
         sold: waterSold,
         bottlesReturned,
+        newBottlesSold,
       },
       bottles: {
+        // Buyurtmalar asosida (asosiy ish tartibi — sessiyasiz)
+        deliveredWater: waterSold,
+        newSold: newBottlesSold,
+        emptyBack: bottlesReturned,
+        // Eski sessiya ko'rsatkichlari (moslik uchun)
         soldBySessions: sessions.reduce((s, x) => s + x.bottlesSold, 0),
         emptyReturned: sessions.reduce((s, x) => s + x.emptyReturned, 0),
         takenBySessions: sessions.reduce((s, x) => s + x.bottlesTaken, 0),
@@ -110,30 +119,41 @@ export class ReportsService {
     }));
   }
 
-  // Top drivers by revenue
+  // Top drivers by revenue — yetkazilgan buyurtmalar asosida (sessiyasiz ish tartibi)
   async getTopDrivers(query: TopQueryDto) {
     const { from, to } = this.getRange(query.period);
 
-    const sessions = await this.prisma.driverSession.groupBy({
-      by: ["driverId"],
-      where: { date: { gte: from, lte: to }, status: "CLOSED" },
-      _sum: { bottlesSold: true, cashCollected: true, cardCollected: true },
-      _count: { id: true },
+    const orders = await this.prisma.order.findMany({
+      where: {
+        status: "DELIVERED",
+        driverId: { not: null },
+        deliveredAt: { gte: from, lte: to },
+      },
+      select: { driverId: true, quantity: true, totalAmount: true, deliveredAt: true },
     });
 
-    const driverIds = sessions.map((s) => s.driverId);
+    const byDriver = new Map<string, { bottles: number; revenue: number; days: Set<string> }>();
+    for (const o of orders) {
+      const cur = byDriver.get(o.driverId!) || { bottles: 0, revenue: 0, days: new Set<string>() };
+      cur.bottles += o.quantity;
+      cur.revenue += Number(o.totalAmount);
+      if (o.deliveredAt) cur.days.add(o.deliveredAt.toISOString().slice(0, 10));
+      byDriver.set(o.driverId!, cur);
+    }
+
+    const driverIds = Array.from(byDriver.keys());
     const drivers = await this.prisma.user.findMany({
       where: { id: { in: driverIds } },
       select: { id: true, name: true, phone: true },
     });
     const map = Object.fromEntries(drivers.map((d) => [d.id, d]));
 
-    return sessions
-      .map((s) => ({
-        driver: map[s.driverId],
-        bottlesSold: s._sum.bottlesSold ?? 0,
-        revenue: Number(s._sum.cashCollected ?? 0) + Number(s._sum.cardCollected ?? 0),
-        workDays: s._count.id,
+    return driverIds
+      .map((id) => ({
+        driver: map[id],
+        bottlesSold: byDriver.get(id)!.bottles,
+        revenue: byDriver.get(id)!.revenue,
+        workDays: byDriver.get(id)!.days.size,
       }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, query.limit);
@@ -145,12 +165,15 @@ export class ReportsService {
 
     const orders = await this.prisma.order.findMany({
       where: { createdAt: { gte: from, lte: to }, status: "DELIVERED" },
-      select: { totalAmount: true, customer: { select: { address: true } } },
+      select: { totalAmount: true, customer: { select: { address: true, zone: true } } },
     });
 
     const regionMap = new Map<string, { orders: number; revenue: number }>();
     for (const o of orders) {
-      const region = (o.customer.address || "Noma'lum").split(/[,\s]/)[0] || "Noma'lum";
+      // Avval mijozning hududi (zone), bo'lmasa manzilning birinchi so'zi
+      const region = o.customer.zone
+        || (o.customer.address || "Noma'lum").split(/[,\s]/)[0]
+        || "Noma'lum";
       const cur = regionMap.get(region) || { orders: 0, revenue: 0 };
       cur.orders += 1;
       cur.revenue += Number(o.totalAmount);

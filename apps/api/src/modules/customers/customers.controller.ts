@@ -32,6 +32,13 @@ export class CustomersController {
     return this.customersService.findAll(query);
   }
 
+  @Post("resolve-locations")
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Barcha mijozlar lokatsiya havolasidan koordinata ajratish (backfill)" })
+  resolveLocations() {
+    return this.customersService.resolveAllLocations();
+  }
+
   @Get(":id")
   @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Mijoz ma'lumotlari" })

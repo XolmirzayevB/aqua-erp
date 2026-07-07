@@ -13,6 +13,7 @@ import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS, ORDER_STATUS_LABELS, OrderStatus } from "@aqua/shared";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/use-permissions";
 
 // Which statuses can transition to which
 const NEXT_ACTIONS: Record<string, { status: string; label: string; color: string; icon: any }[]> = {
@@ -29,6 +30,7 @@ interface Props { id: string }
 
 export function OrderDetail({ id }: Props) {
   const [showAssign, setShowAssign] = useState(false);
+  const { canManageOrders, canDeliver, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
 
@@ -43,9 +45,14 @@ export function OrderDetail({ id }: Props) {
 
   if (!order) return <div className="text-gray-400 text-center py-20">Buyurtma topilmadi</div>;
 
-  const nextActions = NEXT_ACTIONS[order.status] || [];
-  const canCancel = CANCEL_ALLOWED.includes(order.status);
-  const canAssign = ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status);
+  // Rolga ko'ra amallarni filtrlaymiz:
+  // - "Yetkazildi" (DELIVERED) — faqat haydovchi/admin
+  // - "Jarayonga olish" (PROCESSING) — operator/admin
+  const nextActions = (NEXT_ACTIONS[order.status] || []).filter((a) =>
+    a.status === "DELIVERED" ? canDeliver : canManageOrders
+  );
+  const canCancel = canManageOrders && CANCEL_ALLOWED.includes(order.status);
+  const canAssign = canManageOrders && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status);
 
   const handleAction = async (status: string) => {
     await updateStatus.mutateAsync({ id, status });
@@ -68,11 +75,11 @@ export function OrderDetail({ id }: Props) {
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white font-mono">{order.orderNumber}</h1>
+            <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">#{order.seq}</h1>
             <StatusBadge status={order.status} size="md" />
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {formatDate(order.createdAt, "dd MMMM yyyy, HH:mm")} · {order.createdBy.name}
+            {formatDate(order.createdAt, "dd MMMM yyyy, HH:mm")} · {order.createdBy.name} · <span className="font-mono">{order.orderNumber}</span>
           </p>
         </div>
 
@@ -118,28 +125,35 @@ export function OrderDetail({ id }: Props) {
           {/* Customer card */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Mijoz</h3>
-            <Link href={`/customers/${order.customerId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity group">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-sm flex-shrink-0">
-                {order.customer.name[0]}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
-                  {order.customer.zone && (
-                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold">Hudud {order.customer.zone}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <Phone className="w-3 h-3" />{formatPhone(order.customer.phone)}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <MapPin className="w-3 h-3" />{order.customer.address}
-                  </span>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
+            {(() => {
+              // Haydovchi /customers ga kira olmaydi — u uchun karta oddiy (link emas)
+              const Wrap: any = isDriver ? "div" : Link;
+              const wrapProps = isDriver ? {} : { href: `/customers/${order.customerId}` };
+              return (
+                <Wrap {...wrapProps} className="flex items-center gap-3 hover:opacity-80 transition-opacity group">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-sm flex-shrink-0">
+                    {order.customer.name[0]}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
+                      {order.customer.zone && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold">Hudud {order.customer.zone}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        <Phone className="w-3 h-3" />{formatPhone(order.customer.phone)}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        <MapPin className="w-3 h-3" />{order.customer.address}
+                      </span>
+                    </div>
+                  </div>
+                  {!isDriver && <ChevronRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                </Wrap>
+              );
+            })()}
             {/* Lokatsiya — haydovchi uchun navigatsiya */}
             {order.customer.locationLink && (
               <a href={order.customer.locationLink} target="_blank" rel="noopener noreferrer"

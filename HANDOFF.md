@@ -26,11 +26,12 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 
 **Hududlar:** A, B, C, D, G (Sozlamalarda o'zgartiriladi). Mijoz hududga biriktiriladi.
 
-**Rollar (RBAC):**
-- `ADMIN` — hammasi
-- `MANAGER` — deyarli hammasi
-- `OPERATOR` — faqat Mijozlar, Buyurtmalar, Qarzdorlik (Dashboard/Ombor menyuda YO'Q). Login → `/customers`
-- `DRIVER` — faqat Buyurtmalar (o'ziga biriktirilganlar), zakaz yoza OLMAYDI. Login → `/orders`
+**Rollar (RBAC) — 2026-07-04 da qayta belgilangan:**
+- `ADMIN` — hammasi (egasi/superuser).
+- `MANAGER` — **FAQAT KO'RISH** (hech narsa yarata/tahrirlab/o'chira olmaydi). Ko'radigan panellar: Boshqaruv paneli, Mijozlar, Ombor, Moliya, Qarzdorlik, Hisobotlar, Tahlil. Buyurtmalar/Haydovchilar/Tizim menyuda YO'Q. Enforcement: global `ManagerReadOnlyGuard` (apps/api/.../common/guards) barcha POST/PATCH/PUT/DELETE ni bloklaydi (istisno /auth logout); frontend `usePermissions().readOnly` tugmalarni yashiradi.
+- `OPERATOR` — Mijozlar, Buyurtmalar, Qarzdorlik. **Zakazni FAQAT operator (+admin) yozadi.** "Yetkazildi"ni bosa OLMAYDI. Login → `/customers`.
+- `DRIVER` — faqat Buyurtmalar (o'ziga biriktirilganlar). Zakaz yoza OLMAYDI. **"Yetkazildi"ni FAQAT haydovchi (o'z buyurtmasi) + admin bosadi.** Login → `/orders`. Mijoz ustiga bossa → buyurtma tafsilotiga o'tadi (u yerda mijoz tel/manzil/lokatsiya bor; haydovchi /customers ga kira olmaydi).
+- Frontend ruxsatlar bitta joyda: `apps/web/src/hooks/use-permissions.ts` (readOnly, canCreateOrder, canManageOrders, canDeliver).
 
 ---
 
@@ -128,16 +129,21 @@ cd apps/web && pnpm dev    # Next.js :3000
 
 Deploy = kodni tar bilan serverga ko'chirish + Docker rebuild. Migration avtomatik (api CMD `prisma migrate deploy`).
 
+# ⚠️⚠️ MUHIM — DEPLOY XATOSI (2026-07-04 da yuz bergan, takrorlamang!):
+# Bash CWD ko'pincha /Users/behruz (UY papkasi), aqua-erp EMAS!
+# `tar ... .` ni oddiy ishlatsangiz — BUTUN UY PAPKASI (20G Android SDK,
+# Documents, .ssh kalitlari!) serverga tushib, DISKNI TO'LDIRADI.
+# Yechim: HAR DOIM `tar -C /Users/behruz/aqua-erp` (CWD'ga bog'liq bo'lmaydi)
+# + `COPYFILE_DISABLE=1 --no-mac-metadata` (macOS ._* junk'siz).
 ```bash
-cd /Users/behruz/aqua-erp
-
 # 1. Kodni serverga ko'chirish (.env fayllarSIZ — server o'znikini saqlaydi!)
-tar czf - \
+COPYFILE_DISABLE=1 tar --no-mac-metadata -C /Users/behruz/aqua-erp -czf - \
   --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.turbo' \
   --exclude='.git' --exclude='backups' --exclude='.DS_Store' \
   --exclude='packages/database/src/generated' \
   --exclude='.env' --exclude='.env.production' \
-  . | ssh -o ConnectTimeout=25 root@116.203.220.83 "tar xzf - -C /opt/aqua-erp && echo OK"
+  . | ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 root@116.203.220.83 "tar xzf - -C /opt/aqua-erp && echo OK && du -sh /opt/aqua-erp"
+# du ~3-4M chiqishi kerak. Agar yuzlab MB/GB bo'lsa — uy papkasi ketgan, TO'XTATING.
 
 # 2. Rebuild + restart (fonda — build ~5-8 daqiqa, 2 CPU)
 ssh root@116.203.220.83 'cd /opt/aqua-erp && nohup docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build > deploy.log 2>&1 & echo PID:$!'
@@ -182,7 +188,67 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
-✅ **So'nggi tuzatishlar (oxirgi sessiya):**
+✅ **Haydovchi marshruti xaritada (2026-07-06):**
+- **Xarita:** Leaflet + OpenStreetMap (bepul, API kalitsiz; plitkalar brauzerdan yuklanadi). `apps/web/src/components/route/route-map.tsx` — RouteMap komponenti. Leaflet SSR'da ishlamaydi → useEffect ichida dinamik import.
+- **Sahifa:** `/route` ("Bugungi marshrut") — sidebar'da faqat DRIVER ko'radi. Admin xuddi shu xaritani haydovchi tafsiloti sahifasida ("Bugungi marshrut" bo'limi) ko'radi.
+- Pinlar yurish tartibida raqamlangan (1,2,3 — yaratilish tartibi), yetkazilgan=yashil, kutilayotgan=ko'k, punktir chiziq marshrutni bog'laydi. Pin popup: mijoz, #seq, summa, manzil + "Qo'ng'iroq" (tel:) va "Borish" (Google Maps) tugmalari. Pastda "Yurish tartibi" ro'yxati; lokatsiyasiz zakazlar alohida (sariq fon) ko'rsatiladi.
+- **Koordinata qayerdan:** mijoz `lat/lng` maydonlaridan. Bo'sh bo'lsa `locationLink`dan avtomatik ajratiladi: `apps/api/src/common/utils/geo.util.ts` (q=/ll=/@.../!3d!4d formatlar; qisqa maps.app.goo.gl havolalari redirect kuzatib hal qilinadi, 4s timeout). Ajratish nuqtalari: mijoz create/update (customers.service) + haydovchi marshruti so'ralganda lazy backfill (orders.service ensureCustomerCoords) — natija bazaga saqlanadi.
+- GET /orders/driver/:id endpointida haydovchi faqat O'Z marshrutini oladi (controller'da param almashtiriladi).
+- Yangi dependency: `leaflet` (+ @types/leaflet dev) apps/web da — Docker build pnpm-lock orqali o'rnatadi.
+
+✅ **RBAC qat'iylashtirish + UI + MARSHRUT XARITASI (2026-07-05…07 sessiyalari):**
+1. **Manager = faqat ko'rish** — batafsil yuqoridagi "Rollar" bo'limida. Backend: `ManagerReadOnlyGuard` (global, POST/PATCH/PUT/DELETE blok). Frontend: `apps/web/src/hooks/use-permissions.ts` (readOnly/canCreateOrder/canManageOrders/canDeliver) — YANGI sahifada tugma qo'shsangiz shu hookdan foydalaning.
+2. **Zakaz faqat OPERATOR (+admin) yozadi; "Yetkazildi"ni faqat HAYDOVCHI (o'z buyurtmasi, +admin) bosadi** — orders.controller @Roles + orders.service updateStatus'da tekshiruv; frontendda tugmalar rolga qarab yashiringan.
+3. **Dashboard "Bugungi xulosa"** qayta chizildi — bo'lingan segmentli karta (4 holat + yashil tushum bloki).
+4. **Mijoz tafsiloti (customer-detail.tsx) mobilga to'liq moslandi** — telefon bir qatorda (mono+nowrap), 3 ixcham stat karta, holat chiplari gorizontal scroll, jadval overflow-x, tugmalar mobilda to'liq kenglikda. Manager'da To'lov/Tahrirlash yashirin.
+5. **MARSHRUT XARITASI** (Leaflet + OpenStreetMap, API kalitsiz, bepul):
+   - `apps/web/src/components/route/route-map.tsx` + sahifa `app/(dashboard)/route/page.tsx` ("Bugungi marshrut").
+   - Sidebar'da "Marshrut" — faqat DRIVER ko'radi. Admin xuddi shu xaritani driver-detail sahifasida ko'radi (RouteMap driverId prop oladi).
+   - Raqamlangan pinlar (yurish tartibi; ko'k=kutilmoqda, yashil=yetkazildi), punktir marshrut chizig'i, popup'da Qo'ng'iroq (tel:) + Borish (Google Maps) tugmalari, pastda "Yurish tartibi" ro'yxati + lokatsiyasiz buyurtmalar alohida (amber fon).
+   - **Jonli lokatsiya**: `watchPosition` → pulsatsiyalanuvchi ko'k nuqta (animatsiya `aqGeoPing` globals.css'da) + aniqlik doirasi; pastki-o'ng dumaloq tugma = kuzatish rejimi (xarita haydovchi bilan yuradi; drag qilsa o'chadi). HTTPS shart (prod'da bor). Birinchi ochilishda brauzer ruxsat so'raydi.
+   - Leaflet `window` talab qiladi — useEffect ichida dinamik import qilingan; SSR muammosi yo'q.
+6. **Geo (koordinata) tizimi**:
+   - `apps/api/src/common/utils/geo.util.ts` — Google/Apple Maps havolasidan lat/lng ajratadi (q=/ll=/@/!3d!4d formatlari, istalgan kasr uzunligi); qisqa havolalar (maps.app.goo.gl) redirect kuzatib hal qilinadi (timeout 4s, consent sahifalar decode qilinadi).
+   - Mijoz create/update'da locationLink kelsa avtomatik ajratiladi; `getDriverOrders` chaqirilganda lat/lng bo'sh mijozlar lazy hal qilinadi va bazaga yoziladi.
+   - **Backfill endpoint**: `POST /api/v1/customers/resolve-locations` (ADMIN) — barcha mijozlarni bir yo'la hal qiladi. Prod'da bir marta ishga tushirilgan (Hudud Test, Gulbaybek hal bo'lgan).
+7. Yangi paket: `leaflet` (+ @types/leaflet dev) apps/web'da. pnpm-lock yangilangan — Docker build'da muammosiz o'rnatiladi.
+
+✅ **Logika tuzatishlari + soddalashtirishlar (2026-07-04 sessiyasi):**
+1. **Buyurtma sanoq raqami (`seq`):** Order modelida `seq Int @default(autoincrement()) @unique` (migratsiya `order_seq`, eskilar created_at bo'yicha qayta raqamlangan). UI hamma joyda `#12` ko'rinishida (jadval, tafsilot, dashboard, mijoz tarixi, haydovchi hisoboti). Qidiruv: qisqa raqam ("#12"/"12", ≤5 xona) FAQAT seq/orderNumber bo'yicha; uzun matn — mijoz/telefon bo'yicha.
+2. **"Kun boshlash" OLIB TASHLANDI** (foydalanuvchi so'rovi) — drivers-page va driver-detail'da tugma yo'q. Backend openSession qoldi, lekin UI'dan chaqirilmaydi. "Kun yopish" faqat ochiq sessiya bo'lsa ko'rinadi (eskilarini yopish uchun).
+3. **MUHIM — nasiya ikki marta hisoblanish xatosi TUZATILDI:** avval DEBT buyurtma yetkazilganda "Nasiya sotuv" INCOME yozilardi, keyin qarz to'langanda yana "Qarz to'lovi" INCOME — tushum 2x. Endi nasiya yetkazilganda INCOME yozilMAYDI; tushum faqat to'lovda.
+4. **Ombor harakati endi buyurtma orqali (sessiyasiz yagona manba):** buyurtma yaratilganda FULL_BOTTLE -= quantity (hamma chiqqan to'la tara), EMPTY_BOTTLE += bottlesReturned; bekor qilinsa teskarisi. Har harakat InventoryAction tarixiga "Buyurtma #N" izohi bilan yoziladi. (Avval faqat yangi tara kamayardi — to'la/bo'sh taqsimot noto'g'ri edi.)
+5. **Dashboard totalDebt** endi musbat (avval manfiy yig'ilardi).
+6. **Hisobotlar:** bekor qilinganlar suv/tara hisobiga kirmaydi; "Tara aylanishi" buyurtmalar asosida (deliveredWater/newSold/emptyBack); Top haydovchilar sessiya emas — yetkazilgan buyurtmalar bo'yicha; Top hududlar mijoz `zone`sidan (bo'lmasa manzil).
+7. Haydovchi hisoboti (driver-detail) sessiyasiz ham ishlaydi — yetkazilgan buyurtmalardan hisoblanadi.
+⚠️ Prod'da migratsiya avtomatik o'tadi (api CMD `prisma migrate deploy`).
+
+✅ **Redesign YAKUNLANDI (2026-07-03 sessiyasi):** AquaERP.dc.html dizayni endi BARCHA sahifalarga qo'llandi:
+- Umumiy dizayn bloklari: `apps/web/src/components/shared/page-ui.tsx` — PageHeader (30px h1 + subtitle + amallar), StatCard/StatStrip, Avatar (hash-rangli, dizayn palitrasi), Pill, Ring, Donut (SVG), SegmentTabs, thClass/cardClass/btnPrimary/btnSecondary/rowBtnClass. YANGI sahifa yasashda SHU komponentlardan foydalaning.
+- Mijozlar: hudud chiplari, avatar+tip, mono telefon, balans −/+ rangli, holat pill, ko'z/menyu tugmalari.
+- Buyurtmalar: mono ko'k ID+vaqt, mijoz+hudud pill, tara taqsimoti, to'lov/holat pill, haydovchi avatar, tez "Yetkazildi".
+- Haydovchilar: dizayn kartasi — 46px avatar, sessiya holati pill (pulse), 64px progress halqa, inkassatsiya, kun boshlash/yopish.
+- Ombor: 4 stat karta, tara taqsimoti donut + "Taralar qayerda?" ring, harakatlar jadvali.
+- Moliya: stat strip (rentabellik bilan), ko'k/qizil area chart + legend, kirim donut (naqd/karta), tranzaksiyalar dizayn ro'yxati (ikonka tile).
+- Qarzdorlik: stat strip, qarzdorlar jadvali (avatar, oxirgi to'lov, qizil qarz, doimiy ko'rinadigan To'lov tugmasi).
+- Hisobotlar: SegmentTabs davr, PDF primary/Excel secondary, stat kartalar, moliya+tara panellari.
+- Tahlil: tushum area chart, hududlar donut+legend, gradient gorizontal barlar, top ro'yxatlar avatar bilan.
+- Foydalanuvchilar (Sozlamalar ichida tab): rol kartalari (nuqta+tavsif+son), jadval rol pill/holat nuqtasi bilan; bo'lim sarlavhasi 17px (nested).
+- Audit: dizayn timeline (ikonka tile + amal + obyekt pill + avatar + vaqt).
+- Sozlamalar: 30px sarlavha + segment tablar.
+
+✅ **Avvalgi tuzatishlar (2026-07-02 sessiya — Claude Design redesign boshlanishi):**
+0. **UI/UX redesign — Claude Design'dan (2026-07-02):**
+   - Manba: `AquaERP.dc.html` (repo root'da, foydalanuvchi Claude Design'da yasagan). Bu fayl — dizayn etaloni, O'CHIRMANG.
+   - Tailwind `gray` shkalasi dizayn tokenlariga qo'lda moslangan (tailwind.config.ts'dagi `designGray`): light bg `#F8F9FB`, border `#ECEEF3`; dark bg `#0A0B0D`, surface `#141619`. `blue` — Tailwind default (primary `#2563EB`).
+   - Shriftlar: Inter + **JetBrains Mono** (`font-mono` — buyurtma raqamlari, telefonlar). Manrope OLIB TASHLANDI. globals.css @import orqali (next/font EMAS!).
+   - Sidebar: yorug' surface panel, **guruhlangan menyu** (Asosiy / Ombor & Moliya / Hisobot / Tizim), aktivda ko'k-weak pill + chapda 3px rail, pastda user karta. RBAC filtri guruh darajasida (bo'sh guruh yashirinadi).
+   - Header: 64px sticky blur, **sana chipi**, ⌘K qidiruv, 40px hoshiyali tugmalar (radius 11), user chip.
+   - Dashboard: salomlashuv h1 + tezkor amallar (Yangi buyurtma primary), "Bugungi xulosa" paneli (nuqtali chiplar + yashil tushum pill), 4 KPI karta (ikonka tile + katta raqam), buyurtmalar jadvali (mono ko'k ID, uppercase th).
+   - StatusBadge (shared): dizayn xaritasi — NEW=violet, ASSIGNED=blue, PROCESSING=amber+pulse, DELIVERED=green, CANCELLED=red.
+   - Login/Sozlamalar dizaynda YO'Q edi — shu uslubga moslab yasalgan.
+   - Soyalar: `shadow-card/panel/card-hover/glow` (tailwind.config). Radius: `--radius: 0.7rem`, `rounded-2xl` = 18px.
+   - `formatDate` endi o'zbek lokalida (date-fns/locale uz).
 1. Operator menyusidan Dashboard+Ombor olib tashlandi
 2. Qo'shimcha telefon ixtiyoriy (bloklamaydi)
 3. Butun dastur listlari chiziqlari aniqlashtirildi (`border-gray-100 dark:border-gray-800`)
@@ -191,12 +257,15 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 6. Haydovchilar bo'limi bug'i tuzatildi (DriverCard'da vergul operatori → fragment)
 
 ⏳ **Qolgan/ixtiyoriy ishlar (foydalanuvchi keyin so'rashi mumkin):**
+- **Telegram bot** — ENG KUTILAYOTGANI (foydalanuvchiga tavsiya qilingan): yangi buyurtma haydovchiga Telegram xabar; kechqurun egasiga kunlik xulosa. Hali boshlanmagan.
+- **Doimiy/takroriy buyurtmalar** — mijozga "har juma 2 ta" jadval; tavsiya sifatida aytilgan.
+- **"Yo'qolayotgan mijozlar"** — uzoq buyurtma qilmagan mijozlar ro'yxati; tavsiya sifatida aytilgan.
 - **Toza DB reset** — foydalanuvchi tayyor bo'lganda test ma'lumotni tozalab, 0 dan boshlash.
   Buyruq: `ssh root@... "cd /opt/aqua-erp && docker compose --env-file .env.production -f docker-compose.prod.yml exec api sh -c 'cd packages/database && npx prisma migrate reset --force'"` (keyin seed).
+  DIQQAT: foydalanuvchi allaqachon REAL mijozlar kirita boshlagan (Behruz, Alisher aka, Hudud Test, Gulbaybek...) — reset oldidan aniqlashtiring!
 - **Test parollarni o'zgartirish** (foydalanuvchiga eslatish — xavfsizlik).
-- **Haydovchi o'z kuni (self-service)** — session open/close hozir faqat admin/haydovchilar sahifasida bor; haydovchining o'ziga alohida "kun boshlash/yopish" ekrani QILINMAGAN (backend session logikasi tayyor: `drivers.service` openSession/closeSession).
-- **Telegram bot** — yangi buyurtma haydovchiga Telegramga xabar (hali yo'q).
-- **GitHub'ni yangilash** — lokalда commit qilinmagan o'zgarishlar bor, push qilinsa yaxshi.
+- **ESKIRDI — Haydovchi sessiyalari**: "Kun boshlash" UI'dan OLIB TASHLANGAN (2026-07-04, foydalanuvchi so'rovi). Ombor harakati endi buyurtma orqali. Backend openSession qolgan, lekin ishlatilmaydi — qayta tiklamang.
+- **GitHub'ni yangilash** — lokalда commit qilinmagan KO'P o'zgarishlar bor (redesign + RBAC + marshrut), push qilinsa yaxshi.
 
 ---
 

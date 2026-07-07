@@ -7,10 +7,46 @@ import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { QueryCustomersDto } from "./dto/query-customers.dto";
 import { AddPaymentDto } from "./dto/add-payment.dto";
 import { Prisma } from "@aqua/database";
+import { parseLatLngFromUrl, resolveLatLng } from "../../common/utils/geo.util";
 
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
+
+  // Lokatsiya linkidan lat/lng ni ajratish (xarita/marshrut uchun).
+  // To'g'ridan-to'g'ri parse tez; qisqa havola bo'lsa redirect kuzatiladi (timeout bilan).
+  private async geoFromLink(locationLink?: string | null) {
+    if (!locationLink) return {};
+    try {
+      const coords = parseLatLngFromUrl(locationLink) || (await resolveLatLng(locationLink));
+      return coords ? { lat: coords.lat, lng: coords.lng } : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Lokatsiya havolasi bor, lekin koordinatasi yo'q BARCHA mijozlarni
+  // bir yo'la hal qilish (admin tugmasi/endpoint uchun).
+  async resolveAllLocations() {
+    const pending = await this.prisma.customer.findMany({
+      // Bo'sh satr ('') havola emas — faqat haqiqiy havolalar
+      where: { locationLink: { not: null }, NOT: { locationLink: "" }, lat: null },
+      select: { id: true, name: true, locationLink: true },
+    });
+
+    let resolved = 0;
+    const failed: string[] = [];
+    for (const c of pending) {
+      const geo = await this.geoFromLink(c.locationLink);
+      if ("lat" in geo) {
+        await this.prisma.customer.update({ where: { id: c.id }, data: geo });
+        resolved++;
+      } else {
+        failed.push(c.name);
+      }
+    }
+    return { total: pending.length, resolved, failed };
+  }
 
   async create(dto: CreateCustomerDto, userId: string) {
     const existing = await this.prisma.customer.findFirst({
@@ -18,8 +54,10 @@ export class CustomersService {
     });
     if (existing) throw new ConflictException("Bu telefon raqam allaqachon mavjud");
 
+    const geo = dto.lat == null ? await this.geoFromLink(dto.locationLink) : {};
+
     return this.prisma.customer.create({
-      data: { ...dto, createdById: userId },
+      data: { ...dto, ...geo, createdById: userId },
       include: { createdBy: { select: { id: true, name: true } } },
     });
   }
@@ -143,7 +181,9 @@ export class CustomersService {
       });
       if (conflict) throw new ConflictException("Bu telefon raqam boshqa mijozda mavjud");
     }
-    return this.prisma.customer.update({ where: { id }, data: dto });
+    // Lokatsiya linki o'zgargan bo'lsa — koordinatani qayta ajratamiz
+    const geo = dto.locationLink && dto.lat == null ? await this.geoFromLink(dto.locationLink) : {};
+    return this.prisma.customer.update({ where: { id }, data: { ...dto, ...geo } });
   }
 
   async remove(id: string) {

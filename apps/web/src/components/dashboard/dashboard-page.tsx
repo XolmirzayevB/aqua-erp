@@ -1,130 +1,182 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  TrendingUp, ShoppingCart, CheckCircle, XCircle,
-  AlertCircle, Package, DollarSign, Users,
+  Banknote, Coins, Droplet, Users,
+  Plus, UserPlus, Wallet, Download, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { OrderStatus, PAYMENT_TYPE_LABELS } from "@aqua/shared";
+import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
+import { StatusBadge } from "@/components/orders/status-badge";
+import { useAuthStore } from "@/store/auth.store";
+import { usePermissions } from "@/hooks/use-permissions";
 
-function StatCard({
-  title, value, icon: Icon, color, description,
+// Dizayn KPI kartasi: ikonka chapda tepada, pastda label + katta qiymat + birlik
+function KpiCard({
+  label, value, unit, icon: Icon, tone,
 }: {
-  title: string; value: string | number; icon: any; color: string; description?: string;
+  label: string; value: string | number; unit?: string; icon: any; tone: string;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 flex items-start gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{title}</p>
-        <p className="text-xl font-bold text-gray-900 dark:text-white mt-0.5">{value}</p>
-        {description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{description}</p>}
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-panel hover:shadow-card-hover hover:-translate-y-[3px] hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-200">
+      <span className={`w-10 h-10 rounded-xl inline-flex items-center justify-center mb-4 ${tone}`}>
+        <Icon className="w-[19px] h-[19px]" />
+      </span>
+      <p className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1.5">{label}</p>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tracking-tight leading-none tabular-nums">
+          {value}
+        </span>
+        {unit && <span className="text-[13px] text-gray-400 dark:text-gray-500 font-medium">{unit}</span>}
       </div>
     </div>
   );
 }
 
-const STATUS_BADGE: Record<string, { label: string; class: string }> = {
-  NEW: { label: "Yangi", class: "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400" },
-  PROCESSING: { label: "Jarayonda", class: "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" },
-  ASSIGNED: { label: "Biriktirilgan", class: "bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400" },
-  DELIVERED: { label: "Yetkazildi", class: "bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-400" },
-  CANCELLED: { label: "Bekor", class: "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400" },
-};
+const quickActions = [
+  { label: "Yangi buyurtma", href: "/orders", icon: Plus, primary: true },
+  { label: "Mijoz qo'shish", href: "/customers", icon: UserPlus },
+  { label: "To'lov qabul qilish", href: "/debts", icon: Wallet },
+  { label: "Hisobot", href: "/reports", icon: Download },
+];
 
 export function DashboardPage() {
+  const user = useAuthStore((s) => s.user);
+  const { readOnly } = usePermissions();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: () => api.get("/dashboard/stats").then((r) => r.data.data),
     refetchInterval: 30_000,
   });
 
-  const stats = [
+  const inProgress = Math.max(
+    0,
+    (data?.todayOrders ?? 0) - (data?.deliveredToday ?? 0) - (data?.cancelledToday ?? 0)
+  );
+
+  const summaryChips = [
+    { label: "Buyurtma", value: data?.todayOrders ?? "—", dot: "bg-blue-500" },
+    { label: "Yetkazildi", value: data?.deliveredToday ?? "—", dot: "bg-green-500" },
+    { label: "Jarayonda", value: inProgress, dot: "bg-amber-500 animate-pulse" },
+    { label: "Bekor", value: data?.cancelledToday ?? "—", dot: "bg-red-500" },
+  ];
+
+  const kpis = [
     {
-      title: "Bugungi tushum",
-      value: data ? formatCurrency(data.todayIncome || 0) : "—",
-      icon: DollarSign,
-      color: "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400",
-      description: "Naqd + karta",
-    },
-    {
-      title: "Oylik tushum",
+      label: "Oylik tushum",
       value: data ? formatCurrency(data.monthIncome || 0) : "—",
-      icon: TrendingUp,
-      color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
-      description: formatDate(new Date(), "MMMM yyyy"),
+      unit: formatDate(new Date(), "MMMM"),
+      icon: Banknote,
+      tone: "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300",
     },
     {
-      title: "Bugungi buyurtmalar",
-      value: data?.todayOrders ?? "—",
-      icon: ShoppingCart,
-      color: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400",
-      description: "Jami",
-    },
-    {
-      title: "Yetkazildi",
-      value: data?.deliveredToday ?? "—",
-      icon: CheckCircle,
-      color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
-      description: "Bugun",
-    },
-    {
-      title: "Bekor qilindi",
-      value: data?.cancelledToday ?? "—",
-      icon: XCircle,
-      color: "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400",
-      description: "Bugun",
-    },
-    {
-      title: "Qarzdor mijozlar",
+      label: "Qarzdor mijozlar",
       value: data?.debtorCount ?? "—",
-      icon: AlertCircle,
-      color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400",
-      description: data ? formatCurrency(data.totalDebt || 0) : "",
+      unit: data ? formatCurrency(data.totalDebt || 0) : "",
+      icon: Coins,
+      tone: "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300",
     },
     {
-      title: "Bo'sh taralar",
+      label: "Bo'sh taralar",
       value: data?.emptyBottles ?? "—",
-      icon: Package,
-      color: "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400",
-      description: "Omborida",
+      unit: "omborda",
+      icon: Droplet,
+      tone: "bg-violet-50 dark:bg-violet-500/20 text-violet-600 dark:text-violet-300",
     },
     {
-      title: "Jami mijozlar",
+      label: "Jami mijozlar",
       value: data?.totalCustomers ?? "—",
+      unit: "faol",
       icon: Users,
-      color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400",
-      description: "Faol",
+      tone: "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400",
     },
   ];
 
+  const firstName = user?.name?.split(" ")[0] || "";
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {formatDate(new Date(), "dd MMMM yyyy, EEEE")}
-        </p>
+    <div>
+      {/* Salomlashuv + tezkor amallar */}
+      <div className="flex flex-wrap gap-4 items-end justify-between mb-5">
+        <div>
+          <h1 className="text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tracking-tight leading-tight mb-1">
+            Assalomu alaykum{firstName ? `, ${firstName}` : ""}
+          </h1>
+          <p className="text-[14px] text-gray-500 dark:text-gray-400">
+            {formatDate(new Date(), "d-MMMM, EEEE")} — bugun {data?.todayOrders ?? 0} ta buyurtma bor.
+          </p>
+        </div>
+        {!readOnly && (
+          <div className="flex gap-2 flex-wrap">
+            {quickActions.map((qa) => (
+              <Link
+                key={qa.label}
+                href={qa.href}
+                className={
+                  qa.primary
+                    ? "inline-flex items-center gap-2 h-[42px] px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[13.5px] font-semibold shadow-glow transition-all hover:-translate-y-px"
+                    : "inline-flex items-center gap-2 h-[42px] px-4 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-100 dark:border-gray-800 text-[13.5px] font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                }
+              >
+                <qa.icon className="w-4 h-4 flex-none" />
+                <span className="hidden sm:inline">{qa.label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.title} {...stat} />
+      {/* Bugungi xulosa — bo'lingan qatorli karta (4 holat + tushum) */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-card mb-5 overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800">
+          {summaryChips.map((c) => (
+            <div key={c.label} className="flex-1 flex items-center gap-3 px-5 py-4">
+              <span className={`w-2.5 h-2.5 rounded-full flex-none ${c.dot}`} />
+              <div className="min-w-0">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums tracking-tight leading-none">
+                  {c.value}
+                </div>
+                <div className="text-[12px] text-gray-500 dark:text-gray-400 font-medium mt-1">{c.label}</div>
+              </div>
+            </div>
+          ))}
+          {/* Bugungi tushum — ajratilgan yashil segment */}
+          <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-green-50/60 dark:bg-green-500/10">
+            <span className="w-9 h-9 rounded-xl bg-green-100 dark:bg-green-500/20 flex items-center justify-center flex-none">
+              <Banknote className="w-[18px] h-[18px] text-green-600 dark:text-green-400" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums tracking-tight leading-none truncate">
+                {data ? formatCurrency(data.todayIncome || 0) : "—"}
+              </div>
+              <div className="text-[12px] text-green-700/80 dark:text-green-400/70 font-medium mt-1">Bugungi tushum</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI kartalar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5">
+        {kpis.map((k) => (
+          <KpiCard key={k.label} {...k} />
         ))}
       </div>
 
-      {/* Recent Orders */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900 dark:text-white text-sm">So'nggi buyurtmalar</h2>
-          <a href="/orders" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-            Barchasini ko'rish →
-          </a>
+      {/* So'nggi buyurtmalar */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-panel overflow-hidden">
+        <div className="px-5 py-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
+            So'nggi buyurtmalar
+          </h2>
+          <Link
+            href="/orders"
+            className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:gap-2 transition-all"
+          >
+            Barchasi
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
         <div className="overflow-x-auto">
           {isLoading ? (
@@ -132,41 +184,53 @@ export function DashboardPage() {
               <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  {["#", "Mijoz", "Soni", "Summa", "To'lov", "Status", "Sana"].map((h) => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <tr>
+                  {["Buyurtma", "Tara", "Summa", "To'lov", "Holat", "Sana"].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 whitespace-nowrap ${i === 0 ? "pl-5" : ""}`}
+                    >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(data?.recentOrders || []).map((order: any, i: number) => (
-                  <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-5 py-3 font-mono text-xs text-gray-500">{order.orderNumber}</td>
-                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{order.customer?.name}</td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{order.quantity} ta</td>
-                    <td className="px-5 py-3 text-gray-900 dark:text-white font-medium">
+                {(data?.recentOrders || []).map((order: any) => (
+                  <tr
+                    key={order.id}
+                    className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                  >
+                    <td className="px-4 pl-5 py-3">
+                      <div className="font-mono text-[13.5px] font-bold text-blue-600 dark:text-blue-400 tabular-nums" title={order.orderNumber}>
+                        #{order.seq}
+                      </div>
+                      <div className="text-[12.5px] text-gray-500 dark:text-gray-400 mt-0.5 whitespace-nowrap">
+                        {order.customer?.name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[13.5px] font-semibold text-gray-900 dark:text-white tabular-nums">
+                      {order.quantity} ta
+                    </td>
+                    <td className="px-4 py-3 text-[13.5px] font-bold text-gray-900 dark:text-white tabular-nums whitespace-nowrap">
                       {formatCurrency(order.totalAmount)}
                     </td>
-                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 text-[13px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {PAYMENT_TYPE_LABELS[order.paymentType as keyof typeof PAYMENT_TYPE_LABELS]}
                     </td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_BADGE[order.status]?.class}`}>
-                        {STATUS_BADGE[order.status]?.label}
-                      </span>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={order.status} />
                     </td>
-                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                       {formatDate(order.createdAt, "dd.MM HH:mm")}
                     </td>
                   </tr>
                 ))}
                 {!data?.recentOrders?.length && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-8 text-center text-gray-400 text-sm">
+                    <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-100 dark:border-gray-800">
                       Hali buyurtmalar yo'q
                     </td>
                   </tr>

@@ -1,53 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Runtime font import — Docker buildda next/font ishlamaydi (HANDOFF gotcha #4) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* AquaERP.dc.html (Claude Design) ranglar tizimi */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 27% 98%;      /* #F8F9FB */
+    --foreground: 221 39% 11%;      /* #111827 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 221 39% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --popover-foreground: 221 39% 11%;
+    --primary: 221 83% 53%;         /* #2563EB */
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 220 43% 97%;       /* #F4F6FA surface-2 */
+    --secondary-foreground: 221 39% 11%;
+    --muted: 220 43% 97%;
+    --muted-foreground: 220 9% 46%; /* #6B7280 */
+    --accent: 222 100% 97%;         /* #EEF4FF primary-weak */
+    --accent-foreground: 221 83% 45%;
+    --destructive: 0 84% 60%;       /* #EF4444 */
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --border: 217 22% 94%;          /* #ECEEF3 */
+    --input: 217 22% 94%;
+    --ring: 221 83% 53%;
+    --radius: 0.7rem;               /* ~11px — dizayn radiusi */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 220 13% 5%;       /* #0A0B0D */
+    --foreground: 220 20% 96%;      /* #F2F4F7 */
+    --card: 210 10% 9%;             /* #141619 */
+    --card-foreground: 220 20% 96%;
+    --popover: 210 10% 9%;
+    --popover-foreground: 220 20% 96%;
+    --primary: 217 91% 60%;         /* #3B82F6 */
+    --primary-foreground: 221 39% 11%;
+    --secondary: 216 12% 12%;       /* #1A1D21 surface-2 */
+    --secondary-foreground: 220 20% 96%;
+    --muted: 216 12% 12%;
+    --muted-foreground: 215 14% 65%; /* #98A2B3 */
+    --accent: 217 91% 60% / 0.16;
+    --accent-foreground: 222 100% 79%; /* #93B4FF */
+    --destructive: 0 91% 71%;       /* #F87171 */
+    --destructive-foreground: 220 20% 96%;
+    --border: 220 9% 15%;           /* #24262C */
+    --input: 220 9% 15%;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -56,13 +58,59 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  /* Sarlavhalar — dizayndagidek tor tracking */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.025em;
+  }
+  /* Jadval raqamlari tekis ustun bo'lib turadi */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Klaviatura fokusi — aniq ko'rinadigan ring */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { @apply bg-muted; }
-::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/50; }
+/* Matn belgilash rangi — primary-weak */
+::selection {
+  background: #DBE7FF;
+  color: #1D4ED8;
+}
+.dark ::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #93B4FF;
+}
+
+/* Scrollbar — dizayndagidek: yumaloq, shaffof trek */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-200 dark:bg-gray-700;
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* Harakatni kamaytirish sozlamasi hurmat qilinadi */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Jonli lokatsiya pulsatsiyasi (marshrut xaritasi) */
+@keyframes aqGeoPing {
+  0%   { transform: scale(0.5); opacity: 0.9; }
+  80%  { transform: scale(1.7); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
+}

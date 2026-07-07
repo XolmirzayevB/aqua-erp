@@ -2,24 +2,27 @@
 
 import { useState } from "react";
 import {
-  FileText, Plus, Edit, Trash2, LogIn, LogOut,
-  ChevronLeft, ChevronRight, User as UserIcon,
+  Plus, Edit, Trash2, LogIn, LogOut, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useAuditLog } from "@/hooks/use-users";
-import { formatDate, getInitials } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import {
+  PageHeader, Avatar, Pill, SegmentTabs, cardClass, TONE_CLASSES,
+} from "@/components/shared/page-ui";
+import type { Tone } from "@/components/shared/page-ui";
 
-const ACTION_META: Record<string, { label: string; icon: any; color: string }> = {
-  CREATE: { label: "Yaratdi", icon: Plus, color: "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400" },
-  UPDATE: { label: "O'zgartirdi", icon: Edit, color: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" },
-  DELETE: { label: "O'chirdi", icon: Trash2, color: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" },
-  LOGIN: { label: "Kirdi", icon: LogIn, color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-  LOGOUT: { label: "Chiqdi", icon: LogOut, color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+const ACTION_META: Record<string, { label: string; icon: any; tone: Tone }> = {
+  CREATE: { label: "Yaratdi", icon: Plus, tone: "success" },
+  UPDATE: { label: "O'zgartirdi", icon: Edit, tone: "primary" },
+  DELETE: { label: "O'chirdi", icon: Trash2, tone: "danger" },
+  LOGIN:  { label: "Kirdi", icon: LogIn, tone: "violet" },
+  LOGOUT: { label: "Chiqdi", icon: LogOut, tone: "muted" },
 };
 
 const ENTITY_LABELS: Record<string, string> = {
-  customers: "Mijozlar", orders: "Buyurtmalar", drivers: "Haydovchilar",
-  users: "Foydalanuvchilar", finance: "Moliya", inventory: "Ombor",
+  customers: "Mijoz", orders: "Buyurtma", drivers: "Haydovchi",
+  users: "Foydalanuvchi", finance: "Moliya", inventory: "Ombor",
 };
 
 const ACTIONS = ["", "CREATE", "UPDATE", "DELETE"];
@@ -33,90 +36,102 @@ export function AuditPage() {
   const meta = data?.meta;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Audit Log</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Tizimda kim nima qilgani yozib boriladi</p>
-        </div>
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
-          {ACTIONS.map((a) => (
-            <button
-              key={a}
-              onClick={() => { setAction(a); setPage(1); }}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                action === a ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-              )}
-            >
-              {a === "" ? "Barchasi" : ACTION_META[a]?.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="max-w-4xl">
+      <PageHeader title="Audit jurnali" subtitle="Barcha o'zgarishlar tarixi">
+        <SegmentTabs
+          options={ACTIONS.map((a) => ({
+            value: a,
+            label: a === "" ? "Barchasi" : ACTION_META[a]?.label || a,
+          }))}
+          value={action}
+          onChange={(v) => { setAction(v); setPage(1); }}
+        />
+      </PageHeader>
 
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-              {["Foydalanuvchi", "Amal", "Obyekt", "IP", "Vaqt"].map((h) => (
-                <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <td key={j} className="px-5 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></td>
-                  ))}
-                </tr>
-              ))
-            ) : logs.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">Yozuvlar yo'q</td></tr>
-            ) : logs.map((log: any) => {
-              const meta = ACTION_META[log.action] || ACTION_META.UPDATE;
+      <div className={cn(cardClass, "p-6")}>
+        <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight mb-5">
+          O'zgarishlar tarixi
+        </h2>
+
+        {isLoading ? (
+          <div className="flex flex-col gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex gap-3.5">
+                <div className="w-8 h-8 rounded-[9px] bg-gray-100 dark:bg-gray-800 animate-pulse flex-none" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-2/3" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : logs.length === 0 ? (
+          <p className="py-8 text-center text-gray-400">Yozuvlar yo'q</p>
+        ) : (
+          <div className="flex flex-col">
+            {logs.map((log: any, i: number) => {
+              const m = ACTION_META[log.action] || ACTION_META.UPDATE;
+              const isLast = i === logs.length - 1;
               return (
-                <tr key={log.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 text-xs font-semibold">
-                        {log.user ? getInitials(log.user.name) : "?"}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white text-xs">{log.user?.name ?? "Tizim"}</p>
-                        <p className="text-xs text-gray-400">{log.user?.role}</p>
-                      </div>
+                <div key={log.id} className="flex gap-3.5 relative pb-5">
+                  {/* Vertikal chiziq */}
+                  {!isLast && (
+                    <span className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-100 dark:bg-gray-800 -translate-x-1/2" />
+                  )}
+                  {/* Ikonka */}
+                  <span className={cn(
+                    "w-8 h-8 rounded-[9px] inline-flex items-center justify-center flex-none z-[1]",
+                    TONE_CLASSES[m.tone]
+                  )}>
+                    <m.icon className="w-4 h-4" />
+                  </span>
+                  {/* Matn */}
+                  <div className="flex-1 min-w-0 pt-px">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white">
+                        {m.label}
+                      </span>
+                      <Pill tone={m.tone} className="!text-[11px]">
+                        {ENTITY_LABELS[log.entity] || log.entity}
+                        {log.entityId ? ` #${String(log.entityId).slice(0, 8)}` : ""}
+                      </Pill>
                     </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={cn("inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium", meta.color)}>
-                      <meta.icon className="w-3 h-3" />
-                      {meta.label}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-600 dark:text-gray-300 text-xs">
-                    {ENTITY_LABELS[log.entity] || log.entity}
-                    {log.entityId && <span className="text-gray-400 ml-1">#{String(log.entityId).slice(0, 8)}</span>}
-                  </td>
-                  <td className="px-5 py-3 text-gray-400 text-xs font-mono">{log.ipAddress || "—"}</td>
-                  <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(log.createdAt, "dd.MM.yyyy HH:mm:ss")}</td>
-                </tr>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Avatar name={log.user?.name || "Tizim"} size={24} />
+                      <span className="text-[12.5px] text-gray-500 dark:text-gray-400 font-medium">
+                        {log.user?.name ?? "Tizim"}
+                      </span>
+                      {log.ipAddress && (
+                        <span className="font-mono text-[11px] text-gray-400 dark:text-gray-600">{log.ipAddress}</span>
+                      )}
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        · {formatDate(log.createdAt, "dd.MM.yyyy HH:mm:ss")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+          </div>
+        )}
 
         {meta && meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400">{meta.total} ta yozuv</p>
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{meta.total} ta yozuv</p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page <= 1}
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-3 text-xs text-gray-500">{page} / {meta.totalPages}</span>
-              <button onClick={() => setPage(page + 1)} disabled={page >= meta.totalPages} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <span className="px-3 text-xs text-gray-500 tabular-nums">{page} / {meta.totalPages}</span>
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page >= meta.totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

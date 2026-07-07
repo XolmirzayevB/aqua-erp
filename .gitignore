@@ -20,3 +20,7 @@ nginx/certs
 
 # CI workflow — keyin 'workflow' ruxsatli token bilan qo'shiladi
 .github/workflows/
+
+# Generatsiya qilingan tahlil fayllari
+graphify-out/
+AquaERP.dc.html

@@ -10,6 +10,7 @@ import { AssignDriverDto } from "./dto/assign-driver.dto";
 import { QueryOrdersDto } from "./dto/query-orders.dto";
 import { SettingsService } from "../settings/settings.service";
 import { Prisma, OrderStatus, Role } from "@aqua/database";
+import { parseLatLngFromUrl, resolveLatLng } from "../../common/utils/geo.util";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -102,12 +103,40 @@ export class OrdersService {
         },
       });
 
-      // Ombordan yangi sotilgan tara chiqadi (almashtirish ombor sonini o'zgartirmaydi)
-      if (newBottles > 0) {
-        await tx.inventory.updateMany({
+      // Ombor harakati — buyurtma yagona manba (sessiyasiz ish tartibi):
+      // yetkaziladigan BARCHA to'la tara ombordan chiqadi,
+      // almashtirishdan qaytgan bo'sh tara omborga kiradi.
+      const fullInv = await tx.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
+      if (fullInv) {
+        await tx.inventory.update({
           where: { type: "FULL_BOTTLE" },
-          data: { quantity: { decrement: newBottles } },
+          data: { quantity: { decrement: quantity } },
         });
+        await tx.inventoryAction.create({
+          data: {
+            inventoryId: fullInv.id,
+            actionType: "DELIVERY",
+            quantity: -quantity,
+            description: `Buyurtma #${created.seq} — ${customer.name}`,
+          },
+        });
+      }
+      if (bottlesReturned > 0) {
+        const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
+        if (emptyInv) {
+          await tx.inventory.update({
+            where: { type: "EMPTY_BOTTLE" },
+            data: { quantity: { increment: bottlesReturned } },
+          });
+          await tx.inventoryAction.create({
+            data: {
+              inventoryId: emptyInv.id,
+              actionType: "RETURN",
+              quantity: bottlesReturned,
+              description: `Buyurtma #${created.seq} — bo'sh tara qaytdi`,
+            },
+          });
+        }
       }
 
       // Naqd/karta uchun kirim yozuvi
@@ -179,11 +208,16 @@ export class OrdersService {
         : {}),
       ...(search
         ? {
-            OR: [
-              { orderNumber: { contains: search, mode: "insensitive" } },
-              { customer: { name: { contains: search, mode: "insensitive" } } },
-              { customer: { phone: { contains: search } } },
-            ],
+            OR: /^#?\d{1,5}$/.test(search.trim())
+              ? [
+                  // Qisqa raqam ("#12" yoki "12") — FAQAT aniq sanoq raqam
+                  { seq: parseInt(search.trim().replace("#", ""), 10) },
+                ]
+              : [
+                  { orderNumber: { contains: search, mode: "insensitive" as const } },
+                  { customer: { name: { contains: search, mode: "insensitive" as const } } },
+                  { customer: { phone: { contains: search } } },
+                ],
           }
         : {}),
     };
@@ -227,10 +261,15 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
 
-    // Driver can only update their own orders to DELIVERED
+    // Rol qoidalari:
+    // - HAYDOVCHI faqat o'ziga biriktirilgan buyurtmani "Yetkazildi" qila oladi.
+    // - "Yetkazildi"ni FAQAT haydovchi (yoki admin) belgilaydi — operator emas.
+    // - Boshqa statuslarni (jarayon/tayinlash/bekor) operator/admin qo'yadi.
     if (userRole === "DRIVER") {
       if (order.driverId !== userId) throw new ForbiddenException("Bu buyurtma sizga tegishli emas");
-      if (dto.status !== "DELIVERED") throw new ForbiddenException("Haydovchi faqat 'Yetkazildi' statusini o'zgartira oladi");
+      if (dto.status !== "DELIVERED") throw new ForbiddenException("Haydovchi faqat 'Yetkazildi' statusini qo'ya oladi");
+    } else if (dto.status === "DELIVERED" && userRole !== "ADMIN") {
+      throw new ForbiddenException("'Yetkazildi'ni faqat haydovchi belgilashi mumkin");
     }
 
     const allowed = STATUS_TRANSITIONS[order.status] || [];
@@ -254,21 +293,9 @@ export class OrdersService {
         },
       });
 
-      // On delivered: create transaction if debt
-      if (dto.status === "DELIVERED" && order.paymentType === "DEBT") {
-        await tx.transaction.create({
-          data: {
-            type: "INCOME",
-            amount: order.totalAmount,
-            paymentMethod: "CASH",
-            category: "Nasiya sotuv",
-            description: `${result.customer.name} — nasiya ${order.quantity} ta suv`,
-            orderId: id,
-            customerId: order.customerId,
-            createdById: userId,
-          },
-        });
-      }
+      // MUHIM: nasiya (DEBT) yetkazilganda INCOME yozilMAYDI — pul hali kelmagan.
+      // Tushum faqat mijoz qarzini to'laganda yoziladi (customers.addPayment,
+      // "Qarz to'lovi"). Aks holda bir pul ikki marta hisoblanadi.
 
       // Bekor qilinganda — tara/ombor/pul qaytariladi
       if (dto.status === "CANCELLED") {
@@ -366,12 +393,38 @@ export class OrdersService {
         ...(order.paymentType === "DEBT" ? { balance: { increment: order.totalAmount } } : {}),
       },
     });
-    // Yangi sotilgan tara omborga qaytadi
-    if (order.newBottles > 0) {
-      await tx.inventory.updateMany({
+    // Ombor: chiqqan to'la tara qaytadi, kirgan bo'sh tara chiqadi
+    const fullInv = await tx.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
+    if (fullInv) {
+      await tx.inventory.update({
         where: { type: "FULL_BOTTLE" },
-        data: { quantity: { increment: order.newBottles } },
+        data: { quantity: { increment: order.quantity } },
       });
+      await tx.inventoryAction.create({
+        data: {
+          inventoryId: fullInv.id,
+          actionType: "ADJUSTMENT",
+          quantity: order.quantity,
+          description: `Buyurtma #${order.seq} bekor — to'la tara qaytdi`,
+        },
+      });
+    }
+    if (order.bottlesReturned > 0) {
+      const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
+      if (emptyInv) {
+        await tx.inventory.update({
+          where: { type: "EMPTY_BOTTLE" },
+          data: { quantity: { decrement: order.bottlesReturned } },
+        });
+        await tx.inventoryAction.create({
+          data: {
+            inventoryId: emptyInv.id,
+            actionType: "ADJUSTMENT",
+            quantity: -order.bottlesReturned,
+            description: `Buyurtma #${order.seq} bekor — bo'sh tara qaytarildi`,
+          },
+        });
+      }
     }
     // Shu buyurtmaga bog'liq kirim yozuvlarini o'chiramiz
     await tx.transaction.deleteMany({ where: { orderId: order.id } });
@@ -403,7 +456,7 @@ export class OrdersService {
     const start = new Date(targetDate); start.setHours(0, 0, 0, 0);
     const end = new Date(targetDate); end.setHours(23, 59, 59, 999);
 
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: {
         driverId,
         createdAt: { gte: start, lte: end },
@@ -413,6 +466,45 @@ export class OrdersService {
         customer: { select: { id: true, name: true, phone: true, address: true, lat: true, lng: true, zone: true, locationLink: true } },
       },
     });
+
+    // Xarita uchun: lokatsiya linki bor, lekin lat/lng bo'sh mijozlarning
+    // koordinatasini ajratib olamiz va saqlaymiz (keyingi safar tayyor bo'ladi).
+    await this.ensureCustomerCoords(orders.map((o) => o.customer));
+
+    return orders;
+  }
+
+  // Mijozning locationLink'idan lat/lng ni ajratib bazaga yozadi (best-effort).
+  // Qisqa google havolalari redirect orqali hal qilinadi (timeout bilan).
+  private async ensureCustomerCoords(
+    customers: { id: string; lat: any; lng: any; locationLink: string | null }[],
+  ) {
+    const seen = new Set<string>();
+    const pending = customers.filter((c) => {
+      if (!c || seen.has(c.id) || c.lat != null || !c.locationLink) return false;
+      seen.add(c.id);
+      return true;
+    });
+    if (pending.length === 0) return;
+
+    await Promise.all(
+      pending.map(async (c) => {
+        try {
+          const coords = parseLatLngFromUrl(c.locationLink!) || (await resolveLatLng(c.locationLink!));
+          if (coords) {
+            await this.prisma.customer.update({
+              where: { id: c.id },
+              data: { lat: coords.lat, lng: coords.lng },
+            });
+            // Javobdagi obyektni ham yangilaymiz — xarita darhol ko'rsata oladi
+            (c as any).lat = coords.lat;
+            (c as any).lng = coords.lng;
+          }
+        } catch {
+          // best-effort — bitta mijoz xatosi butun so'rovni buzmasin
+        }
+      }),
+    );
   }
 
   private async generateOrderNumber(): Promise<string> {

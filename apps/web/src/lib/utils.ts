@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format } from "date-fns";
+import { uz } from "date-fns/locale";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,7 +12,7 @@ export function formatCurrency(amount: number | string) {
 }
 
 export function formatDate(date: string | Date, fmt = "dd.MM.yyyy") {
-  return format(new Date(date), fmt);
+  return format(new Date(date), fmt, { locale: uz });
 }
 
 export function formatPhone(phone: string) {

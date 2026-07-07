@@ -27,22 +27,26 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Sozlamalar</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Tizim boshqaruvi</p>
+      <div className="flex flex-wrap gap-4 items-end justify-between">
+        <div>
+          <h1 className="text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tracking-tight leading-tight mb-1">
+            Sozlamalar
+          </h1>
+          <p className="text-[14px] text-gray-500 dark:text-gray-400">Tizim boshqaruvi</p>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-100 dark:border-gray-800">
+      {/* Tabs — dizayn segment uslubida */}
+      <div className="inline-flex gap-1 p-1 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 rounded-xl overflow-x-auto max-w-full">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={cn(
-              "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 -mb-px",
+              "inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold whitespace-nowrap transition-all",
               tab === key
-                ? "border-blue-600 text-blue-700 dark:text-blue-400"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-card"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             )}
           >
             <Icon className="w-4 h-4" />

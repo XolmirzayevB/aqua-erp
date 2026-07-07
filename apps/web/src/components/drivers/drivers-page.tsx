@@ -3,18 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Plus, Phone, Truck, BarChart2, ToggleLeft, ToggleRight,
-  CheckCircle, XCircle, Clock, Package,
+  UserPlus, Truck, BarChart2, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import {
   useDriversList, useToggleDriverActive, useTodaySession,
   DriverFull,
 } from "@/hooks/use-driver-sessions";
 import { DriverForm } from "./driver-form";
-import { SessionOpenModal } from "./session-open-modal";
 import { SessionCloseModal } from "./session-close-modal";
-import { formatDate, formatPhone } from "@/lib/utils";
+import { formatCurrency, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import {
+  PageHeader, Avatar, Pill, Ring, btnPrimary,
+} from "@/components/shared/page-ui";
 
 export function DriversPage() {
   const [showForm, setShowForm] = useState(false);
@@ -25,29 +26,22 @@ export function DriversPage() {
   const inactive = drivers.filter((d) => !d.isActive);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Haydovchilar</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {active.length} faol · {inactive.length} nofaol
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-blue-900/30"
-        >
-          <Plus className="w-4 h-4" />
-          Yangi haydovchi
+    <div>
+      <PageHeader
+        title="Haydovchilar"
+        subtitle={`${drivers.length} haydovchi · ${active.length} faol${inactive.length ? ` · ${inactive.length} nofaol` : ""}`}
+      >
+        <button onClick={() => setShowForm(true)} className={btnPrimary}>
+          <UserPlus className="w-4 h-4 flex-none" />
+          Haydovchi qo'shish
         </button>
-      </div>
+      </PageHeader>
 
-      {/* Cards grid */}
+      {/* Kartalar */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-48 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
+            <div key={i} className="h-56 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : drivers.length === 0 ? (
@@ -56,7 +50,7 @@ export function DriversPage() {
           <p>Hali haydovchi qo'shilmagan</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {drivers.map((driver) => (
             <DriverCard
               key={driver.id}
@@ -73,117 +67,112 @@ export function DriversPage() {
 }
 
 function DriverCard({ driver, onToggle }: { driver: DriverFull; onToggle: () => void }) {
-  const [showOpen, setShowOpen] = useState(false);
   const [showClose, setShowClose] = useState(false);
   const { data: session } = useTodaySession(driver.id);
 
-  const sessionStatus = session
-    ? session.status === "OPEN"
-      ? { label: "Ishlayapti", color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400", dot: "bg-green-500" }
-      : { label: "Kun yopilgan", color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", dot: "bg-gray-400" }
-    : { label: "Boshmagan", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400", dot: "bg-yellow-500" };
+  const isOpen = session?.status === "OPEN";
+  const sold = session?.bottlesSold ?? 0;
+  const taken = session?.bottlesTaken ?? 0;
+  const pct = taken > 0 ? Math.min(1, sold / taken) : 0;
 
   return (
     <>
-    <div className={cn(
-      "bg-white dark:bg-gray-900 rounded-2xl border p-5 flex flex-col gap-4 transition-all",
-      driver.isActive
-        ? "border-gray-100 dark:border-gray-800"
-        : "border-gray-100 dark:border-gray-800 opacity-60"
-    )}>
-      {/* Top: avatar + info */}
-      <div className="flex items-start gap-3">
-        <div className={cn(
-          "w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0",
-          driver.isActive
-            ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400"
-            : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-        )}>
-          {driver.name[0]}
+      <div className={cn(
+        "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-panel transition-all duration-200 hover:-translate-y-[3px] hover:shadow-card-hover hover:border-gray-200 dark:hover:border-gray-700",
+        !driver.isActive && "opacity-60"
+      )}>
+        {/* Avatar + ism + holat */}
+        <div className="flex items-start gap-3 mb-4">
+          <Avatar name={driver.name} size={46} />
+          <div className="flex-1 min-w-0">
+            <Link
+              href={`/drivers/${driver.id}`}
+              className="block text-[15px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              {driver.name}
+            </Link>
+            <div className="font-mono text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {formatPhone(driver.phone)}
+            </div>
+          </div>
+          {!driver.isActive ? (
+            <Pill tone="muted" dot>Nofaol</Pill>
+          ) : isOpen ? (
+            <Pill tone="success" dot pulse>Ishlayapti</Pill>
+          ) : (
+            <Pill tone="success" dot>Faol</Pill>
+          )}
         </div>
-        <div className="flex-1 min-w-0">
-          <Link href={`/drivers/${driver.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-            {driver.name}
-          </Link>
-          <div className="flex items-center gap-1 mt-0.5">
-            <Phone className="w-3 h-3 text-gray-400" />
-            <span className="text-xs text-gray-400 font-mono">{formatPhone(driver.phone)}</span>
+
+        {/* Halqa + statlar */}
+        <div className="flex items-center gap-4 mb-4">
+          <Ring
+            pct={pct}
+            size={64}
+            thick={6}
+            colorClass={pct >= 1 ? "text-green-500" : isOpen ? "text-blue-600 dark:text-blue-400" : "text-gray-300 dark:text-gray-700"}
+          >
+            <span className="text-[13px] font-bold text-gray-900 dark:text-white tabular-nums">
+              {Math.round(pct * 100)}%
+            </span>
+          </Ring>
+          <div className="flex-1 grid grid-cols-2 gap-x-2.5 gap-y-3">
+            <div>
+              <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Bugun sotildi</div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white tabular-nums mt-0.5">
+                {session ? `${sold} / ${taken}` : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Jami buyurtma</div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white tabular-nums mt-0.5">
+                {driver._count?.orders ?? 0}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Inkassatsiya (bugun)</div>
+              <div className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums mt-0.5">
+                {session ? formatCurrency(session.cashCollected || 0) : "—"}
+              </div>
+            </div>
           </div>
         </div>
-        {/* Active toggle */}
-        <button
-          onClick={onToggle}
-          title={driver.isActive ? "Nofaol qilish" : "Faol qilish"}
-          className="text-gray-400 hover:text-blue-500 transition-colors"
-        >
-          {driver.isActive
-            ? <ToggleRight className="w-5 h-5 text-green-500" />
-            : <ToggleLeft className="w-5 h-5" />}
-        </button>
-      </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-2.5 text-center">
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{driver._count?.orders ?? 0}</p>
-          <p className="text-xs text-gray-400">Jami buyurtma</p>
+        {/* Pastki qator: ish kunlari + amallar */}
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 dark:border-gray-800 pt-3.5">
+          <div className="text-[12.5px] text-gray-500 dark:text-gray-400 font-medium">
+            {driver._count?.driverSessions ?? 0} ish kuni
+          </div>
+          <div className="flex items-center gap-1.5">
+            {driver.isActive && isOpen && (
+              <button
+                onClick={() => setShowClose(true)}
+                className="inline-flex items-center h-8 px-3 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+              >
+                Kun yopish
+              </button>
+            )}
+            <Link
+              href={`/drivers/${driver.id}`}
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-[9px] bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-white text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              Hisobot
+            </Link>
+            <button
+              onClick={onToggle}
+              title={driver.isActive ? "Nofaol qilish" : "Faol qilish"}
+              className="text-gray-400 hover:text-blue-500 transition-colors flex-none"
+            >
+              {driver.isActive
+                ? <ToggleRight className="w-5 h-5 text-green-500" />
+                : <ToggleLeft className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-2.5 text-center">
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{driver._count?.driverSessions ?? 0}</p>
-          <p className="text-xs text-gray-400">Ish kuni</p>
-        </div>
       </div>
 
-      {/* Today session status */}
-      <div className="flex items-center justify-between">
-        <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5", sessionStatus.color)}>
-          <span className={cn("w-1.5 h-1.5 rounded-full", sessionStatus.dot)} />
-          {sessionStatus.label}
-        </span>
-        {session && session.status === "OPEN" && (
-          <span className="text-xs text-gray-400">
-            <Package className="w-3 h-3 inline mr-1" />
-            {session.bottlesTaken - session.bottlesSold} qoldi
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        {driver.isActive && !session && (
-          <button
-            onClick={() => setShowOpen(true)}
-            className="flex-1 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors"
-          >
-            🚀 Kun boshlash
-          </button>
-        )}
-        {driver.isActive && session?.status === "OPEN" && (
-          <button
-            onClick={() => setShowClose(true)}
-            className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
-          >
-            🌙 Kun yopish
-          </button>
-        )}
-        <Link
-          href={`/drivers/${driver.id}`}
-          className="flex items-center justify-center gap-1 flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-          Hisobot
-        </Link>
-      </div>
-    </div>
-
-      {/* Modals */}
-      {showOpen && (
-        <SessionOpenModal
-          driverId={driver.id}
-          driverName={driver.name}
-          onClose={() => setShowOpen(false)}
-        />
-      )}
+      {/* Modallar */}
       {showClose && session && (
         <SessionCloseModal
           driverId={driver.id}

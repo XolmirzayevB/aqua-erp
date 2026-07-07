@@ -51,7 +51,8 @@ export class DashboardService {
       deliveredToday,
       cancelledToday,
       debtorCount: debtors.length,
-      totalDebt: debtors.reduce((sum, d) => sum + Number(d.balance), 0),
+      // Balanslar manfiy — qarz miqdori musbat ko'rsatiladi
+      totalDebt: Math.abs(debtors.reduce((sum, d) => sum + Number(d.balance), 0)),
       totalCustomers,
       emptyBottles: emptyBottleInv?.quantity ?? 0,
       todayIncome: Number(todayTransactions._sum.amount ?? 0),

@@ -216,11 +216,21 @@ export class DriversService {
       }),
     ]);
 
-    const totalBottlesSold = sessions.reduce((s, x) => s + x.bottlesSold, 0);
-    const totalEmptyReturned = sessions.reduce((s, x) => s + x.emptyReturned, 0);
+    // Buyurtmalar asosidagi ko'rsatkichlar (asosiy ish tartibi — sessiyasiz)
+    const delivered = orders.filter((o) => o.status === "DELIVERED");
+    const orderBottles = delivered.reduce((s, o) => s + o.quantity, 0);
+    const orderRevenue = delivered.reduce((s, o) => s + Number(o.totalAmount), 0);
+
+    const sessionBottles = sessions.reduce((s, x) => s + x.bottlesSold, 0);
+    const totalEmptyReturned = sessions.length
+      ? sessions.reduce((s, x) => s + x.emptyReturned, 0)
+      : delivered.reduce((s, o) => s + o.bottlesReturned, 0);
     const totalCash = sessions.reduce((s, x) => s + Number(x.cashCollected), 0);
     const totalCard = sessions.reduce((s, x) => s + Number(x.cardCollected), 0);
-    const deliveredOrders = orders.filter((o) => o.status === "DELIVERED").length;
+    // Sessiya yuritilmasa — yetkazilgan buyurtmalardan olamiz
+    const totalBottlesSold = sessions.length ? sessionBottles : orderBottles;
+    const totalRevenue = sessions.length ? totalCash + totalCard : orderRevenue;
+    const deliveredOrders = delivered.length;
 
     // Daily breakdown for chart
     const days = eachDayOfInterval({ start: dateFrom, end: dateTo });
@@ -230,10 +240,14 @@ export class DriversService {
       const dayOrders = orders.filter(
         (o) => format(new Date(o.createdAt), "yyyy-MM-dd") === dayStr
       );
+      // Sessiya bo'lmasa — o'sha kunda yetkazilgan buyurtmalardan
+      const dayDelivered = dayOrders.filter((o) => o.status === "DELIVERED");
       return {
         date: dayStr,
         label: format(day, "dd.MM"),
-        bottlesSold: daySession?.bottlesSold ?? 0,
+        bottlesSold: daySession
+          ? daySession.bottlesSold
+          : dayDelivered.reduce((s, o) => s + o.quantity, 0),
         cash: Number(daySession?.cashCollected ?? 0),
         card: Number(daySession?.cardCollected ?? 0),
         orders: dayOrders.length,
@@ -246,10 +260,16 @@ export class DriversService {
         totalEmptyReturned,
         totalCash,
         totalCard,
-        totalRevenue: totalCash + totalCard,
+        totalRevenue,
         deliveredOrders,
         totalOrders: orders.length,
-        avgPerDay: sessions.length > 0 ? Math.round(totalBottlesSold / sessions.length) : 0,
+        avgPerDay: sessions.length > 0
+          ? Math.round(totalBottlesSold / sessions.length)
+          : (() => {
+              // Sessiyasiz: yetkazilgan kunlar soniga bo'lamiz
+              const days = new Set(delivered.map((o) => o.deliveredAt && format(new Date(o.deliveredAt), "yyyy-MM-dd")).filter(Boolean));
+              return days.size > 0 ? Math.round(totalBottlesSold / days.size) : 0;
+            })(),
       },
       sessions,
       orders,

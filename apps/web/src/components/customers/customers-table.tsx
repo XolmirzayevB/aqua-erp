@@ -3,15 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Search, Plus, Filter, ChevronLeft, ChevronRight,
-  Phone, MapPin, Package, TrendingDown, MoreHorizontal,
-  Edit, Trash2, DollarSign,
+  Search, ChevronLeft, ChevronRight, UserPlus,
+  TrendingDown, MoreHorizontal, Eye, Edit, Trash2, Navigation,
 } from "lucide-react";
 import { useCustomers, useCreateCustomer, useDeleteCustomer, Customer } from "@/hooks/use-customers";
 import { useSettings } from "@/hooks/use-settings";
 import { CustomerForm } from "./customer-form";
-import { formatCurrency, formatPhone, getInitials } from "@/lib/utils";
+import { formatCurrency, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import {
+  PageHeader, Avatar, Pill, btnPrimary, btnSecondary, thClass, cardClass, rowBtnClass,
+} from "@/components/shared/page-ui";
+import { usePermissions } from "@/hooks/use-permissions";
 
 export function CustomersTable() {
   const [search, setSearch] = useState("");
@@ -22,6 +25,7 @@ export function CustomersTable() {
   const [showForm, setShowForm] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+  const { readOnly } = usePermissions();
   const { data: settings } = useSettings();
   const zones = settings?.zones || [];
 
@@ -61,91 +65,93 @@ export function CustomersTable() {
   const meta = data?.meta;
 
   return (
-    <div className="space-y-5">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mijozlar</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {meta ? `Jami: ${meta.total} ta mijoz` : "Yuklanmoqda..."}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-blue-900/30"
-        >
-          <Plus className="w-4 h-4" />
-          Yangi mijoz
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
-          <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          <input
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Ism, telefon yoki manzil bo'yicha qidirish..."
-            className="bg-transparent text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none w-full"
-          />
-        </div>
+    <div>
+      <PageHeader
+        title="Mijozlar"
+        subtitle={meta ? `${meta.total} ta mijoz${zoneFilter ? ` · ${zoneFilter} hududi` : ""}` : "Yuklanmoqda..."}
+      >
         <button
           onClick={() => { setDebtorsOnly(!debtorsOnly); setPage(1); }}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-            debtorsOnly
-              ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-              : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900 hover:border-gray-300"
+            btnSecondary,
+            debtorsOnly && "!bg-amber-50 dark:!bg-amber-500/15 !text-amber-600 dark:!text-amber-300 !border-amber-200 dark:!border-amber-500/30"
           )}
         >
-          <TrendingDown className="w-4 h-4" />
-          Qarzdorlar
+          <TrendingDown className="w-4 h-4 flex-none" />
+          <span className="hidden sm:inline">Qarzdorlar</span>
         </button>
+        {!readOnly && (
+          <button onClick={() => setShowForm(true)} className={btnPrimary}>
+            <UserPlus className="w-4 h-4 flex-none" />
+            Yangi mijoz
+          </button>
+        )}
+      </PageHeader>
+
+      {/* Qidiruv + hudud chiplari */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex items-center gap-2.5 h-10 px-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[11px] flex-1 min-w-[200px] max-w-sm focus-within:border-blue-300 dark:focus-within:border-blue-700 transition-colors">
+          <Search className="w-4 h-4 text-gray-400 flex-none" />
+          <input
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Ism, telefon yoki manzil..."
+            className="bg-transparent text-[13.5px] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none w-full"
+          />
+        </div>
+        {zones.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => { setZoneFilter(""); setPage(1); }}
+              className={cn(
+                "px-3.5 py-[7px] rounded-[10px] text-[13px] font-semibold transition-all whitespace-nowrap",
+                zoneFilter === ""
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              )}
+            >
+              Barchasi
+            </button>
+            {zones.map((z) => (
+              <button
+                key={z}
+                onClick={() => { setZoneFilter(zoneFilter === z ? "" : z); setPage(1); }}
+                className={cn(
+                  "px-3.5 py-[7px] rounded-[10px] text-[13px] font-semibold transition-all whitespace-nowrap",
+                  zoneFilter === z
+                    ? "bg-blue-600 text-white"
+                    : "bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                )}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Zone filter */}
-      {zones.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-400 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Hudud:</span>
-          <button
-            onClick={() => { setZoneFilter(""); setPage(1); }}
-            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", zoneFilter === "" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300")}
-          >
-            Barchasi
-          </button>
-          {zones.map((z) => (
-            <button
-              key={z}
-              onClick={() => { setZoneFilter(zoneFilter === z ? "" : z); setPage(1); }}
-              className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", zoneFilter === z ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300")}
-            >
-              {z}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+      {/* Jadval */}
+      <div className={cn(cardClass, "overflow-hidden")}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[840px]">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                {["Mijoz", "Telefon", "Manzil", "Taralar", "Balans", "Buyurtmalar", ""].map((h) => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
+              <tr>
+                <th className={cn(thClass, "pl-5")}>Mijoz</th>
+                <th className={thClass}>Telefon</th>
+                <th className={thClass}>Hudud / Manzil</th>
+                <th className={cn(thClass, "text-center")}>Tara (uyida)</th>
+                <th className={cn(thClass, "text-right")}>Balans</th>
+                <th className={thClass}>Holat</th>
+                <th className={cn(thClass, "pr-5")}></th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j} className="px-5 py-3">
-                        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" style={{ width: `${60 + j * 10}%` }} />
+                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" style={{ width: `${55 + j * 8}%` }} />
                       </td>
                     ))}
                   </tr>
@@ -155,9 +161,7 @@ export function CustomersTable() {
                   <td colSpan={7} className="px-5 py-12 text-center">
                     <p className="text-gray-400 dark:text-gray-500">Mijoz topilmadi</p>
                     {search && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        "{search}" bo'yicha natija yo'q
-                      </p>
+                      <p className="text-xs text-gray-400 mt-1">"{search}" bo'yicha natija yo'q</p>
                     )}
                   </td>
                 </tr>
@@ -169,6 +173,7 @@ export function CustomersTable() {
                     onDelete={handleDelete}
                     openMenu={openMenu}
                     setOpenMenu={setOpenMenu}
+                    readOnly={readOnly}
                   />
                 ))
               )}
@@ -176,17 +181,17 @@ export function CustomersTable() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Sahifalash */}
         {meta && meta.totalPages > 1 && (
           <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -197,10 +202,10 @@ export function CustomersTable() {
                     key={p}
                     onClick={() => setPage(p)}
                     className={cn(
-                      "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors",
+                      "w-8 h-8 flex items-center justify-center rounded-[9px] text-xs font-semibold transition-colors tabular-nums",
                       page === p
                         ? "bg-blue-600 text-white"
-                        : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        : "border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                     )}
                   >
                     {p}
@@ -210,7 +215,7 @@ export function CustomersTable() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -232,134 +237,129 @@ export function CustomersTable() {
 }
 
 function CustomerRow({
-  customer, onDelete, openMenu, setOpenMenu,
+  customer, onDelete, openMenu, setOpenMenu, readOnly,
 }: {
   customer: Customer;
   onDelete: (id: string, name: string) => void;
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
+  readOnly?: boolean;
 }) {
-  const bottlesOwed = customer.bottlesGiven - customer.bottlesReturned;
+  const balance = Number(customer.balance);
+  const isDebtor = balance < 0;
 
   return (
-    <tr className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
-      {/* Name + avatar */}
-      <td className="px-5 py-3">
-        <Link href={`/customers/${customer.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-semibold text-xs flex-shrink-0">
-            {getInitials(customer.name)}
-          </div>
+    <tr className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group">
+      {/* Mijoz: avatar + ism + buyurtma soni */}
+      <td className="px-4 pl-5 py-3">
+        <Link href={`/customers/${customer.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <Avatar name={customer.name} size={38} />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-medium text-gray-900 dark:text-white truncate max-w-[140px]">{customer.name}</p>
+              <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[160px] truncate">
+                {customer.name}
+              </span>
               {customer.zone && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold flex-shrink-0">{customer.zone}</span>
+                <Pill tone="primary" className="!text-[11px] !py-0.5">{customer.zone}</Pill>
               )}
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              {customer.locationLink && (
-                <span
-                  role="link"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(customer.locationLink, "_blank"); }}
-                  className="text-green-600 dark:text-green-400 hover:underline mr-2 cursor-pointer"
-                >📍 Lokatsiya</span>
-              )}
-              ID: {customer.id.slice(0, 8)}
-            </p>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {customer._count?.orders ?? 0} buyurtma
+            </div>
           </div>
         </Link>
       </td>
 
-      {/* Phone */}
-      <td className="px-5 py-3">
-        <div className="flex items-center gap-1.5">
-          <Phone className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <span className="text-gray-700 dark:text-gray-300 text-xs font-mono">{formatPhone(customer.phone)}</span>
-        </div>
+      {/* Telefon */}
+      <td className="px-4 py-3 whitespace-nowrap">
+        <div className="font-mono text-[12.5px] text-gray-500 dark:text-gray-400">{formatPhone(customer.phone)}</div>
         {customer.phone2 && (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Phone className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
-            <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">{formatPhone(customer.phone2)}</span>
-          </div>
+          <div className="font-mono text-[12.5px] text-gray-400 dark:text-gray-600 mt-0.5">{formatPhone(customer.phone2)}</div>
         )}
       </td>
 
-      {/* Address */}
-      <td className="px-5 py-3">
-        <div className="flex items-start gap-1.5 max-w-[180px]">
-          <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
-          <span className="text-gray-600 dark:text-gray-400 text-xs line-clamp-2">{customer.address}</span>
+      {/* Hudud / manzil */}
+      <td className="px-4 py-3">
+        <div className="text-[13px] text-gray-900 dark:text-white font-medium whitespace-nowrap">
+          {customer.zone || "—"}
         </div>
-      </td>
-
-      {/* Bottles */}
-      <td className="px-5 py-3">
-        <div className="flex items-center gap-1.5">
-          <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <div>
-            <p className="text-xs text-gray-700 dark:text-gray-300">
-              Berilgan: <span className="font-medium">{customer.bottlesGiven}</span>
-            </p>
-            <p className="text-xs text-gray-400">
-              Qaytarilgan: {customer.bottlesReturned}
-              {bottlesOwed > 0 && (
-                <span className="ml-1 text-orange-500 font-medium">({bottlesOwed} qoldi)</span>
-              )}
-            </p>
-          </div>
-        </div>
-      </td>
-
-      {/* Balance */}
-      <td className="px-5 py-3">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 text-sm font-semibold",
-            customer.balance < 0 ? "text-red-500" : customer.balance > 0 ? "text-green-600 dark:text-green-400" : "text-gray-500"
+        <div className="text-xs text-gray-400 dark:text-gray-500 mt-px max-w-[200px] truncate">
+          {customer.address}
+          {customer.locationLink && (
+            <span
+              role="link"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(customer.locationLink, "_blank"); }}
+              className="inline-flex items-center gap-0.5 ml-1.5 text-green-600 dark:text-green-400 hover:underline cursor-pointer font-medium"
+            >
+              <Navigation className="w-3 h-3" />
+              Lokatsiya
+            </span>
           )}
-        >
-          {customer.balance < 0 ? "-" : customer.balance > 0 ? "+" : ""}
-          {formatCurrency(Math.abs(Number(customer.balance)))}
+        </div>
+      </td>
+
+      {/* Tara (uyida) */}
+      <td className="px-4 py-3 text-center text-[13.5px] font-semibold text-gray-900 dark:text-white tabular-nums">
+        {customer.bottlesOwned}
+      </td>
+
+      {/* Balans */}
+      <td className="px-4 py-3 text-right whitespace-nowrap">
+        <span className={cn(
+          "text-[13.5px] font-bold tabular-nums",
+          isDebtor ? "text-red-500" : balance > 0 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"
+        )}>
+          {isDebtor ? "−" : balance > 0 ? "+" : ""}
+          {formatCurrency(Math.abs(balance))}
         </span>
-        {customer.balance < 0 && (
-          <p className="text-xs text-red-400 mt-0.5">Qarzdor</p>
+      </td>
+
+      {/* Holat */}
+      <td className="px-4 py-3">
+        {!customer.isActive ? (
+          <Pill tone="muted">Nofaol</Pill>
+        ) : isDebtor ? (
+          <Pill tone="danger">Qarzdor</Pill>
+        ) : (
+          <Pill tone="success">Faol</Pill>
         )}
       </td>
 
-      {/* Orders count */}
-      <td className="px-5 py-3">
-        <Link href={`/customers/${customer.id}`} className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline">
-          {customer._count?.orders ?? 0} ta
-        </Link>
-      </td>
-
-      {/* Actions */}
-      <td className="px-5 py-3">
-        <div className="relative">
-          <button
-            onClick={() => setOpenMenu(openMenu === customer.id ? null : customer.id)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {openMenu === customer.id && (
-            <div className="absolute right-0 top-9 z-10 w-40 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-950/50 overflow-hidden">
-              <Link
-                href={`/customers/${customer.id}`}
-                onClick={() => setOpenMenu(null)}
-                className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <Edit className="w-3.5 h-3.5" />
-                Ko'rish / Tahrir
-              </Link>
-              <button
-                onClick={() => onDelete(customer.id, customer.name)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                O'chirish
-              </button>
-            </div>
+      {/* Amallar */}
+      <td className="px-4 pr-5 py-3 text-right">
+        <div className="inline-flex items-center gap-0.5">
+          <Link href={`/customers/${customer.id}`} title="Ko'rish" className={rowBtnClass}>
+            <Eye className="w-4 h-4" />
+          </Link>
+          {!readOnly && (
+          <div className="relative">
+            <button
+              onClick={() => setOpenMenu(openMenu === customer.id ? null : customer.id)}
+              title="Boshqa"
+              className={rowBtnClass}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {openMenu === customer.id && (
+              <div className="absolute right-0 top-9 z-10 w-44 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-card-hover overflow-hidden">
+                <Link
+                  href={`/customers/${customer.id}`}
+                  onClick={() => setOpenMenu(null)}
+                  className="flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Ko'rish / Tahrir
+                </Link>
+                <button
+                  onClick={() => onDelete(customer.id, customer.name)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  O'chirish
+                </button>
+              </div>
+            )}
+          </div>
           )}
         </div>
       </td>

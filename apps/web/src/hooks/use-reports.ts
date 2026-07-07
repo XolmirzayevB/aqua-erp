@@ -10,8 +10,11 @@ type Period = "daily" | "weekly" | "monthly" | "yearly";
 export interface ReportOverview {
   orders: { total: number; delivered: number; cancelled: number; revenue: number };
   finance: { income: number; expense: number; profit: number };
-  water: { sold: number; bottlesReturned: number };
-  bottles: { soldBySessions: number; emptyReturned: number; takenBySessions: number };
+  water: { sold: number; bottlesReturned: number; newBottlesSold: number };
+  bottles: {
+    deliveredWater: number; newSold: number; emptyBack: number;
+    soldBySessions: number; emptyReturned: number; takenBySessions: number;
+  };
   newCustomers: number;
   period: { from: string; to: string };
 }
