@@ -139,7 +139,7 @@ function DriverCard({ driver, onToggle }: { driver: DriverFull; onToggle: () => 
         </div>
 
         {/* Pastki qator: ish kunlari + amallar */}
-        <div className="flex items-center justify-between gap-2 border-t border-gray-300 dark:border-gray-700 pt-3.5">
+        <div className="flex items-center justify-between gap-2 border-t border-gray-400/70 dark:border-gray-600 pt-3.5">
           <div className="text-[12.5px] text-gray-500 dark:text-gray-400 font-medium">
             {driver._count?.driverSessions ?? 0} ish kuni
           </div>

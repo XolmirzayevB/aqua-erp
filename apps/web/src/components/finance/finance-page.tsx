@@ -160,7 +160,7 @@ export function FinancePage() {
                 </span>
               </div>
             ))}
-            <div className="pt-2 mt-1 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-400">
+            <div className="pt-2 mt-1 border-t border-gray-400/70 dark:border-gray-600 text-xs text-gray-400">
               Tranzaksiyalar: {summary?.transactionCount ?? 0} ta
             </div>
           </div>
@@ -185,7 +185,7 @@ export function FinancePage() {
         </div>
         <div>
           {!txns?.data?.length ? (
-            <div className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-300 dark:border-gray-700">
+            <div className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-400/70 dark:border-gray-600">
               Tranzaksiyalar yo'q
             </div>
           ) : txns.data.map((t) => {
@@ -193,7 +193,7 @@ export function FinancePage() {
             return (
               <div
                 key={t.id}
-                className="flex items-center gap-3.5 px-5 py-3 border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                className="flex items-center gap-3.5 px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
               >
                 <span className={cn(
                   "w-[34px] h-[34px] rounded-[10px] inline-flex items-center justify-center flex-none",
@@ -228,7 +228,7 @@ export function FinancePage() {
         </div>
 
         {txns?.meta && txns.meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-300 dark:border-gray-700 flex items-center justify-between">
+          <div className="px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-between">
             <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{txns.meta.total} ta jami</p>
             <div className="flex items-center gap-1">
               <button

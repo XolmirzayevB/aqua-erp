@@ -142,7 +142,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                         </button>
                       ))}
                     </div>
-                    <button type="button" onClick={() => setShowDrop(false)} className="w-full py-2 text-xs text-gray-500 border-t border-gray-300 dark:border-gray-700">Yopish</button>
+                    <button type="button" onClick={() => setShowDrop(false)} className="w-full py-2 text-xs text-gray-500 border-t border-gray-400/70 dark:border-gray-600">Yopish</button>
                   </div>
                 )}
               </div>

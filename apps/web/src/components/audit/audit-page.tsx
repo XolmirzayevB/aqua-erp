@@ -116,7 +116,7 @@ export function AuditPage() {
         )}
 
         {meta && meta.totalPages > 1 && (
-          <div className="pt-4 border-t border-gray-300 dark:border-gray-700 flex items-center justify-between">
+          <div className="pt-4 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-between">
             <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{meta.total} ta yozuv</p>
             <div className="flex items-center gap-1">
               <button

@@ -147,12 +147,12 @@ export function ReportsPage() {
             <tbody>
               {!debts?.payments?.length ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-300 dark:border-gray-700">
+                  <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-400/70 dark:border-gray-600">
                     Bu davrda qarz to'lovi yo'q
                   </td>
                 </tr>
               ) : debts.payments.map((p) => (
-                <tr key={p.id} className="border-t border-gray-300 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                <tr key={p.id} className="border-t border-gray-400/70 dark:border-gray-600 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 pl-5 py-3 text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                     {p.customer?.name ?? "—"}
                   </td>
