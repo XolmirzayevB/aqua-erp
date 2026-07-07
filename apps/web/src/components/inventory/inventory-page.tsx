@@ -164,7 +164,7 @@ export function InventoryPage() {
             <tbody>
               {!history?.data?.length ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-100 dark:border-gray-800">
+                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-200 dark:border-gray-700/70">
                     Harakatlar yo'q
                   </td>
                 </tr>
@@ -172,7 +172,7 @@ export function InventoryPage() {
                 const meta = TYPE_META[action.inventory.type];
                 const isPositive = action.quantity > 0;
                 return (
-                  <tr key={action.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                  <tr key={action.id} className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                     <td className="px-4 pl-5 py-3">
                       <Pill tone={meta?.tone || "muted"}>
                         <meta.icon className="w-3 h-3" />
@@ -205,7 +205,7 @@ export function InventoryPage() {
         </div>
 
         {history?.meta && history.meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 flex items-center justify-between">
             <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {(historyPage - 1) * history.meta.limit + 1}–{Math.min(historyPage * history.meta.limit, history.meta.total)} / {history.meta.total}
             </p>

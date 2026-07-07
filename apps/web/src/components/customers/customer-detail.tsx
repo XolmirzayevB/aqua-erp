@@ -220,13 +220,13 @@ export function CustomerDetail({ id }: Props) {
                 <tbody>
                   {(orders?.data || []).length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-100 dark:border-gray-800">
+                      <td colSpan={7} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-200 dark:border-gray-700/70">
                         Buyurtmalar yo'q
                       </td>
                     </tr>
                   ) : (
                     (orders?.data || []).map((order: any, i: number) => (
-                      <tr key={order.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                      <tr key={order.id} className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-4 pl-5 py-3">
                           <Link href={`/orders/${order.id}`} className="font-mono text-[13px] font-bold text-blue-600 dark:text-blue-400 hover:underline tabular-nums">
                             #{order.seq ?? (orders?.meta ? (orders.meta.page - 1) * orders.meta.limit : 0) + i + 1}
@@ -278,13 +278,13 @@ export function CustomerDetail({ id }: Props) {
                 <tbody>
                   {(payments?.data || []).length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-100 dark:border-gray-800">
+                      <td colSpan={4} className="px-5 py-10 text-center text-gray-400 text-sm border-t border-gray-200 dark:border-gray-700/70">
                         To'lovlar tarixi yo'q
                       </td>
                     </tr>
                   ) : (
                     (payments?.data || []).map((payment: any) => (
-                      <tr key={payment.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                      <tr key={payment.id} className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-4 pl-5 py-3 text-[13.5px] font-bold text-green-600 dark:text-green-400 tabular-nums whitespace-nowrap">
                           +{formatCurrency(payment.amount)}
                         </td>
@@ -384,7 +384,7 @@ function StatMini({
 function Pagination({ meta, page, setPage }: { meta: any; page: number; setPage: (p: number) => void }) {
   if (!meta || meta.totalPages <= 1) return null;
   return (
-    <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+    <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 flex items-center justify-between">
       <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
         {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
       </p>

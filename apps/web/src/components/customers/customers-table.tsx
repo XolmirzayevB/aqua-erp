@@ -148,7 +148,7 @@ export function CustomersTable() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                  <tr key={i} className="border-t border-gray-200 dark:border-gray-700/70">
                     {Array.from({ length: 7 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" style={{ width: `${55 + j * 8}%` }} />
@@ -183,7 +183,7 @@ export function CustomersTable() {
 
         {/* Sahifalash */}
         {meta && meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700/70 flex items-center justify-between">
             <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
             </p>
@@ -249,7 +249,7 @@ function CustomerRow({
   const isDebtor = balance < 0;
 
   return (
-    <tr className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group">
+    <tr className="border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group">
       {/* Mijoz: avatar + ism + buyurtma soni */}
       <td className="px-4 pl-5 py-3">
         <Link href={`/customers/${customer.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">

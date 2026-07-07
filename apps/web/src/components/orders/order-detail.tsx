@@ -65,30 +65,30 @@ export function OrderDetail({ id }: Props) {
 
   return (
     <div className="space-y-5 max-w-4xl">
-      {/* Back + header */}
-      <div className="flex items-center gap-3">
+      {/* Back + header (mobilda tugmalar pastki qatorga tushadi) */}
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href="/orders"
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-none"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">#{order.seq}</h1>
             <StatusBadge status={order.status} size="md" />
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
             {formatDate(order.createdAt, "dd MMMM yyyy, HH:mm")} · {order.createdBy.name} · <span className="font-mono">{order.orderNumber}</span>
           </p>
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {canAssign && (
             <button
               onClick={() => setShowAssign(true)}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="flex flex-1 sm:flex-initial items-center justify-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <Truck className="w-4 h-4" />
               {order.driver ? "Haydovchi o'zgartirish" : "Haydovchi biriktirish"}
@@ -99,7 +99,7 @@ export function OrderDetail({ id }: Props) {
               key={action.status}
               onClick={() => handleAction(action.status)}
               disabled={updateStatus.isPending}
-              className={cn("flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-xl transition-colors shadow-sm", action.color)}
+              className={cn("flex flex-1 sm:flex-initial items-center justify-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-xl transition-colors shadow-sm", action.color)}
             >
               <action.icon className="w-4 h-4" />
               {action.label}
@@ -109,7 +109,7 @@ export function OrderDetail({ id }: Props) {
             <button
               onClick={handleCancel}
               disabled={updateStatus.isPending}
-              className="flex items-center gap-2 px-3 py-2 border border-red-200 dark:border-red-900/50 text-red-500 text-sm font-medium rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              className="flex flex-1 sm:flex-initial items-center justify-center gap-2 px-3 py-2 border border-red-200 dark:border-red-900/50 text-red-500 text-sm font-medium rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
             >
               <XCircle className="w-4 h-4" />
               Bekor
@@ -118,10 +118,10 @@ export function OrderDetail({ id }: Props) {
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Main grid — mobilda bitta ustun, md+ da 3 ustun */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Order info */}
-        <div className="col-span-2 space-y-4">
+        <div className="md:col-span-2 space-y-4">
           {/* Customer card */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Mijoz</h3>

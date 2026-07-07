@@ -117,7 +117,7 @@ export function UsersPage() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                  <tr key={i} className="border-t border-gray-200 dark:border-gray-700/70">
                     {Array.from({ length: 6 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></td>
                     ))}
@@ -129,7 +129,7 @@ export function UsersPage() {
                   <tr
                     key={u.id}
                     className={cn(
-                      "border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors",
+                      "border-t border-gray-200 dark:border-gray-700/70 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors",
                       !u.isActive && "opacity-50"
                     )}
                   >
