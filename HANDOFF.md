@@ -202,6 +202,12 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   - **Digital Asset Links:** `apps/web/public/.well-known/assetlinks.json` (packageId `uz.aquaerp.app`, keystore SHA-256). Bu fayl bo'lmasa ilova URL panel bilan ochiladi.
   - **APK tarqatish:** tayyor APK `apps/web/public/aquaerp.apk` ga ko'chiriladi → https://116-203-220-83.nip.io/aquaerp.apk dan yuklab olinadi. Ichi sayt bo'lgani uchun keyingi deploylar APKni qayta qurishni TALAB QILMAYDI (faqat ikonka/nom/domen o'zgarsa kerak).
 
+✅ **Haydovchi tuzatishlari (2026-07-08):**
+- **Marshrut endi ESKI yopilmagan zakazlarni ham ko'rsatadi:** getDriverOrders (orders.service) — NEW/PROCESSING/ASSIGNED sanasidan qat'i nazar; DELIVERED faqat shu kuni yetkazilganlar (deliveredAt bo'yicha). Avval createdAt=bugun filtri edi — kechagi ochiq zakazlar yo'qolardi.
+- **findOne izolyatsiyasi:** haydovchi boshqa haydovchining buyurtmasini ID bilan ham ocholmaydi (403). findAll (driverId majburlash) va updateStatus (o'z buyurtmasi) avvaldan to'g'ri edi — test qilingan.
+- **Haydovchi /orders tablari:** DRIVER_FILTERS = Biriktirilgan (default) / Yetkazildi / Barchasi. Yangi/Jarayonda haydovchiga ko'rinmaydi.
+- **RouteMap `sticky` prop:** faqat /route sahifasida sticky (driver-detail'da oddiy — scroll'ga xalaqit bermaydi). driver-detail jadvallariga overflow-x-auto qo'shildi (mobilda scroll ishlaydi).
+
 ✅ **Marshrut optimallashtirish (2026-07-07 kech):**
 - **Eng qisqa yo'l:** route-map.tsx da `optimizeRoute` (nearest-neighbor + 2-opt, haversine). Boshlang'ich nuqta — haydovchining GPS joyi (`geoPos` state, 50m+ siljigandagina yangilanadi, aks holda marshrut "sakraydi"); GPS yo'q bo'lsa birinchi zakaz. Har nuqtaga masofa (`legKm`) va jami yo'l footer'da ko'rsatiladi.
 - **Yetkazilganlar xaritada YO'Q** — faqat kutilayotganlar pin bo'ladi (hammasi ko'k); ro'yxatda yetkazilganlar pastda (opacity-60, line-through, ✓). Hammasi yetkazilsa "🎉" karta.

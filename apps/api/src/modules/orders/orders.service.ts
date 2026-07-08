@@ -252,7 +252,7 @@ export class OrdersService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user?: { sub: string; role: string }) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
@@ -263,6 +263,10 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
+    // Haydovchi faqat O'ZIGA biriktirilgan buyurtmani ochadi (ID bilan ham)
+    if (user?.role === "DRIVER" && order.driverId !== user.sub) {
+      throw new ForbiddenException("Bu buyurtma sizga tegishli emas");
+    }
     return order;
   }
 
@@ -475,7 +479,13 @@ export class OrdersService {
     const orders = await this.prisma.order.findMany({
       where: {
         driverId,
-        createdAt: { gte: start, lte: end },
+        OR: [
+          // Yopilmagan buyurtmalar — sanasidan QAT'I NAZAR (kechagi, bir oylik ham).
+          // Haydovchi yetkazmaguncha marshrutdan tushmaydi.
+          { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as OrderStatus[] } },
+          // Yetkazilganlar — faqat shu kuni yetkazilganlar (ro'yxat to'lib ketmasin)
+          { status: "DELIVERED" as OrderStatus, deliveredAt: { gte: start, lte: end } },
+        ],
       },
       orderBy: { createdAt: "asc" },
       include: {

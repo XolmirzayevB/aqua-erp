@@ -28,6 +28,14 @@ const STATUS_FILTERS = [
   { value: "CANCELLED", label: "Bekor" },
 ];
 
+// Haydovchi uchun soddalashtirilgan tablar: birinchi — unga biriktirilganlar.
+// Yangi/Jarayonda unga tegishli emas (bunday zakazlar hali haydovchisiz).
+const DRIVER_FILTERS = [
+  { value: "ASSIGNED", label: "Biriktirilgan" },
+  { value: "DELIVERED", label: "Yetkazildi" },
+  { value: "", label: "Barchasi" },
+];
+
 // To'lov turi → pill toni (dizayn: To'langan=green, Qarz=red, boshqa=amber)
 const PAYMENT_TONES: Record<string, Tone> = {
   CASH: "success",
@@ -38,15 +46,17 @@ const PAYMENT_TONES: Record<string, Tone> = {
 };
 
 export function OrdersTable() {
+  const { isDriver, canCreateOrder, canDeliver } = usePermissions();
+  const filters = isDriver ? DRIVER_FILTERS : STATUS_FILTERS;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [status, setStatus] = useState("");
+  // Haydovchi sahifani ochganda darrov O'ZIGA BIRIKTIRILGANLARNI ko'radi
+  const [status, setStatus] = useState(isDriver ? "ASSIGNED" : "");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const { isDriver, canCreateOrder, canDeliver } = usePermissions();
 
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
@@ -127,7 +137,7 @@ export function OrdersTable() {
     <div>
       <PageHeader
         title="Buyurtmalar"
-        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${STATUS_FILTERS.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
+        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
       >
         {/* Zakazni faqat operator (yoki admin) yozadi */}
         {canCreateOrder && (
@@ -150,7 +160,7 @@ export function OrdersTable() {
           />
         </div>
         <SegmentTabs
-          options={STATUS_FILTERS.map((f) => ({
+          options={filters.map((f) => ({
             value: f.value,
             label: f.label,
             count: status === f.value ? meta?.total : undefined,

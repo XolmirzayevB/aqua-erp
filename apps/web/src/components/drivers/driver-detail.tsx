@@ -227,7 +227,8 @@ export function DriverDetail({ id }: Props) {
         </div>
 
         {activeTab === "sessions" && (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                 {["Sana", "Olingan", "Sotilgan", "Bo'sh tara", "Naqd", "Karta", "Status"].map((h) => (
@@ -260,10 +261,12 @@ export function DriverDetail({ id }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {activeTab === "orders" && (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                 {["#", "Mijoz", "Soni", "Summa", "Status", "Sana"].map((h) => (
@@ -288,6 +291,7 @@ export function DriverDetail({ id }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

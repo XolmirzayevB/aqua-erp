@@ -100,7 +100,9 @@ function optimizeRoute<T extends { lat: number; lng: number }>(points: T[], star
   return route;
 }
 
-export function RouteMap({ driverId, date }: { driverId?: string; date?: string }) {
+// sticky — xarita tepada yopishib turadi (faqat /route sahifasida yoqiladi;
+// driver-detail kabi boshqa kontent bor sahifalarda scroll'ga xalaqit beradi)
+export function RouteMap({ driverId, date, sticky = false }: { driverId?: string; date?: string; sticky?: boolean }) {
   const { data: orders = [], isLoading } = useDriverDayOrders(driverId, date);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
@@ -316,9 +318,9 @@ export function RouteMap({ driverId, date }: { driverId?: string; date?: string 
 
   return (
     <div className="space-y-3">
-      {/* Xarita — sticky: ro'yxat aylantirilganda ham tepada ko'rinib turadi */}
+      {/* Xarita — sticky bo'lsa ro'yxat aylantirilganda ham tepada ko'rinib turadi */}
       {stops.length > 0 ? (
-        <div className={cn(cardClass, "overflow-hidden sticky top-0 z-20")}>
+        <div className={cn(cardClass, "overflow-hidden", sticky && "sticky top-0 z-20")}>
           <div className="relative">
             <div ref={mapRef} className="h-[38vh] min-h-[260px] md:h-[420px] w-full z-0" />
             {/* Joyimga qaytish / kuzatish tugmasi */}

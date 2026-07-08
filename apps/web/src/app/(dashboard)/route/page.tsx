@@ -15,7 +15,7 @@ export default function RoutePage() {
         title="Bugungi marshrut"
         subtitle={`${formatDate(new Date(), "d-MMMM, EEEE")} · sizga biriktirilgan buyurtmalar`}
       />
-      <RouteMap driverId={user?.id} />
+      <RouteMap driverId={user?.id} sticky />
     </div>
   );
 }

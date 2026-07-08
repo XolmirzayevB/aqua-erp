@@ -43,8 +43,8 @@ export class OrdersController {
 
   @Get(":id")
   @ApiOperation({ summary: "Buyurtma tafsilotlari" })
-  findOne(@Param("id", ParseUUIDPipe) id: string) {
-    return this.ordersService.findOne(id);
+  findOne(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.ordersService.findOne(id, user);
   }
 
   @Patch(":id/status")
