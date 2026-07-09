@@ -44,7 +44,7 @@ export class FinanceController {
   }
 
   @Get("debts")
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER)
   @ApiOperation({ summary: "Qarzdor mijozlar" })
   @ApiQuery({ name: "page", required: false })
   @ApiQuery({ name: "search", required: false })

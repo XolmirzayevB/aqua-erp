@@ -195,6 +195,11 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - **Boshlang'ich zaxira:** `POST /inventory/set-warehouse {quantity}` — ombordagi bo'sh tara sonini ANIQ belgilaydi (intake = ustiga qo'shadi). Frontend: intake-modal'da "Aniq sonni belgilash / Ustiga qo'shish" rejimi.
 - **Daftardagi mijozlar:** create'da bottlesOwned kiritilsa → aylanmaga qo'shiladi, omborга tegmaydi (inventory action yo'q — to'g'ri, ular tizimdan oldin sotilgan).
 - Test: `scratchpad/test_warehouse.py` (6 stsenariy, hammasi o'tgan). Dev bazasida eski singan/yo'qolgan (50/50) test ma'lumoti bor — prod'da egasi haqiqiy sonni set-warehouse orqali kiritadi.
+✅ **Haydovchi qarzdorlar ro'yxati + phone2 tuzatish (2026-07-09):**
+- **Haydovchiga "Qarzdorlik" bo'limi** (faqat KO'RISH): sidebar'da DRIVER uchun ochildi; ROLE_ROUTES DRIVER'ga `/debts` qo'shildi; `GET /finance/debts` DRIVER rolini qabul qiladi. debts-page'da haydovchi uchun: /customers linki YO'Q (kira olmaydi), "To'lov" tugmasi o'rniga "Qo'ng'iroq" (tel:). To'lovni buyurtma sahifasidan qiladi (yuqoridagi feature).
+- **Mobil debts kartalari:** debts-page'ga `md:hidden` karta ko'rinishi (ism, tel, qarz, manzil, tugma) + `hidden md:block` jadval — scroll kerak emas.
+- **phone2 (qo'shimcha telefon) MAJBURIY xatosi TUZATILDI:** create-customer.dto phone2 regex `/^(\+998\d{9})?$/` — bo'sh satr ("") ham qabul qilinadi. Sabab: `@IsOptional()` faqat null/undefined ni o'tkazadi, frontend esa "" yuboradi → eski `@Matches(/^\+998\d{9}$/)` bo'sh satrda yiqilardi. Test: bo'sh=OK, to'liq=OK, chala=400.
+
 ✅ **Haydovchiga qarzdorlik qabul qilish (2026-07-09):**
 - Haydovchi (va operator/admin) buyurtma tafsilotida mijoz qarzi bo'lsa "Qarz to'lovi" tugmasini ko'radi → PaymentModal (mavjud komponent qayta ishlatilgan).
 - Backend: `POST /customers/:id/payments` endi DRIVER rolini ham qabul qiladi. `addPayment` — agar DRIVER bo'lsa, o'sha mijozga BIRIKTIRILGAN buyurtmasi borligini tekshiradi (aks holda 403 "Bu mijoz sizga biriktirilmagan"). Tranzaksiya izohiga "(haydovchi)" qo'shiladi.

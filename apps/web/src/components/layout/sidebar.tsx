@@ -30,7 +30,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/inventory", label: "Ombor", icon: Warehouse, roles: [Role.ADMIN, Role.MANAGER] },
       { href: "/finance", label: "Moliya", icon: Wallet, roles: [Role.ADMIN, Role.MANAGER] },
-      { href: "/debts", label: "Qarzdorlik", icon: Coins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
+      { href: "/debts", label: "Qarzdorlik", icon: Coins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
     ],
   },
   {

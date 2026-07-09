@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Search, Banknote, ChevronLeft, ChevronRight, Coins, Users, Wallet,
+  Search, Banknote, ChevronLeft, ChevronRight, Coins, Users, Wallet, Phone,
 } from "lucide-react";
 import { useDebts } from "@/hooks/use-finance";
 import { PaymentModal } from "@/components/customers/payment-modal";
@@ -20,7 +20,7 @@ export function DebtsPage() {
   const [page, setPage] = useState(1);
   const [payTarget, setPayTarget] = useState<{ id: string; name: string; balance: number } | null>(null);
 
-  const { readOnly } = usePermissions();
+  const { readOnly, isDriver } = usePermissions();
   const { data, isLoading } = useDebts(page, debouncedSearch);
 
   const handleSearch = (val: string) => {
@@ -59,8 +59,74 @@ export function DebtsPage() {
         />
       </div>
 
-      {/* Top qarzdorlar jadvali */}
-      <div className={cn(cardClass, "overflow-hidden")}>
+      {/* MOBIL: har qarzdor alohida karta — scroll kerak emas */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className={cn(cardClass, "p-4")}>
+              <div className="h-4 w-1/2 bg-gray-100 dark:bg-gray-800 rounded animate-pulse mb-2" />
+              <div className="h-4 w-3/4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          ))
+        ) : debtors.length === 0 ? (
+          <div className={cn(cardClass, "px-5 py-12 text-center")}>
+            <div className="text-green-500 text-xl mb-1">✓</div>
+            <p className="text-gray-400 dark:text-gray-500">Qarzdor mijozlar yo'q</p>
+          </div>
+        ) : (
+          debtors.map((d) => (
+            <div key={d.id} className={cn(cardClass, "p-4 shadow-card")}>
+              <div className="flex items-center gap-3">
+                <Avatar name={d.name} size={40} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {isDriver ? (
+                      <span className="text-[14px] font-semibold text-gray-900 dark:text-white truncate">{d.name}</span>
+                    ) : (
+                      <Link href={`/customers/${d.id}`} className="text-[14px] font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400">{d.name}</Link>
+                    )}
+                    {(d as any).zone && <Pill tone="primary" className="!text-[11px] !py-0.5">{(d as any).zone}</Pill>}
+                  </div>
+                  <span className="font-mono text-xs text-gray-400 dark:text-gray-500">{formatPhone(d.phone)}</span>
+                </div>
+                <span className="text-[15px] font-bold text-red-500 tabular-nums whitespace-nowrap">{formatCurrency(d.debt)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-3">
+                <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{d.address}</span>
+                {isDriver ? (
+                  <a href={`tel:${d.phone}`} className="flex-none inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors">
+                    <Phone className="w-4 h-4" /> Qo'ng'iroq
+                  </a>
+                ) : !readOnly ? (
+                  <button onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })} className="flex-none inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors">
+                    <Banknote className="w-4 h-4" /> To'lov
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))
+        )}
+        {/* Mobil sahifalash */}
+        {data?.meta && data.meta.totalPages > 1 && (
+          <div className={cn(cardClass, "px-4 py-3 flex items-center justify-between")}>
+            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{data.meta.total} ta jami</p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(page - 1)} disabled={page <= 1}
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-xs text-gray-500 tabular-nums">{page} / {data.meta.totalPages}</span>
+              <button onClick={() => setPage(page + 1)} disabled={page >= data.meta.totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Top qarzdorlar jadvali (planshet/kompyuter) */}
+      <div className={cn(cardClass, "overflow-hidden hidden md:block")}>
         <div className="px-5 pt-4 pb-3 text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
           Qarzdorlar ro'yxati
         </div>
@@ -95,17 +161,32 @@ export function DebtsPage() {
               ) : debtors.map((d) => (
                 <tr key={d.id} className="border-t border-gray-400/70 dark:border-gray-600 even:bg-gray-50 dark:even:bg-gray-800/25 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 pl-5 py-3">
-                    <Link href={`/customers/${d.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-                      <Avatar name={d.name} size={38} />
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[170px] truncate">
-                          {d.name}
-                        </span>
-                        {(d as any).zone && (
-                          <Pill tone="primary" className="!text-[11px] !py-0.5">{(d as any).zone}</Pill>
-                        )}
+                    {/* Haydovchi /customers ga kira olmaydi — u uchun oddiy matn */}
+                    {isDriver ? (
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={d.name} size={38} />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[170px] truncate">
+                            {d.name}
+                          </span>
+                          {(d as any).zone && (
+                            <Pill tone="primary" className="!text-[11px] !py-0.5">{(d as any).zone}</Pill>
+                          )}
+                        </div>
                       </div>
-                    </Link>
+                    ) : (
+                      <Link href={`/customers/${d.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+                        <Avatar name={d.name} size={38} />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[170px] truncate">
+                            {d.name}
+                          </span>
+                          {(d as any).zone && (
+                            <Pill tone="primary" className="!text-[11px] !py-0.5">{(d as any).zone}</Pill>
+                          )}
+                        </div>
+                      </Link>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-mono text-[12.5px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {formatPhone(d.phone)}
@@ -126,7 +207,16 @@ export function DebtsPage() {
                     {formatCurrency(d.debt)}
                   </td>
                   <td className="px-4 pr-5 py-3 text-right">
-                    {!readOnly && (
+                    {/* Haydovchi: faqat qo'ng'iroq (to'lovni buyurtma sahifasidan qiladi) */}
+                    {isDriver ? (
+                      <a
+                        href={`tel:${d.phone}`}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        Qo'ng'iroq
+                      </a>
+                    ) : !readOnly ? (
                       <button
                         onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })}
                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
@@ -134,7 +224,7 @@ export function DebtsPage() {
                         <Banknote className="w-3.5 h-3.5" />
                         To'lov
                       </button>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}

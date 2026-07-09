@@ -14,7 +14,7 @@ const ROLE_ROUTES: Record<string, { home: string; allowed: string[] }> = {
   ADMIN: { home: "/", allowed: [] }, // bo'sh = hamma sahifa ochiq
   MANAGER: { home: "/", allowed: ["/", "/customers", "/inventory", "/finance", "/debts", "/reports", "/analytics"] },
   OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/debts"] },
-  DRIVER: { home: "/orders", allowed: ["/orders", "/route"] },
+  DRIVER: { home: "/orders", allowed: ["/orders", "/route", "/debts"] },
 };
 
 function isPathAllowed(role: string | undefined, pathname: string): boolean {

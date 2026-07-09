@@ -19,7 +19,8 @@ export class CreateCustomerDto {
   @ApiPropertyOptional({ example: "+998901234568" })
   @IsOptional()
   @IsString()
-  @Matches(/^\+998\d{9}$/, { message: "Qo'shimcha telefon noto'g'ri formatda" })
+  // Ixtiyoriy: bo'sh satr ("") ham qabul qilinadi; to'ldirilsa to'liq format bo'lsin
+  @Matches(/^(\+998\d{9})?$/, { message: "Qo'shimcha telefon noto'g'ri formatda" })
   phone2?: string;
 
   @ApiProperty({ example: "Yunusobod 5-kv, 23-uy" })
