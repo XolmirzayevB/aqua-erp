@@ -125,6 +125,10 @@ export function useAddPayment() {
       qc.invalidateQueries({ queryKey: ["customers", id] });
       qc.invalidateQueries({ queryKey: ["customers", id, "payments"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
+      // Qarzdorlar ro'yxati + moliya to'lovdan keyin darrov yangilanadi
+      qc.invalidateQueries({ queryKey: ["debts"] });
+      qc.invalidateQueries({ queryKey: ["finance-summary"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       // Buyurtma tafsilotidagi qarz ko'rsatkichi ham yangilansin (haydovchi qarz olganda)
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["driver-day-orders"] });

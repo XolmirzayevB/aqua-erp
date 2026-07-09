@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ConflictException, ForbiddenException,
+  Injectable, NotFoundException, ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
@@ -149,15 +149,8 @@ export class CustomersService {
   async addPayment(id: string, dto: AddPaymentDto, user: { sub: string; role: string }) {
     const customer = await this.assertExists(id);
 
-    // Haydovchi FAQAT o'ziga biriktirilgan mijozdan qarz oladi (yetkazganда).
-    if (user.role === "DRIVER") {
-      const hasOrder = await this.prisma.order.count({
-        where: { customerId: id, driverId: user.sub },
-      });
-      if (hasOrder === 0) {
-        throw new ForbiddenException("Bu mijoz sizga biriktirilmagan");
-      }
-    }
+    // Haydovchi ham qarzdor mijozdan to'lov qabul qila oladi (yetkazganда yoki
+    // qarzdorlar ro'yxatidan). Kim qabul qilgani tranzaksiyada saqlanadi.
 
     const [payment] = await this.prisma.$transaction([
       this.prisma.payment.create({

@@ -202,9 +202,10 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ✅ **Haydovchiga qarzdorlik qabul qilish (2026-07-09):**
 - Haydovchi (va operator/admin) buyurtma tafsilotida mijoz qarzi bo'lsa "Qarz to'lovi" tugmasini ko'radi → PaymentModal (mavjud komponent qayta ishlatilgan).
-- Backend: `POST /customers/:id/payments` endi DRIVER rolini ham qabul qiladi. `addPayment` — agar DRIVER bo'lsa, o'sha mijozga BIRIKTIRILGAN buyurtmasi borligini tekshiradi (aks holda 403 "Bu mijoz sizga biriktirilmagan"). Tranzaksiya izohiga "(haydovchi)" qo'shiladi.
-- Frontend: `usePermissions().canCollectDebt` (driver/operator/admin); order-detail'da qarz bloki yonida tugma; useAddPayment orders/driver-day-orders cache'ni ham yangilaydi.
-- Test: `scratchpad/test_driver_debt.py` — begona haydovchi 403, o'z haydovchisi qabul qiladi, INCOME tranzaksiya yoziladi (hammasi o'tgan).
+- **Qarzdorlar ro'yxatidan ham to'lov:** debts-page'da haydovchiga "To'lov" (yashil) + "Qo'ng'iroq" tugmalari (mobil karta ham, jadval ham). Foydalanuvchi so'rovi bilan haydovchi ISTALGAN qarzdordan to'lov qabul qila oladi (biriktirilgan bo'lishi shart emas) — `addPayment`dagi DRIVER-cheklovi OLIB TASHLANDI. Tranzaksiya izohiga "(haydovchi)" qo'shiladi, kim qabul qilgani createdById'da.
+- Backend: `POST /customers/:id/payments` DRIVER rolini qabul qiladi (controller). `GET /finance/debts` DRIVER'ga ochiq.
+- Frontend: `usePermissions().canCollectDebt`; useAddPayment `debts`/`finance-summary`/`dashboard-stats`/`orders`/`driver-day-orders` cache'larini yangilaydi (to'lovdan keyin ro'yxat DARROV yangilanadi).
+- Test: `scratchpad/test_driver_debt.py` + biriktirilmagan qarzdordan to'lov (201 OK), UI'da 2 ta to'lov ketma-ket, ro'yxat reloadsiz yangilandi.
 
 ✅ **Push xabarnoma + Android APK (2026-07-07):**
 - **Web Push (VAPID):** yangi buyurtma haydovchiga biriktirilganda telefoniga push tushadi (ilova yopiq bo'lsa ham).

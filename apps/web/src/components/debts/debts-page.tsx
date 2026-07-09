@@ -93,15 +93,20 @@ export function DebtsPage() {
               </div>
               <div className="flex items-center justify-between gap-2 mt-3">
                 <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{d.address}</span>
-                {isDriver ? (
-                  <a href={`tel:${d.phone}`} className="flex-none inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors">
-                    <Phone className="w-4 h-4" /> Qo'ng'iroq
-                  </a>
-                ) : !readOnly ? (
-                  <button onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })} className="flex-none inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors">
-                    <Banknote className="w-4 h-4" /> To'lov
-                  </button>
-                ) : null}
+                <div className="flex items-center gap-2 flex-none">
+                  {/* Haydovchiga qulaylik uchun qo'ng'iroq tugmasi */}
+                  {isDriver && (
+                    <a href={`tel:${d.phone}`} className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400">
+                      <Phone className="w-4 h-4" />
+                    </a>
+                  )}
+                  {/* To'lov — haydovchi, operator, admin (menejer ko'ra olmaydi) */}
+                  {!readOnly && (
+                    <button onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors">
+                      <Banknote className="w-4 h-4" /> To'lov
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -206,25 +211,28 @@ export function DebtsPage() {
                   <td className="px-4 py-3 text-right text-sm font-bold text-red-500 tabular-nums whitespace-nowrap">
                     {formatCurrency(d.debt)}
                   </td>
-                  <td className="px-4 pr-5 py-3 text-right">
-                    {/* Haydovchi: faqat qo'ng'iroq (to'lovni buyurtma sahifasidan qiladi) */}
-                    {isDriver ? (
-                      <a
-                        href={`tel:${d.phone}`}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        Qo'ng'iroq
-                      </a>
-                    ) : !readOnly ? (
-                      <button
-                        onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
-                      >
-                        <Banknote className="w-3.5 h-3.5" />
-                        To'lov
-                      </button>
-                    ) : null}
+                  <td className="px-4 pr-5 py-3">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {/* Haydovchiga qo'ng'iroq tugmasi (qulaylik) */}
+                      {isDriver && (
+                        <a
+                          href={`tel:${d.phone}`}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-[9px] border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      {/* To'lov — haydovchi/operator/admin (menejer emas) */}
+                      {!readOnly && (
+                        <button
+                          onClick={() => setPayTarget({ id: d.id, name: d.name, balance: Number(d.balance) })}
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                        >
+                          <Banknote className="w-3.5 h-3.5" />
+                          To'lov
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
