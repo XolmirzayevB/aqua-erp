@@ -12,14 +12,14 @@ export interface InventoryItem {
 }
 
 export interface InventoryOverview {
-  warehouseBottles: number;
-  customerBottles: number;
-  totalCirculation: number;
-  fullBottles: number;
-  emptyBottles: number;
+  warehouseBottles: number;   // omborda (sotilmagan bo'sh tara)
+  customerBottles: number;    // mijozlarda (aylanma / sotilgan)
   brokenBottles: number;
   lostBottles: number;
-  totalBottles: number;
+  usableBottles: number;      // omborda + mijozlarda
+  totalBottles: number;       // jami sotib olingan
+  totalCirculation: number;
+  emptyBottles: number;
   items: InventoryItem[];
 }
 
@@ -58,6 +58,20 @@ export function useInventoryIntake() {
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["inventory-history"] });
       toast.success("Qabul qilindi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
+export function useInventorySetWarehouse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { quantity: number; description?: string }) =>
+      api.post("/inventory/set-warehouse", data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["inventory-history"] });
+      toast.success("Ombor soni belgilandi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
   });

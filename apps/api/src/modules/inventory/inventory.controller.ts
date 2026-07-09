@@ -6,6 +6,7 @@ import { InventoryService } from "./inventory.service";
 import { AdjustInventoryDto } from "./dto/adjust-inventory.dto";
 import { IntakeDto } from "./dto/intake.dto";
 import { MoveStockDto } from "./dto/move-stock.dto";
+import { SetWarehouseDto } from "./dto/set-warehouse.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { Role } from "@aqua/shared";
 
@@ -38,9 +39,16 @@ export class InventoryController {
 
   @Post("intake")
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: "Yetkazib beruvchidan qabul qilish" })
+  @ApiOperation({ summary: "Omborga bo'sh tara qo'shish (qo'shimcha)" })
   intake(@Body() dto: IntakeDto) {
     return this.inventoryService.intake(dto);
+  }
+
+  @Post("set-warehouse")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Ombordagi bo'sh tara sonini aniq belgilash (boshlang'ich)" })
+  setWarehouse(@Body() dto: SetWarehouseDto) {
+    return this.inventoryService.setWarehouse(dto.quantity, dto.description);
   }
 
   @Post("adjust")

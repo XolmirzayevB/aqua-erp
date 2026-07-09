@@ -188,6 +188,15 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
+✅ **Ombor logikasi qayta qurildi (2026-07-09) — MUHIM:**
+- **Yangi soddalashtirilgan model:** ombor FAQAT bo'sh tara saqlaydi (to'la tara zaxira YO'Q — qo'lda to'ldirib moshinaga ortiladi). `FULL_BOTTLE` endi ishlatilmaydi; `EMPTY_BOTTLE` = ombordagi yagona hisob.
+- **Order effekti (orders.service create + reverseEffects):** faqat `newBottles` ombordan chiqadi (`EMPTY_BOTTLE -= newBottles`), mijoz `bottlesOwned += newBottles`. Almashtirish (refill) omborга TEGMAYDI (bo'sh chiqib bo'sh qaytadi = net nol). Bekor qilinsa teskarisi. (Avval FULL_BOTTLE -= quantity edi — noto'g'ri.)
+- **Hisob (getOverview):** warehouseBottles (omborda/sotilmagan), customerBottles (aylanma = sum bottlesOwned), broken, lost. Jami = warehouse+customers+broken+lost (saqlanish qonuni). usableBottles = warehouse+customers.
+- **Boshlang'ich zaxira:** `POST /inventory/set-warehouse {quantity}` — ombordagi bo'sh tara sonini ANIQ belgilaydi (intake = ustiga qo'shadi). Frontend: intake-modal'da "Aniq sonni belgilash / Ustiga qo'shish" rejimi.
+- **Daftardagi mijozlar:** create'da bottlesOwned kiritilsa → aylanmaga qo'shiladi, omborга tegmaydi (inventory action yo'q — to'g'ri, ular tizimdan oldin sotilgan).
+- Test: `scratchpad/test_warehouse.py` (6 stsenariy, hammasi o'tgan). Dev bazasida eski singan/yo'qolgan (50/50) test ma'lumoti bor — prod'da egasi haqiqiy sonni set-warehouse orqali kiritadi.
+- ⏳ QOLGAN (foydalanuvchi so'ragan, hali qilinmagan): **haydovchiga qarzdorlik qabul qilish** (yetkazganda qarzni olishi mumkin) — alohida ish.
+
 ✅ **Push xabarnoma + Android APK (2026-07-07):**
 - **Web Push (VAPID):** yangi buyurtma haydovchiga biriktirilganda telefoniga push tushadi (ilova yopiq bo'lsa ham).
   - Backend: `apps/api/src/modules/notifications/push.service.ts` (web-push paketi) + `notifications.controller.ts` (GET push/public-key, POST/DELETE push/subscribe). Yuborish nuqtalari: orders.service create (driverId bilan) + assignDriver.

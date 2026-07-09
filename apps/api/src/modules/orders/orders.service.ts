@@ -105,37 +105,23 @@ export class OrdersService {
         },
       });
 
-      // Ombor harakati — buyurtma yagona manba (sessiyasiz ish tartibi):
-      // yetkaziladigan BARCHA to'la tara ombordan chiqadi,
-      // almashtirishdan qaytgan bo'sh tara omborga kiradi.
-      const fullInv = await tx.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
-      if (fullInv) {
-        await tx.inventory.update({
-          where: { type: "FULL_BOTTLE" },
-          data: { quantity: { decrement: quantity } },
-        });
-        await tx.inventoryAction.create({
-          data: {
-            inventoryId: fullInv.id,
-            actionType: "DELIVERY",
-            quantity: -quantity,
-            description: `Buyurtma #${created.seq} — ${customer.name}`,
-          },
-        });
-      }
-      if (bottlesReturned > 0) {
+      // Ombor harakati (soddalashtirilgan model):
+      // FAQAT yangi sotilgan tara ombordan butunlay chiqadi (mijozники bo'ladi).
+      // Almashtirish (to'ldirish) — bo'sh tara chiqib, bo'sh tara qaytadi →
+      // omborga ta'sir qilmaydi (net nol).
+      if (newBottles > 0) {
         const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
         if (emptyInv) {
           await tx.inventory.update({
             where: { type: "EMPTY_BOTTLE" },
-            data: { quantity: { increment: bottlesReturned } },
+            data: { quantity: { decrement: newBottles } },
           });
           await tx.inventoryAction.create({
             data: {
               inventoryId: emptyInv.id,
-              actionType: "RETURN",
-              quantity: bottlesReturned,
-              description: `Buyurtma #${created.seq} — bo'sh tara qaytdi`,
+              actionType: "DELIVERY",
+              quantity: -newBottles,
+              description: `Buyurtma #${created.seq} — ${newBottles} ta yangi tara sotildi (${customer.name})`,
             },
           });
         }
@@ -413,35 +399,21 @@ export class OrdersService {
         ...(order.paymentType === "DEBT" ? { balance: { increment: order.totalAmount } } : {}),
       },
     });
-    // Ombor: chiqqan to'la tara qaytadi, kirgan bo'sh tara chiqadi
-    const fullInv = await tx.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
-    if (fullInv) {
-      await tx.inventory.update({
-        where: { type: "FULL_BOTTLE" },
-        data: { quantity: { increment: order.quantity } },
-      });
-      await tx.inventoryAction.create({
-        data: {
-          inventoryId: fullInv.id,
-          actionType: "ADJUSTMENT",
-          quantity: order.quantity,
-          description: `Buyurtma #${order.seq} bekor — to'la tara qaytdi`,
-        },
-      });
-    }
-    if (order.bottlesReturned > 0) {
+    // Ombor: sotilgan yangi tara omborga qaytadi (bekor qilinganda).
+    // Almashtirish omborga ta'sir qilmagan edi — bekor qilinganda ham tegmaydi.
+    if (order.newBottles > 0) {
       const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
       if (emptyInv) {
         await tx.inventory.update({
           where: { type: "EMPTY_BOTTLE" },
-          data: { quantity: { decrement: order.bottlesReturned } },
+          data: { quantity: { increment: order.newBottles } },
         });
         await tx.inventoryAction.create({
           data: {
             inventoryId: emptyInv.id,
             actionType: "ADJUSTMENT",
-            quantity: -order.bottlesReturned,
-            description: `Buyurtma #${order.seq} bekor — bo'sh tara qaytarildi`,
+            quantity: order.newBottles,
+            description: `Buyurtma #${order.seq} bekor — ${order.newBottles} ta yangi tara omborga qaytdi`,
           },
         });
       }

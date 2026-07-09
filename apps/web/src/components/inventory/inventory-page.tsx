@@ -19,10 +19,10 @@ import type { Tone } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
 
 const TYPE_META: Record<string, { label: string; icon: any; tone: Tone }> = {
-  FULL_BOTTLE:   { label: "To'la tara", icon: Droplet, tone: "primary" },
-  EMPTY_BOTTLE:  { label: "Bo'sh tara", icon: Archive, tone: "warning" },
+  EMPTY_BOTTLE:  { label: "Ombordagi tara", icon: Archive, tone: "warning" },
   BROKEN_BOTTLE: { label: "Singan", icon: Hammer, tone: "danger" },
   LOST_BOTTLE:   { label: "Yo'qolgan", icon: HelpCircle, tone: "muted" },
+  FULL_BOTTLE:   { label: "To'la tara (eski)", icon: Droplet, tone: "primary" },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -35,7 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 // Donut segment ranglari — dizayndagi qiymatlar
-const SEG_COLORS = { full: "#2563EB", empty: "#F59E0B", broken: "#EF4444", lost: "#9CA3AF" };
+const SEG_COLORS = { warehouse: "#F59E0B", customers: "#2563EB", broken: "#EF4444", lost: "#9CA3AF" };
 
 export function InventoryPage() {
   const [showIntake, setShowIntake] = useState(false);
@@ -46,29 +46,27 @@ export function InventoryPage() {
   const { data: inv, isLoading, refetch } = useInventory();
   const { data: history } = useInventoryHistory(historyPage);
 
-  const full = inv?.fullBottles ?? 0;
-  const empty = inv?.emptyBottles ?? 0;
+  const inWarehouse = inv?.warehouseBottles ?? 0;  // omborda (sotilmagan bo'sh)
+  const atCustomers = inv?.customerBottles ?? 0;   // mijozlarda (aylanma)
   const broken = inv?.brokenBottles ?? 0;
   const lost = inv?.lostBottles ?? 0;
-  const total = full + empty + broken + lost;
+  const total = inv?.totalBottles ?? (inWarehouse + atCustomers + broken + lost);
+  const usable = inv?.usableBottles ?? (inWarehouse + atCustomers);
 
   const segments = [
-    { label: "To'la", value: full, color: SEG_COLORS.full },
-    { label: "Bo'sh", value: empty, color: SEG_COLORS.empty },
+    { label: "Omborda", value: inWarehouse, color: SEG_COLORS.warehouse },
+    { label: "Mijozlarda", value: atCustomers, color: SEG_COLORS.customers },
     { label: "Singan", value: broken, color: SEG_COLORS.broken },
     { label: "Yo'qolgan", value: lost, color: SEG_COLORS.lost },
   ];
 
-  const circulation = inv?.totalCirculation ?? 0;
-  const inWarehouse = inv?.warehouseBottles ?? 0;
-  const atCustomers = inv?.customerBottles ?? 0;
-  const whPct = circulation > 0 ? inWarehouse / circulation : 0;
+  const whPct = usable > 0 ? inWarehouse / usable : 0;
 
   return (
     <div>
       <PageHeader
         title="Ombor"
-        subtitle={inv ? `${circulation} tara aylanmada · ${inWarehouse} omborda · ${atCustomers} mijozlarda` : "Yuklanmoqda..."}
+        subtitle={inv ? `${inWarehouse} omborda · ${atCustomers} mijozlarda · jami ${total} ta tara` : "Yuklanmoqda..."}
       >
         <button
           onClick={() => refetch()}
@@ -85,7 +83,7 @@ export function InventoryPage() {
             </button>
             <button onClick={() => setShowIntake(true)} className={btnPrimary}>
               <PackagePlus className="w-4 h-4 flex-none" />
-              Tara kirimi
+              Ombor tarasi
             </button>
           </>
         )}
@@ -93,8 +91,8 @@ export function InventoryPage() {
 
       {/* Stat strip */}
       <StatStrip>
-        <StatCard label="To'la tara" value={full} unit="dona" icon={Droplet} tone="primary" loading={isLoading} />
-        <StatCard label="Bo'sh tara" value={empty} unit="dona" icon={Archive} tone="warning" loading={isLoading} />
+        <StatCard label="Omborda (bo'sh)" value={inWarehouse} unit="dona" icon={Archive} tone="warning" loading={isLoading} />
+        <StatCard label="Mijozlarda" value={atCustomers} unit="dona" icon={Droplet} tone="primary" loading={isLoading} />
         <StatCard label="Singan" value={broken} unit="dona" icon={Hammer} tone="danger" loading={isLoading} />
         <StatCard label="Yo'qolgan" value={lost} unit="dona" icon={HelpCircle} tone="muted" loading={isLoading} />
       </StatStrip>
@@ -103,7 +101,7 @@ export function InventoryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className={cn(cardClass, "p-5")}>
           <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">Tara taqsimoti</h2>
-          <p className="text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5 mb-3">Barcha taralar holat bo'yicha</p>
+          <p className="text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5 mb-3">Barcha taralar qayerda ekani</p>
           <div className="flex items-center gap-6 flex-wrap">
             <Donut segments={segments} size={170} thick={21}>
               <span className="text-[11px] text-gray-400">Jami</span>
@@ -134,12 +132,12 @@ export function InventoryPage() {
           </Ring>
           <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-2 tabular-nums">
             Omborda <b className="text-gray-900 dark:text-white">{inWarehouse}</b> · Mijozlarda{" "}
-            <b className="text-gray-900 dark:text-white">{atCustomers}</b> · Jami{" "}
-            <b className="text-gray-900 dark:text-white">{circulation}</b>
+            <b className="text-gray-900 dark:text-white">{atCustomers}</b> · Ishlaydigan{" "}
+            <b className="text-gray-900 dark:text-white">{usable}</b>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 max-w-sm leading-relaxed">
-            Haydovchi kun boshlaganda taralar ombordan chiqadi, kun yopilganda sotilmagan va
-            qaytgan taralar omborga qaytadi. Bu yerda faqat qo'lda kirim va tuzatish qilinadi.
+            Mijoz yangi tara sotib olsa — ombordan chiqib, mijozning aylanma tarasiga qo'shiladi.
+            Almashtirish (to'ldirish) omborga ta'sir qilmaydi. Yangi tara sotib olsangiz "Ombor tarasi" tugmasi orqali qo'shing.
           </p>
         </div>
       </div>
@@ -230,8 +228,8 @@ export function InventoryPage() {
         )}
       </div>
 
-      {showIntake && <IntakeModal onClose={() => setShowIntake(false)} />}
-      {showMove && <MoveStockModal emptyCount={inv?.emptyBottles ?? 0} onClose={() => setShowMove(false)} />}
+      {showIntake && <IntakeModal current={inWarehouse} onClose={() => setShowIntake(false)} />}
+      {showMove && <MoveStockModal emptyCount={inWarehouse} onClose={() => setShowMove(false)} />}
     </div>
   );
 }

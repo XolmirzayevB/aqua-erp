@@ -29,25 +29,31 @@ export class InventoryService {
 
     const map = Object.fromEntries(items.map((i) => [i.type, i.quantity]));
 
-    // Mijozlardagi jami tara
+    // Mijozlardagi jami aylanma tara (sotilgan/tarqatilgan)
     const customerAgg = await this.prisma.customer.aggregate({
       where: { isActive: true },
       _sum: { bottlesOwned: true },
     });
     const customerBottles = customerAgg._sum.bottlesOwned ?? 0;
-    const warehouseBottles = (map.FULL_BOTTLE ?? 0) + (map.EMPTY_BOTTLE ?? 0);
+
+    // Soddalashtirilgan model: omborda FAQAT bo'sh tara turadi (to'la tara zaxira yo'q).
+    const warehouseBottles = map.EMPTY_BOTTLE ?? 0; // ombordagi bo'sh (sotilmagan) tara
+    const brokenBottles = map.BROKEN_BOTTLE ?? 0;
+    const lostBottles = map.LOST_BOTTLE ?? 0;
+
+    // Jami sotib olingan = omborda + mijozlarda + singan + yo'qolgan (saqlanish qonuni)
+    const totalBottles = warehouseBottles + customerBottles + brokenBottles + lostBottles;
 
     return {
-      // Soddalashtirilgan: omborda + mijozlarda
-      warehouseBottles,
-      customerBottles,
+      warehouseBottles,           // omborda (sotilmagan bo'sh tara)
+      customerBottles,            // mijozlarda (aylanma / sotilgan)
+      brokenBottles,
+      lostBottles,
+      usableBottles: warehouseBottles + customerBottles, // ishlaydigan (singan/yo'qolgansiz)
+      totalBottles,               // jami sotib olingan
+      // eski frontend maydonlari bilan moslik
       totalCirculation: warehouseBottles + customerBottles,
-      // Batafsil (ixtiyoriy)
-      fullBottles: map.FULL_BOTTLE ?? 0,
-      emptyBottles: map.EMPTY_BOTTLE ?? 0,
-      brokenBottles: map.BROKEN_BOTTLE ?? 0,
-      lostBottles: map.LOST_BOTTLE ?? 0,
-      totalBottles: warehouseBottles,
+      emptyBottles: warehouseBottles,
       items,
     };
   }
@@ -99,23 +105,49 @@ export class InventoryService {
     return updated;
   }
 
-  // Omborga tara qo'shish (boshlang'ich zaxira yoki yetkazib beruvchidan)
+  // Omborga bo'sh tara qo'shish (yetkazib beruvchidan yangi tara sotib olindi)
   async intake(dto: IntakeDto) {
     await this.ensureTypes();
 
-    const full = await this.prisma.inventory.findUnique({ where: { type: "FULL_BOTTLE" } });
+    const empty = await this.prisma.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
 
     await this.prisma.$transaction([
       this.prisma.inventory.update({
-        where: { type: "FULL_BOTTLE" },
+        where: { type: "EMPTY_BOTTLE" },
         data: { quantity: { increment: dto.quantity } },
       }),
       this.prisma.inventoryAction.create({
         data: {
-          inventoryId: full!.id,
+          inventoryId: empty!.id,
           actionType: "INTAKE",
           quantity: dto.quantity,
-          description: dto.description || "Omborga tara qo'shildi",
+          description: dto.description || "Omborga bo'sh tara qo'shildi",
+        },
+      }),
+    ]);
+
+    return this.getOverview();
+  }
+
+  // Ombordagi bo'sh tara sonini ANIQ belgilash (boshlang'ich zaxira / inventarizatsiya).
+  // Farqi (delta) tarixga yoziladi.
+  async setWarehouse(quantity: number, description?: string) {
+    await this.ensureTypes();
+
+    const empty = await this.prisma.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
+    const delta = quantity - (empty?.quantity ?? 0);
+
+    await this.prisma.$transaction([
+      this.prisma.inventory.update({
+        where: { type: "EMPTY_BOTTLE" },
+        data: { quantity },
+      }),
+      this.prisma.inventoryAction.create({
+        data: {
+          inventoryId: empty!.id,
+          actionType: "ADJUSTMENT",
+          quantity: delta,
+          description: description || `Ombor soni belgilandi: ${quantity} ta`,
         },
       }),
     ]);
