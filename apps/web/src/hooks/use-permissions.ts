@@ -29,5 +29,7 @@ export function usePermissions() {
     canManageOrders: isOperator || isAdmin,
     // "Yetkazildi"ni faqat haydovchi bosadi (admin ham)
     canDeliver: isDriver || isAdmin,
+    // Qarz (to'lov) qabul qilish: operator, admin, va haydovchi (yetkazganда)
+    canCollectDebt: isDriver || isOperator || isAdmin,
   };
 }

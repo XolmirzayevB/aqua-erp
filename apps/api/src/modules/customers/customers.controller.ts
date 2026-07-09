@@ -10,7 +10,7 @@ import { QueryCustomersDto } from "./dto/query-customers.dto";
 import { AddPaymentDto } from "./dto/add-payment.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { Role } from "@aqua/shared";
+import { Role, JwtPayload } from "@aqua/shared";
 
 @ApiTags("Customers")
 @ApiBearerAuth()
@@ -81,14 +81,14 @@ export class CustomersController {
   }
 
   @Post(":id/payments")
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
-  @ApiOperation({ summary: "Mijozdan to'lov qabul qilish" })
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.DRIVER)
+  @ApiOperation({ summary: "Mijozdan to'lov (qarz) qabul qilish" })
   addPayment(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: AddPaymentDto,
-    @CurrentUser("sub") userId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.customersService.addPayment(id, dto, userId);
+    return this.customersService.addPayment(id, dto, user);
   }
 
   @Patch(":id")

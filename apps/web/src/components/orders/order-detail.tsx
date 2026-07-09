@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useOrder, useUpdateOrderStatus, useAssignDriver } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
+import { PaymentModal } from "@/components/customers/payment-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS, ORDER_STATUS_LABELS, OrderStatus } from "@aqua/shared";
@@ -30,7 +31,8 @@ interface Props { id: string }
 
 export function OrderDetail({ id }: Props) {
   const [showAssign, setShowAssign] = useState(false);
-  const { canManageOrders, canDeliver, isDriver } = usePermissions();
+  const [showPayment, setShowPayment] = useState(false);
+  const { canManageOrders, canDeliver, canCollectDebt, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
 
@@ -171,10 +173,20 @@ export function OrderDetail({ id }: Props) {
               </a>
             )}
             {order.customer.balance !== undefined && Number(order.customer.balance) < 0 && (
-              <div className="mt-3 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
+              <div className="mt-3 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
                 <p className="text-xs text-orange-600 dark:text-orange-400">
                   Umumiy qarz: <span className="font-bold">{formatCurrency(Math.abs(Number(order.customer.balance)))}</span>
                 </p>
+                {/* Haydovchi/operator yetkazganда qarzni shu yerdan qabul qiladi */}
+                {canCollectDebt && (
+                  <button
+                    onClick={() => setShowPayment(true)}
+                    className="flex-none inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors"
+                  >
+                    <Banknote className="w-4 h-4" />
+                    Qarz to'lovi
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -277,6 +289,14 @@ export function OrderDetail({ id }: Props) {
           orderId={order.id}
           currentDriverId={order.driverId}
           onClose={() => setShowAssign(false)}
+        />
+      )}
+      {showPayment && (
+        <PaymentModal
+          customerId={order.customerId}
+          customerName={order.customer.name}
+          currentBalance={Number(order.customer.balance ?? 0)}
+          onClose={() => setShowPayment(false)}
         />
       )}
     </div>

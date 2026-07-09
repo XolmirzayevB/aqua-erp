@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ConflictException,
+  Injectable, NotFoundException, ConflictException, ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
@@ -146,8 +146,18 @@ export class CustomersService {
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  async addPayment(id: string, dto: AddPaymentDto, userId: string) {
+  async addPayment(id: string, dto: AddPaymentDto, user: { sub: string; role: string }) {
     const customer = await this.assertExists(id);
+
+    // Haydovchi FAQAT o'ziga biriktirilgan mijozdan qarz oladi (yetkazganда).
+    if (user.role === "DRIVER") {
+      const hasOrder = await this.prisma.order.count({
+        where: { customerId: id, driverId: user.sub },
+      });
+      if (hasOrder === 0) {
+        throw new ForbiddenException("Bu mijoz sizga biriktirilmagan");
+      }
+    }
 
     const [payment] = await this.prisma.$transaction([
       this.prisma.payment.create({
@@ -163,9 +173,9 @@ export class CustomersService {
           amount: dto.amount,
           paymentMethod: dto.method as any,
           category: "Qarz to'lovi",
-          description: `${customer.name} dan qarz to'lovi`,
+          description: `${customer.name} dan qarz to'lovi${user.role === "DRIVER" ? " (haydovchi)" : ""}`,
           customerId: id,
-          createdById: userId,
+          createdById: user.sub,
         },
       }),
     ]);

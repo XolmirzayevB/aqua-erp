@@ -125,6 +125,9 @@ export function useAddPayment() {
       qc.invalidateQueries({ queryKey: ["customers", id] });
       qc.invalidateQueries({ queryKey: ["customers", id, "payments"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
+      // Buyurtma tafsilotidagi qarz ko'rsatkichi ham yangilansin (haydovchi qarz olganda)
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       toast.success("To'lov qabul qilindi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),

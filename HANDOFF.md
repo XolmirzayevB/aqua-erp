@@ -195,7 +195,11 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - **Boshlang'ich zaxira:** `POST /inventory/set-warehouse {quantity}` — ombordagi bo'sh tara sonini ANIQ belgilaydi (intake = ustiga qo'shadi). Frontend: intake-modal'da "Aniq sonni belgilash / Ustiga qo'shish" rejimi.
 - **Daftardagi mijozlar:** create'da bottlesOwned kiritilsa → aylanmaga qo'shiladi, omborга tegmaydi (inventory action yo'q — to'g'ri, ular tizimdan oldin sotilgan).
 - Test: `scratchpad/test_warehouse.py` (6 stsenariy, hammasi o'tgan). Dev bazasida eski singan/yo'qolgan (50/50) test ma'lumoti bor — prod'da egasi haqiqiy sonni set-warehouse orqali kiritadi.
-- ⏳ QOLGAN (foydalanuvchi so'ragan, hali qilinmagan): **haydovchiga qarzdorlik qabul qilish** (yetkazganda qarzni olishi mumkin) — alohida ish.
+✅ **Haydovchiga qarzdorlik qabul qilish (2026-07-09):**
+- Haydovchi (va operator/admin) buyurtma tafsilotida mijoz qarzi bo'lsa "Qarz to'lovi" tugmasini ko'radi → PaymentModal (mavjud komponent qayta ishlatilgan).
+- Backend: `POST /customers/:id/payments` endi DRIVER rolini ham qabul qiladi. `addPayment` — agar DRIVER bo'lsa, o'sha mijozga BIRIKTIRILGAN buyurtmasi borligini tekshiradi (aks holda 403 "Bu mijoz sizga biriktirilmagan"). Tranzaksiya izohiga "(haydovchi)" qo'shiladi.
+- Frontend: `usePermissions().canCollectDebt` (driver/operator/admin); order-detail'da qarz bloki yonida tugma; useAddPayment orders/driver-day-orders cache'ni ham yangilaydi.
+- Test: `scratchpad/test_driver_debt.py` — begona haydovchi 403, o'z haydovchisi qabul qiladi, INCOME tranzaksiya yoziladi (hammasi o'tgan).
 
 ✅ **Push xabarnoma + Android APK (2026-07-07):**
 - **Web Push (VAPID):** yangi buyurtma haydovchiga biriktirilganda telefoniga push tushadi (ilova yopiq bo'lsa ham).
