@@ -113,6 +113,53 @@ export class CustomersService {
     return customer;
   }
 
+  // Yo'qolayotgan mijozlar: oxirgi buyurtmasi `days` kundan oldin bo'lganlar.
+  // Faqat avval zakaz bergan (endi to'xtagan) aktiv mijozlar; eng uzoq to'xtagani birinchi.
+  async getInactive(days = 14, page = 1, limit = 20) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+
+    // Har mijozning oxirgi (bekor qilinmagan) buyurtma sanasi
+    const grouped = await this.prisma.order.groupBy({
+      by: ["customerId"],
+      where: { status: { not: "CANCELLED" } },
+      _max: { createdAt: true },
+    });
+
+    // Faqat aktiv mijozlar hisobga olinadi
+    const active = await this.prisma.customer.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    });
+    const activeSet = new Set(active.map((c) => c.id));
+
+    const stale = grouped
+      .filter((g) => activeSet.has(g.customerId) && g._max.createdAt && g._max.createdAt < cutoff)
+      .sort((a, b) => a._max.createdAt!.getTime() - b._max.createdAt!.getTime());
+
+    const total = stale.length;
+    const pageItems = stale.slice((page - 1) * limit, page * limit);
+    const ids = pageItems.map((s) => s.customerId);
+
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, phone: true, phone2: true, address: true, zone: true, balance: true, bottlesOwned: true },
+    });
+    const map = new Map(customers.map((c) => [c.id, c]));
+
+    const now = Date.now();
+    const data = pageItems
+      .map((s) => {
+        const c = map.get(s.customerId);
+        if (!c) return null;
+        const last = s._max.createdAt!;
+        return { ...c, lastOrderAt: last, daysSince: Math.floor((now - last.getTime()) / 86400000) };
+      })
+      .filter(Boolean);
+
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) }, days };
+  }
+
   async getOrders(id: string, page = 1, limit = 10) {
     await this.assertExists(id);
 

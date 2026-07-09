@@ -46,6 +46,23 @@ export function useCustomers(params: CustomerQueryParams = {}) {
   });
 }
 
+export interface InactiveCustomer extends Customer {
+  lastOrderAt: string;
+  daysSince: number;
+}
+
+export function useInactiveCustomers(days = 14, page = 1) {
+  return useQuery({
+    queryKey: ["inactive-customers", days, page],
+    queryFn: () =>
+      api.get("/customers/inactive", { params: { days, page } }).then((r) => r.data.data as {
+        data: InactiveCustomer[];
+        meta: { total: number; page: number; limit: number; totalPages: number };
+        days: number;
+      }),
+  });
+}
+
 export function useCustomer(id: string) {
   return useQuery({
     queryKey: ["customers", id],

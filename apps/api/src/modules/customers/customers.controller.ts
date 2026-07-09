@@ -39,6 +39,19 @@ export class CustomersController {
     return this.customersService.resolveAllLocations();
   }
 
+  // MUHIM: bu ":id"dan OLDIN turishi shart (aks holda "inactive" id deb qabul qilinadi)
+  @Get("inactive")
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @ApiOperation({ summary: "Yo'qolayotgan mijozlar (uzoq zakaz qilmaganlar)" })
+  @ApiQuery({ name: "days", required: false })
+  @ApiQuery({ name: "page", required: false })
+  getInactive(
+    @Query("days", new DefaultValuePipe(14), ParseIntPipe) days: number,
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+  ) {
+    return this.customersService.getInactive(days, page, 20);
+  }
+
   @Get(":id")
   @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Mijoz ma'lumotlari" })

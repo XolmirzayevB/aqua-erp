@@ -188,6 +188,11 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
+✅ **Yo'qolayotgan mijozlar (2026-07-09):**
+- Uzoq (7/14/30 kun) zakaz qilmagan aktiv mijozlar ro'yxati — retention uchun operator qo'ng'iroq qiladi.
+- Backend: `GET /customers/inactive?days=14&page=1` (ADMIN/MANAGER/OPERATOR). `getInactive` — order.groupBy(customerId, max createdAt), CANCELLED'siz, cutoffdan eski + aktiv mijozlar, eng uzoq to'xtagani birinchi. `daysSince` va `lastOrderAt` qaytadi. ⚠️ controller'da `@Get("inactive")` `@Get(":id")`dan OLDIN.
+- Frontend: `/inactive` sahifa (inactive-customers.tsx) — 7/14/30 kun SegmentTabs, mobil karta + kompyuter jadval, kun-badge (14+=amber, 30+=red), qarz ko'rsatiladi, "Qo'ng'iroq" tugmasi. Mijozlar sahifasi header'ida "Yo'qolayotganlar" tugmasi → /inactive. ROLE_ROUTES: operator/manager'ga /inactive qo'shildi.
+
 ✅ **Ombor logikasi qayta qurildi (2026-07-09) — MUHIM:**
 - **Yangi soddalashtirilgan model:** ombor FAQAT bo'sh tara saqlaydi (to'la tara zaxira YO'Q — qo'lda to'ldirib moshinaga ortiladi). `FULL_BOTTLE` endi ishlatilmaydi; `EMPTY_BOTTLE` = ombordagi yagona hisob.
 - **Order effekti (orders.service create + reverseEffects):** faqat `newBottles` ombordan chiqadi (`EMPTY_BOTTLE -= newBottles`), mijoz `bottlesOwned += newBottles`. Almashtirish (refill) omborга TEGMAYDI (bo'sh chiqib bo'sh qaytadi = net nol). Bekor qilinsa teskarisi. (Avval FULL_BOTTLE -= quantity edi — noto'g'ri.)

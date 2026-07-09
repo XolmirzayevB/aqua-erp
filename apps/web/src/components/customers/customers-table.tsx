@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Search, ChevronLeft, ChevronRight, UserPlus,
-  TrendingDown, MoreHorizontal, Eye, Edit, Trash2, Navigation,
+  TrendingDown, MoreHorizontal, Eye, Edit, Trash2, Navigation, UserX,
 } from "lucide-react";
 import { useCustomers, useCreateCustomer, useDeleteCustomer, Customer } from "@/hooks/use-customers";
 import { useSettings } from "@/hooks/use-settings";
@@ -70,6 +70,10 @@ export function CustomersTable() {
         title="Mijozlar"
         subtitle={meta ? `${meta.total} ta mijoz${zoneFilter ? ` · ${zoneFilter} hududi` : ""}` : "Yuklanmoqda..."}
       >
+        <Link href="/inactive" className={btnSecondary}>
+          <UserX className="w-4 h-4 flex-none" />
+          <span className="hidden sm:inline">Yo'qolayotganlar</span>
+        </Link>
         <button
           onClick={() => { setDebtorsOnly(!debtorsOnly); setPage(1); }}
           className={cn(
