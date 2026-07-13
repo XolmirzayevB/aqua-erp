@@ -31,3 +31,4 @@ android/*
 !android/android.keystore
 !android/keystore-password.txt
 !android/twa-manifest.json
+*.tsbuildinfo

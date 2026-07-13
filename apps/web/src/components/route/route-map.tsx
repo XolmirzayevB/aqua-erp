@@ -114,6 +114,9 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
   const followRef = useRef(false); // kuzatish: yoqilsa xarita men bilan birga yuradi
   const [following, setFollowing] = useState(false);
   const [geoState, setGeoState] = useState<"off" | "on" | "denied">("off");
+  // GPS FAQAT haydovchi so'raganda yoqiladi — ilova ochilganda ruxsat SO'RALMAYDI.
+  // Sessiya davomida (bir marta yoqilsa) esda qoladi; ilova qayta ochilsa yana o'chiq.
+  const [geoEnabled, setGeoEnabled] = useState(false);
   // Marshrut hisobi uchun joriy joy (50m dan ko'p siljigandagina yangilanadi —
   // aks holda har GPS tebranishida marshrut qayta hisoblanib "sakrab" turadi)
   const [geoPos, setGeoPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -154,8 +157,17 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
     }
   };
 
-  // GPS kuzatuvi — sahifa ochiq ekan harakatni jonli oladi
+  // Sessiya davomida GPS yoqilgan bo'lsa — remount'da qayta tiklaymiz
+  // (bir sessiyada takror ruxsat so'ralmaydi; yangi ochilishда tozalanadi)
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem("aqua-geo-on") === "1") setGeoEnabled(true);
+    } catch { /* sessionStorage yo'q — e'tiborsiz */ }
+  }, []);
+
+  // GPS kuzatuvi — FAQAT haydovchi tugmani bosib yoqqanda ishga tushadi
+  useEffect(() => {
+    if (!geoEnabled) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       (p) => {
@@ -172,7 +184,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
     );
     return () => navigator.geolocation.clearWatch(watchId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [geoEnabled]);
 
   // Bekor qilinganlar marshrutga kirmaydi; yetkazilganlar alohida (pastda)
   const active = orders.filter((o) => o.status !== "CANCELLED");
@@ -326,6 +338,11 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
             {/* Joyimga qaytish / kuzatish tugmasi */}
             <button
               onClick={() => {
+                // Birinchi bosishda GPS yoqiladi (ruxsat SHUNDA so'raladi, ilova ochilganda emas)
+                if (!geoEnabled) {
+                  setGeoEnabled(true);
+                  try { sessionStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
+                }
                 followRef.current = true;
                 setFollowing(true);
                 drawMyLocation(true);
@@ -348,6 +365,11 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
             {geoState === "on" && (
               <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-none" /> Jonli lokatsiya
+              </span>
+            )}
+            {!geoEnabled && geoState !== "denied" && (
+              <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium">
+                <LocateFixed className="w-3.5 h-3.5" /> Joyingizni ko'rish uchun tugmani bosing
               </span>
             )}
             {geoState === "denied" && (

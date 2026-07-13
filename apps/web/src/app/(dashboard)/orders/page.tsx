@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { OrdersTable } from "@/components/orders/orders-table";
+import { OrdersView } from "@/components/orders/orders-view";
 
 export const metadata: Metadata = { title: "Buyurtmalar" };
 
 export default function OrdersPage() {
-  return <OrdersTable />;
+  return <OrdersView />;
 }
