@@ -259,14 +259,10 @@ function CustomerRow({
         <Link href={`/customers/${customer.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           <Avatar name={customer.name} size={38} />
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[160px] truncate">
-                {customer.name}
-              </span>
-              {customer.zone && (
-                <Pill tone="primary" className="!text-[11px] !py-0.5">{customer.zone}</Pill>
-              )}
-            </div>
+            {/* Hudud chipi olib tashlangan (egasi so'rovi) — hudud alohida ustunda bor */}
+            <span className="block text-[13.5px] font-semibold text-gray-900 dark:text-white whitespace-nowrap max-w-[160px] truncate">
+              {customer.name}
+            </span>
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {customer._count?.orders ?? 0} buyurtma
             </div>

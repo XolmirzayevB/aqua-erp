@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   FileSpreadsheet, FileText, ShoppingCart, CheckCircle,
   XCircle, Droplets, Package, TrendingUp, TrendingDown,
-  Wallet, UserPlus,
+  Wallet, UserPlus, CalendarDays, X,
 } from "lucide-react";
 import { useReportOverview, useDebtPayments, downloadReport } from "@/hooks/use-reports";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
@@ -24,9 +24,12 @@ type Period = (typeof PERIODS)[number]["value"];
 
 export function ReportsPage() {
   const [period, setPeriod] = useState<Period>("monthly");
+  // Kun tanlab ko'rish: tanlansa davr tablari o'rniga o'sha BITTA kun ko'rsatiladi.
+  // 12-da yozilib 13-da yetkazilgan zakaz — 13-kunning "Yetkazilgan"ida chiqadi.
+  const [day, setDay] = useState<string>("");
   const [downloading, setDownloading] = useState<"excel" | "pdf" | null>(null);
-  const { data, isLoading } = useReportOverview(period);
-  const { data: debts } = useDebtPayments(period);
+  const { data, isLoading } = useReportOverview(period, day || undefined);
+  const { data: debts } = useDebtPayments(period, day || undefined);
 
   const handleDownload = async (type: "excel" | "pdf") => {
     setDownloading(type);
@@ -39,16 +42,47 @@ export function ReportsPage() {
       <PageHeader
         title="Hisobotlar"
         subtitle={
-          data
+          day
+            ? `${formatDate(day, "d-MMMM yyyy")} — bitta kun`
+            : data
             ? `${formatDate(data.period.from, "dd.MM.yyyy")} — ${formatDate(data.period.to, "dd.MM.yyyy")}`
             : "Kunlik, oylik va yillik hisobotlar"
         }
       >
-        <SegmentTabs
-          options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-          value={period}
-          onChange={setPeriod}
-        />
+        {/* Kun tanlagich — tanlansa davr tablari o'chadi */}
+        <div
+          className={cn(
+            "flex items-center gap-1.5 h-[42px] pl-3 pr-1.5 rounded-xl border transition-colors",
+            day
+              ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
+              : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+          )}
+        >
+          <CalendarDays className={cn("w-4 h-4 flex-none", day ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
+          <input
+            type="date"
+            value={day}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDay(e.target.value)}
+            className="bg-transparent text-[13.5px] font-semibold text-gray-900 dark:text-white focus:outline-none w-[130px]"
+          />
+          {day && (
+            <button
+              onClick={() => setDay("")}
+              title="Kunni bekor qilish"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white dark:hover:bg-gray-800 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {!day && (
+          <SegmentTabs
+            options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
+            value={period}
+            onChange={setPeriod}
+          />
+        )}
         <button
           onClick={() => handleDownload("pdf")}
           disabled={downloading !== null}
@@ -69,12 +103,14 @@ export function ReportsPage() {
 
       {/* KPI kartalar */}
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 mb-4">
-        <StatCard label="Jami buyurtmalar" value={data?.orders.total ?? 0} icon={ShoppingCart} tone="primary" loading={isLoading} />
+        {/* "Yozilgan" — shu davrda yozilgan; "Yetkazilgan" — shu davrda yetkazilgan
+            (oldinroq yozilgan bo'lsa ham). Suv/tara — yetkazilganlar asosida. */}
+        <StatCard label="Yozilgan buyurtmalar" value={data?.orders.total ?? 0} icon={ShoppingCart} tone="primary" loading={isLoading} />
         <StatCard label="Yetkazilgan" value={data?.orders.delivered ?? 0} icon={CheckCircle} tone="success" loading={isLoading} />
         <StatCard label="Bekor qilingan" value={data?.orders.cancelled ?? 0} icon={XCircle} tone="danger" loading={isLoading} />
         <StatCard label="Yangi mijozlar" value={data?.newCustomers ?? 0} icon={UserPlus} tone="violet" loading={isLoading} />
-        <StatCard label="Sotilgan suv" value={data?.water.sold ?? 0} unit="dona" icon={Droplets} tone="primary" loading={isLoading} />
-        <StatCard label="Qaytarilgan tara" value={data?.water.bottlesReturned ?? 0} unit="dona" icon={Package} tone="warning" loading={isLoading} />
+        <StatCard label="Yetkazilgan suv" value={data?.water.sold ?? 0} unit="dona" icon={Droplets} tone="primary" loading={isLoading} />
+        <StatCard label="Qaytib olingan bo'sh tara" value={data?.water.bottlesReturned ?? 0} unit="dona" icon={Package} tone="warning" loading={isLoading} />
       </div>
 
       {/* Moliya + tara aylanishi */}

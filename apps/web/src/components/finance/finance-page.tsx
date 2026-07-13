@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Plus, TrendingUp, TrendingDown, Wallet, Percent,
+  Plus, TrendingUp, TrendingDown, Wallet, Percent, Truck,
   ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useFinanceSummary, useTransactions } from "@/hooks/use-finance";
@@ -73,9 +73,18 @@ export function FinancePage() {
         )}
       </PageHeader>
 
-      {/* Stat strip */}
+      {/* Stat strip — Tushum = KELGAN pul (yetkazilganda yoziladi);
+          "Yo'lda" = yetkazilmagan zakazlarning kutilayotgan puli */}
       <StatStrip>
-        <StatCard label="Tushum" value={formatCurrency(income)} icon={TrendingUp} tone="success" loading={isLoading} />
+        <StatCard label="Tushum (kelgan pul)" value={formatCurrency(income)} icon={TrendingUp} tone="success" loading={isLoading} />
+        <StatCard
+          label="Yo'lda (kutilmoqda)"
+          value={formatCurrency(summary?.pendingAmount ?? 0)}
+          unit={summary?.pendingCount ? `${summary.pendingCount} ta zakaz` : undefined}
+          icon={Truck}
+          tone="warning"
+          loading={isLoading}
+        />
         <StatCard label="Xarajat (jami)" value={formatCurrency(totalOut)} icon={TrendingDown} tone="danger" loading={isLoading} />
         <StatCard
           label="Sof foyda"

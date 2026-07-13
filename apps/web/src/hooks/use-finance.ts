@@ -26,6 +26,9 @@ export interface FinanceSummary {
   profit: number;
   cashIn: number;
   cardIn: number;
+  // Yo'ldagi (yetkazilmagan) zakazlar — kutilayotgan pul
+  pendingAmount: number;
+  pendingCount: number;
   transactionCount: number;
   chart: { label: string; income: number; expense: number }[];
   period: { from: string; to: string };

@@ -19,10 +19,14 @@ export interface ReportOverview {
   period: { from: string; to: string };
 }
 
-export function useReportOverview(period: Period = "monthly") {
+// day ("YYYY-MM-DD") berilsa — davr o'rniga o'sha BITTA kun ko'rsatiladi
+export function useReportOverview(period: Period = "monthly", day?: string) {
   return useQuery({
-    queryKey: ["report-overview", period],
-    queryFn: () => api.get("/reports/overview", { params: { period } }).then((r) => r.data.data as ReportOverview),
+    queryKey: ["report-overview", period, day ?? null],
+    queryFn: () =>
+      api.get("/reports/overview", {
+        params: day ? { dateFrom: day, dateTo: day } : { period },
+      }).then((r) => r.data.data as ReportOverview),
   });
 }
 
@@ -47,10 +51,10 @@ export function useTopRegions(period: Period = "monthly", limit = 10) {
   });
 }
 
-export function useDebtPayments(period: Period = "monthly") {
+export function useDebtPayments(period: Period = "monthly", day?: string) {
   return useQuery({
-    queryKey: ["debt-payments-report", period],
-    queryFn: () => api.get("/reports/debt-payments", { params: { period } }).then((r) => r.data.data as {
+    queryKey: ["debt-payments-report", period, day ?? null],
+    queryFn: () => api.get("/reports/debt-payments", { params: day ? { dateFrom: day, dateTo: day } : { period } }).then((r) => r.data.data as {
       payments: { id: string; amount: number; method: string; notes?: string; createdAt: string; customer: { id: string; name: string; phone: string; balance: number } | null }[];
       summary: { total: number; cash: number; card: number; count: number };
       period: { from: string; to: string };

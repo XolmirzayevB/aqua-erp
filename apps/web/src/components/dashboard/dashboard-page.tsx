@@ -51,15 +51,13 @@ export function DashboardPage() {
     refetchInterval: 30_000,
   });
 
-  const inProgress = Math.max(
-    0,
-    (data?.todayOrders ?? 0) - (data?.deliveredToday ?? 0) - (data?.cancelledToday ?? 0)
-  );
-
+  // "Yo'lda" — backenddagi ANIQ ochiq zakazlar soni (sanasidan qat'i nazar).
+  // Avvalgi "bugungi - yetkazilgan" formulasi eski kunlardagi ochiq zakazlarni
+  // ko'rsatmasdi va manfiy chiqib qolishi mumkin edi.
   const summaryChips = [
-    { label: "Buyurtma", value: data?.todayOrders ?? "—", dot: "bg-blue-500" },
-    { label: "Yetkazildi", value: data?.deliveredToday ?? "—", dot: "bg-green-500" },
-    { label: "Jarayonda", value: inProgress, dot: "bg-amber-500 animate-pulse" },
+    { label: "Bugun yozildi", value: data?.todayOrders ?? "—", dot: "bg-blue-500" },
+    { label: "Bugun yetkazildi", value: data?.deliveredToday ?? "—", dot: "bg-green-500" },
+    { label: "Yo'lda", value: data?.pendingCount ?? "—", dot: "bg-amber-500 animate-pulse" },
     { label: "Bekor", value: data?.cancelledToday ?? "—", dot: "bg-red-500" },
   ];
 
@@ -128,9 +126,11 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* Bugungi xulosa — bo'lingan qatorli karta (4 holat + tushum) */}
+      {/* Bugungi xulosa: 4 holat chipi + 2 pul bloki (kelgan/kutilayotgan).
+          Kichik ekranда pul bloklari alohida qatorga tushadi — siqilmaydi. */}
       <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-card mb-5 overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-gray-400/70 dark:divide-gray-600">
+        <div className="flex flex-col xl:flex-row items-stretch">
+          <div className="flex-[1.4] grid grid-cols-2 sm:flex sm:items-stretch divide-y sm:divide-y-0 divide-x sm:divide-x divide-gray-400/70 dark:divide-gray-600 [&>*:nth-child(3)]:border-t sm:[&>*:nth-child(3)]:border-t-0 [&>*:nth-child(3)]:border-l-0 sm:[&>*:nth-child(3)]:border-l">
           {summaryChips.map((c) => (
             <div key={c.label} className="flex-1 flex items-center gap-3 px-5 py-4">
               <span className={`w-2.5 h-2.5 rounded-full flex-none ${c.dot}`} />
@@ -142,7 +142,9 @@ export function DashboardPage() {
               </div>
             </div>
           ))}
-          {/* Bugungi tushum — ajratilgan yashil segment */}
+          </div>
+          <div className="flex-1 flex items-stretch divide-x divide-gray-400/70 dark:divide-gray-600 border-t xl:border-t-0 xl:border-l border-gray-400/70 dark:border-gray-600">
+          {/* KELGAN pul (bugun) — yashil. Tushum endi zakaz YETKAZILGANDA yoziladi */}
           <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-green-50/60 dark:bg-green-500/10">
             <span className="w-9 h-9 rounded-xl bg-green-100 dark:bg-green-500/20 flex items-center justify-center flex-none">
               <Banknote className="w-[18px] h-[18px] text-green-600 dark:text-green-400" />
@@ -151,8 +153,23 @@ export function DashboardPage() {
               <div className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums tracking-tight leading-none truncate">
                 {data ? formatCurrency(data.todayIncome || 0) : "—"}
               </div>
-              <div className="text-[12px] text-green-700/80 dark:text-green-400/70 font-medium mt-1">Bugungi tushum</div>
+              <div className="text-[12px] text-green-700/80 dark:text-green-400/70 font-medium mt-1">Bugungi tushum (kelgan pul)</div>
             </div>
+          </div>
+          {/* KUTILAYOTGAN pul — yo'ldagi (yetkazilmagan) zakazlar summasi */}
+          <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-amber-50/70 dark:bg-amber-500/10">
+            <span className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-none">
+              <Wallet className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums tracking-tight leading-none truncate">
+                {data ? formatCurrency(data.pendingAmount || 0) : "—"}
+              </div>
+              <div className="text-[12px] text-amber-700/80 dark:text-amber-400/70 font-medium mt-1">
+                Kutilmoqda ({data?.pendingCount ?? 0} ta yo'lda)
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </div>

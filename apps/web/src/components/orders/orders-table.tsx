@@ -249,13 +249,19 @@ export function OrdersTable() {
                         Yetkazildi
                       </button>
                     )}
-                    {!isDriver && !order.driver && ["NEW", "PROCESSING"].includes(order.status) && (
+                    {/* Haydovchi tayinlash/ALMASHTIRISH — yetkazilmagan har qanday zakazda */}
+                    {!isDriver && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
                       <button
-                        onClick={() => { setAssignOrderId(order.id); setAssignDriverId(undefined); }}
-                        className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors"
+                        onClick={() => { setAssignOrderId(order.id); setAssignDriverId(order.driverId); }}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[9px] text-[13px] font-semibold transition-colors",
+                          order.driver
+                            ? "border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                        )}
                       >
                         <Truck className="w-4 h-4" />
-                        Biriktirish
+                        {order.driver ? "Almashtirish" : "Biriktirish"}
                       </button>
                     )}
                   </div>
@@ -380,13 +386,26 @@ export function OrdersTable() {
                       <StatusBadge status={order.status} />
                     </td>
 
-                    {/* Haydovchi */}
+                    {/* Haydovchi — biriktirilgan bo'lsa ham bosib ALMASHTIRSA bo'ladi */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       {order.driver ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar name={order.driver.name} size={26} />
-                          <span className="text-[12.5px] text-gray-500 dark:text-gray-400">{order.driver.name}</span>
-                        </div>
+                        !isDriver && order.status === "ASSIGNED" ? (
+                          <button
+                            onClick={() => { setAssignOrderId(order.id); setAssignDriverId(order.driverId); }}
+                            title="Haydovchini almashtirish"
+                            className="flex items-center gap-2 group/drv"
+                          >
+                            <Avatar name={order.driver.name} size={26} />
+                            <span className="text-[12.5px] text-gray-500 dark:text-gray-400 group-hover/drv:text-blue-600 dark:group-hover/drv:text-blue-400 group-hover/drv:underline transition-colors">
+                              {order.driver.name}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Avatar name={order.driver.name} size={26} />
+                            <span className="text-[12.5px] text-gray-500 dark:text-gray-400">{order.driver.name}</span>
+                          </div>
+                        )
                       ) : !isDriver && ["NEW", "PROCESSING"].includes(order.status) ? (
                         <button
                           onClick={() => { setAssignOrderId(order.id); setAssignDriverId(undefined); }}

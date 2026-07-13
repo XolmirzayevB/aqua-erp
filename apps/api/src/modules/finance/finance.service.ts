@@ -5,10 +5,11 @@ import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { QueryFinanceDto, SummaryQueryDto } from "./dto/query-finance.dto";
 import { Prisma, TransactionType } from "@aqua/database";
 import {
-  startOfDay, endOfDay, startOfWeek, endOfWeek,
+  startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, startOfYear, endOfYear,
   eachDayOfInterval, eachMonthOfInterval, format,
 } from "date-fns";
+import { localDayRange, toLocal, fromLocal } from "../../common/utils/date.util";
 
 @Injectable()
 export class FinanceService {
@@ -51,13 +52,9 @@ export class FinanceService {
     });
   }
 
-  // Foydalanuvchining BUGUNGI (O'zbekiston kuni, UTC+5) o'z xarajatlari
+  // Foydalanuvchining BUGUNGI (O'zbekiston kuni) o'z xarajatlari
   async getMyTodayExpenses(userId: string) {
-    const TZ_MS = 5 * 60 * 60 * 1000; // Asia/Tashkent, DST yo'q
-    const local = new Date(Date.now() + TZ_MS);
-    local.setUTCHours(0, 0, 0, 0);
-    const start = new Date(local.getTime() - TZ_MS);
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const { start, end } = localDayRange();
 
     const data = await this.prisma.transaction.findMany({
       where: { createdById: userId, type: "EXPENSE", createdAt: { gte: start, lte: end } },
@@ -106,19 +103,29 @@ export class FinanceService {
   }
 
   async getSummary(query: SummaryQueryDto) {
-    const now = new Date();
+    // Oraliqlar O'zbekiston kuni bo'yicha (date.util.ts)
+    const localNow = toLocal(new Date());
     let from: Date, to: Date;
 
     switch (query.period) {
-      case "daily":   from = startOfDay(now); to = endOfDay(now); break;
-      case "weekly":  from = startOfWeek(now, { weekStartsOn: 1 }); to = endOfWeek(now, { weekStartsOn: 1 }); break;
-      case "yearly":  from = startOfYear(now); to = endOfYear(now); break;
-      default:        from = startOfMonth(now); to = endOfMonth(now);
+      case "daily": { const r = localDayRange(); from = r.start; to = r.end; break; }
+      case "weekly":  from = fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })); to = fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })); break;
+      case "yearly":  from = fromLocal(startOfYear(localNow)); to = fromLocal(endOfYear(localNow)); break;
+      default:        from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
     }
 
-    const transactions = await this.prisma.transaction.findMany({
-      where: { createdAt: { gte: from, lte: to } },
-    });
+    const [transactions, pendingAgg] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where: { createdAt: { gte: from, lte: to } },
+      }),
+      // YO'LDAGI (yetkazilmagan) zakazlar — kutilayotgan pul.
+      // Tushum yetkazilganda yoziladi; bu — hali kelmagani (sanasidan qat'i nazar).
+      this.prisma.order.aggregate({
+        where: { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as any } },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+    ]);
 
     const sum = (filter: (t: any) => boolean) =>
       transactions.filter(filter).reduce((s, t) => s + Number(t.amount), 0);
@@ -132,17 +139,20 @@ export class FinanceService {
     const cashIn = sum((t) => t.type === "INCOME" && t.paymentMethod === "CASH");
     const cardIn = sum((t) => t.type === "INCOME" && t.paymentMethod === "CARD");
 
-    // Chart data
+    // Chart data — bucket'lar LOKAL kalendar bo'yicha (from/to UTC instant,
+    // toLocal bilan surilsa kun chegaralari to'g'ri kalendar kunига tushadi)
     const isYearly = query.period === "yearly";
     const buckets = isYearly
-      ? eachMonthOfInterval({ start: from, end: to })
-      : eachDayOfInterval({ start: from, end: to });
+      ? eachMonthOfInterval({ start: toLocal(from), end: toLocal(to) })
+      : eachDayOfInterval({ start: toLocal(from), end: toLocal(to) });
 
     const chart = buckets.map((b) => {
       const fmt = isYearly ? "yyyy-MM" : "yyyy-MM-dd";
       const label = isYearly ? format(b, "MMM") : format(b, "dd.MM");
+      // Tranzaksiya kuni ham LOKAL bo'yicha (kechki 19:00+ dagi to'lov
+      // ertangi kunga tushib qolmasin)
       const bucketTxns = transactions.filter(
-        (t) => format(new Date(t.createdAt), fmt) === format(b, fmt)
+        (t) => format(toLocal(new Date(t.createdAt)), fmt) === format(b, fmt)
       );
       return {
         label,
@@ -156,6 +166,9 @@ export class FinanceService {
       totalOut,
       profit: income - totalOut,
       cashIn, cardIn,
+      // Yo'lda (yetkazilmagan zakazlar) — kutilayotgan pul
+      pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
+      pendingCount: pendingAgg._count.id,
       transactionCount: transactions.length,
       chart,
       period: { from, to },

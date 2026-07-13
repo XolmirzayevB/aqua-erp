@@ -2,40 +2,57 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ReportQueryDto, TopQueryDto } from "./dto/query-report.dto";
 import {
-  startOfDay, endOfDay, startOfWeek, endOfWeek,
+  startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, startOfYear, endOfYear,
 } from "date-fns";
+import { localDayRange, toLocal, fromLocal } from "../../common/utils/date.util";
 
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
+  // Barcha oraliqlar O'ZBEKISTON kuni bo'yicha (server UTC — to'g'ridan-to'g'ri
+  // startOfDay ishlatilsa hisobot kuni lokal 05:00 da almashib qolardi).
   private getRange(period?: string, dateFrom?: string, dateTo?: string) {
     if (dateFrom && dateTo) {
-      return { from: startOfDay(new Date(dateFrom)), to: endOfDay(new Date(dateTo)) };
+      // Kun tanlab ko'rish: "2026-07-13" → o'sha LOKAL kun 00:00–23:59
+      return {
+        from: localDayRange(new Date(dateFrom)).start,
+        to: localDayRange(new Date(dateTo)).end,
+      };
     }
-    const now = new Date();
+    const localNow = toLocal(new Date());
     switch (period) {
-      case "daily":  return { from: startOfDay(now), to: endOfDay(now) };
-      case "weekly": return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
-      case "yearly": return { from: startOfYear(now), to: endOfYear(now) };
-      default:       return { from: startOfMonth(now), to: endOfMonth(now) };
+      case "daily": {
+        const { start, end } = localDayRange();
+        return { from: start, to: end };
+      }
+      case "weekly": return { from: fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })), to: fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })) };
+      case "yearly": return { from: fromLocal(startOfYear(localNow)), to: fromLocal(endOfYear(localNow)) };
+      default:       return { from: fromLocal(startOfMonth(localNow)), to: fromLocal(endOfMonth(localNow)) };
     }
   }
 
-  // Overall report for a period
+  // Overall report for a period.
+  // SEMANTIKA (2026-07-14): suv/tara/tushum — YETKAZILGAN sanasi (deliveredAt)
+  // bo'yicha. 12-kuni yozilib 13-da yetkazilgan zakaz 13-kun hisobotida chiqadi.
+  // "Buyurtma yozildi" (total) esa yozilgan sanasi bo'yicha qoladi.
   async getOverview(query: ReportQueryDto) {
     const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);
 
     const [
-      orders, deliveredCount, cancelledCount,
+      createdCount, deliveredOrders, cancelledCount,
       transactions, sessions, newCustomers,
     ] = await Promise.all([
-      this.prisma.order.findMany({
-        where: { createdAt: { gte: from, lte: to } },
-        select: { quantity: true, totalAmount: true, status: true, bottlesReturned: true, newBottles: true },
+      // Shu davrda YOZILGAN buyurtmalar (bekor qilinganlar sanalmaydi)
+      this.prisma.order.count({
+        where: { createdAt: { gte: from, lte: to }, status: { not: "CANCELLED" } },
       }),
-      this.prisma.order.count({ where: { status: "DELIVERED", deliveredAt: { gte: from, lte: to } } }),
+      // Shu davrda YETKAZILGAN buyurtmalar (qachon yozilganидан qat'i nazar)
+      this.prisma.order.findMany({
+        where: { status: "DELIVERED", deliveredAt: { gte: from, lte: to } },
+        select: { quantity: true, totalAmount: true, bottlesReturned: true, newBottles: true },
+      }),
       this.prisma.order.count({ where: { status: "CANCELLED", updatedAt: { gte: from, lte: to } } }),
       this.prisma.transaction.findMany({
         where: { createdAt: { gte: from, lte: to } },
@@ -50,18 +67,18 @@ export class ReportsService {
 
     const income = transactions.filter(t => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
     const expense = transactions.filter(t => t.type !== "INCOME").reduce((s, t) => s + Number(t.amount), 0);
-    // Bekor qilinganlar hisobga kirmaydi
-    const activeOrders = orders.filter(o => o.status !== "CANCELLED");
-    const waterSold = activeOrders.reduce((s, o) => s + o.quantity, 0);
-    const bottlesReturned = activeOrders.reduce((s, o) => s + o.bottlesReturned, 0);
-    const newBottlesSold = activeOrders.reduce((s, o) => s + o.newBottles, 0);
+    // Suv/tara — yetkazilganlar asosida (real harakat)
+    const waterSold = deliveredOrders.reduce((s, o) => s + o.quantity, 0);
+    const bottlesReturned = deliveredOrders.reduce((s, o) => s + o.bottlesReturned, 0);
+    const newBottlesSold = deliveredOrders.reduce((s, o) => s + o.newBottles, 0);
 
     return {
       orders: {
-        total: orders.length,
-        delivered: deliveredCount,
+        total: createdCount,
+        delivered: deliveredOrders.length,
         cancelled: cancelledCount,
-        revenue: orders.filter(o => o.status === "DELIVERED").reduce((s, o) => s + Number(o.totalAmount), 0),
+        // Yetkazilgan zakazlar summasi (shu davrda yetkazilganlar)
+        revenue: deliveredOrders.reduce((s, o) => s + Number(o.totalAmount), 0),
       },
       finance: {
         income,
@@ -74,7 +91,7 @@ export class ReportsService {
         newBottlesSold,
       },
       bottles: {
-        // Buyurtmalar asosida (asosiy ish tartibi — sessiyasiz)
+        // Yetkazilgan buyurtmalar asosida
         deliveredWater: waterSold,
         newSold: newBottlesSold,
         emptyBack: bottlesReturned,
@@ -164,7 +181,7 @@ export class ReportsService {
     const { from, to } = this.getRange(query.period);
 
     const orders = await this.prisma.order.findMany({
-      where: { createdAt: { gte: from, lte: to }, status: "DELIVERED" },
+      where: { deliveredAt: { gte: from, lte: to }, status: "DELIVERED" },
       select: { totalAmount: true, customer: { select: { address: true, zone: true } } },
     });
 

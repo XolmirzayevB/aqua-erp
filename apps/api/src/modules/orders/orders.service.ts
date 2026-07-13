@@ -12,6 +12,7 @@ import { QueryOrdersDto } from "./dto/query-orders.dto";
 import { SettingsService } from "../settings/settings.service";
 import { Prisma, OrderStatus, Role } from "@aqua/database";
 import { parseLatLngFromUrl, resolveLatLng } from "../../common/utils/geo.util";
+import { localDayRange } from "../../common/utils/date.util";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -127,24 +128,10 @@ export class OrdersService {
         }
       }
 
-      // Naqd/karta uchun kirim yozuvi
-      if (dto.paymentType !== "DEBT") {
-        const parts: string[] = [];
-        if (refillCount > 0) parts.push(`${refillCount} ta to'ldirish`);
-        if (newBottles > 0) parts.push(`${newBottles} ta yangi tara`);
-        await tx.transaction.create({
-          data: {
-            type: "INCOME",
-            amount: totalAmount,
-            paymentMethod: dto.paymentType === "CASH" ? "CASH" : "CARD",
-            category: "Suv sotuvi",
-            description: `${customer.name} — ${parts.join(" + ")}`,
-            orderId: created.id,
-            customerId: dto.customerId,
-            createdById: userId,
-          },
-        });
-      }
+      // ⚠️ KIRIM (INCOME) BU YERDA YOZILMAYDI (2026-07-14 o'zgarishi).
+      // Pul haydovchi YETKAZIB, olganда keladi — tushum updateStatus(DELIVERED)da
+      // yoziladi. Yaratilganda yozish "hali kelmagan pul"ni moliyaga qo'shib
+      // yuborardi (egasi so'rovi bilan o'zgartirilgan).
 
       return created;
     });
@@ -292,9 +279,32 @@ export class OrdersService {
         },
       });
 
-      // MUHIM: nasiya (DEBT) yetkazilganda INCOME yozilMAYDI — pul hali kelmagan.
-      // Tushum faqat mijoz qarzini to'laganda yoziladi (customers.addPayment,
-      // "Qarz to'lovi"). Aks holda bir pul ikki marta hisoblanadi.
+      // TUSHUM YETKAZILGANDA yoziladi (2026-07-14): haydovchi yetkazib,
+      // naqd/karta pulini olganда moliyaga kirim tushadi. Yaratilganda EMAS.
+      // - DEBT: INCOME yozilMAYDI — pul mijoz qarzini to'laganda keladi
+      //   (customers.addPayment "Qarz to'lovi"). Ikki marta hisoblanmasin.
+      // - Idempotent: eski (o'tish davri) buyurtmalarda kirim yaratishда
+      //   yozilgan bo'lishi mumkin — bor bo'lsa qayta yozilmaydi.
+      if (dto.status === "DELIVERED" && order.paymentType !== "DEBT") {
+        const existing = await tx.transaction.findFirst({
+          where: { orderId: id, type: "INCOME" },
+          select: { id: true },
+        });
+        if (!existing) {
+          await tx.transaction.create({
+            data: {
+              type: "INCOME",
+              amount: order.totalAmount,
+              paymentMethod: order.paymentType === "CASH" ? "CASH" : "CARD",
+              category: "Suv sotuvi",
+              description: `${result.customer.name} — buyurtma #${result.seq} yetkazildi`,
+              orderId: id,
+              customerId: order.customerId,
+              createdById: userId,
+            },
+          });
+        }
+      }
 
       // Bekor qilinganda — tara/ombor/pul qaytariladi
       if (dto.status === "CANCELLED") {
@@ -325,7 +335,10 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
 
-    if (!["NEW", "PROCESSING"].includes(order.status)) {
+    // ASSIGNED ham qabul qilinadi — haydovchini ISTALGAN PAYT almashtirish
+    // mumkin (logistika: zakaz bu haydovchidan boshqasiga o'tkaziladi).
+    // Faqat yakunlangan (yetkazilgan/bekor) buyurtmada o'zgartirib bo'lmaydi.
+    if (!["NEW", "PROCESSING", "ASSIGNED"].includes(order.status)) {
       throw new BadRequestException("Bu statusdagi buyurtmaga haydovchi biriktirib bo'lmaydi");
     }
 
@@ -333,6 +346,11 @@ export class OrdersService {
       where: { id: dto.driverId, role: Role.DRIVER, isActive: true },
     });
     if (!driver) throw new NotFoundException("Haydovchi topilmadi yoki faol emas");
+
+    const oldDriverId = order.driverId;
+    if (oldDriverId === dto.driverId) {
+      throw new BadRequestException("Buyurtma allaqachon shu haydovchida");
+    }
 
     const updated = await this.prisma.order.update({
       where: { id },
@@ -342,6 +360,19 @@ export class OrdersService {
         driver: { select: { id: true, name: true } },
       },
     });
+
+    // Eski haydovchiga xabar — zakaz undan olindi (marshruti yangilansin)
+    if (oldDriverId) {
+      this.notifications.emitToUser(oldDriverId, "order_status_changed", {
+        orderId: id, orderNumber: order.orderNumber, newStatus: "ASSIGNED",
+      });
+      this.push.sendToUser(oldDriverId, {
+        title: `Buyurtma #${updated.seq} boshqa haydovchiga o'tkazildi`,
+        body: `${updated.customer.name} — bu zakaz endi sizda emas`,
+        url: `/orders`,
+        tag: `order-${id}`,
+      }).catch(() => {});
+    }
 
     // Notify the assigned driver
     this.notifications.emitToUser(dto.driverId, "new_order", {
@@ -444,15 +475,8 @@ export class OrdersService {
   }
 
   async getDriverOrders(driverId: string, date?: string) {
-    // "Bugun" — O'zbekiston (UTC+5) kuni bo'yicha. Server UTC'da ishlaydi:
-    // oddiy setHours(0..23) UTC kunini oladi — lokal 05:00–04:59 oralig'i bo'lib,
-    // kechagi yetkazilganlar ertalab soat 5 gacha ro'yxatda qolib ketardi.
-    const TZ_MS = 5 * 60 * 60 * 1000; // Asia/Tashkent, DST yo'q
-    const base = date ? new Date(date) : new Date();
-    const local = new Date(base.getTime() + TZ_MS);
-    local.setUTCHours(0, 0, 0, 0);
-    const start = new Date(local.getTime() - TZ_MS);
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+    // "Bugun" — O'zbekiston kuni (umumiy util, date.util.ts)
+    const { start, end } = localDayRange(date ? new Date(date) : new Date());
 
     const orders = await this.prisma.order.findMany({
       where: {
