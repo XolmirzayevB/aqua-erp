@@ -194,7 +194,7 @@ export function DriverDetail({ id }: Props) {
                       }
                       labelStyle={{ fontSize: 11 }}
                     />
-                    <Bar dataKey="bottlesSold" name="Butilka" fill="#2563EB" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="bottlesSold" name="Butilka" fill="#B93B3B" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="orders" name="Buyurtma" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

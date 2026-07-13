@@ -81,7 +81,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-2 h-[52px]">
-          <div className="w-[34px] h-[34px] rounded-[10px] bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-glow flex-none">
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-gradient-to-br from-blue-600 to-rose-400 flex items-center justify-center shadow-glow flex-none">
             <Droplet className="w-[19px] h-[19px] text-white" />
           </div>
           <div className="min-w-0">

@@ -133,8 +133,8 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
       const icon = L.divIcon({
         className: "",
         html: `<div style="position:relative;width:22px;height:22px;">
-          <div style="position:absolute;inset:-10px;border-radius:50%;background:rgba(37,99,235,.28);animation:aqGeoPing 2s ease-out infinite;"></div>
-          <div style="position:absolute;inset:0;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 1px 6px rgba(16,24,40,.45);"></div>
+          <div style="position:absolute;inset:-10px;border-radius:50%;background:rgba(185,59,59,.28);animation:aqGeoPing 2s ease-out infinite;"></div>
+          <div style="position:absolute;inset:0;border-radius:50%;background:#B93B3B;border:3px solid #fff;box-shadow:0 1px 6px rgba(16,24,40,.45);"></div>
         </div>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
@@ -145,8 +145,8 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
       // Aniqlik doirasi (GPS xatolik radiusi)
       myCircleRef.current = L.circle([pos.lat, pos.lng], {
         radius: Math.min(pos.acc, 300),
-        color: "#2563EB", weight: 1, opacity: 0.3,
-        fillColor: "#2563EB", fillOpacity: 0.08, interactive: false,
+        color: "#B93B3B", weight: 1, opacity: 0.3,
+        fillColor: "#B93B3B", fillOpacity: 0.08, interactive: false,
       }).addTo(map);
     } else {
       myMarkerRef.current.setLatLng([pos.lat, pos.lng]);
@@ -261,7 +261,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
       ];
       if (linePoints.length > 1) {
         L.polyline(linePoints, {
-          color: "#2563EB", weight: 3, opacity: 0.45, dashArray: "6 10",
+          color: "#B93B3B", weight: 3, opacity: 0.45, dashArray: "6 10",
         }).addTo(map);
       }
 
@@ -269,7 +269,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
       stops.forEach((s) => {
         const icon = L.divIcon({
           className: "",
-          html: `<div style="width:34px;height:34px;border-radius:50% 50% 50% 4px;transform:rotate(0deg);background:#2563EB;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-family:Inter,sans-serif;border:3px solid #fff;box-shadow:0 2px 8px rgba(16,24,40,.35);">${s.n}</div>`,
+          html: `<div style="width:34px;height:34px;border-radius:50% 50% 50% 4px;transform:rotate(0deg);background:#B93B3B;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-family:Inter,sans-serif;border:3px solid #fff;box-shadow:0 2px 8px rgba(16,24,40,.35);">${s.n}</div>`,
           iconSize: [34, 34],
           iconAnchor: [17, 30],
           popupAnchor: [0, -28],
@@ -278,7 +278,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
         const gmaps = directionsUrl(s.lat, s.lng, s.locationLink);
         const popup = `
           <div style="font-family:Inter,sans-serif;min-width:190px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.n}. ${s.name}${s.zone ? ` <span style="background:#EFF4FF;color:#2563EB;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;vertical-align:middle;">${s.zone} hudud</span>` : ""}</div>
+            <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.n}. ${s.name}${s.zone ? ` <span style="background:#FBEDED;color:#B93B3B;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;vertical-align:middle;">${s.zone} hudud</span>` : ""}</div>
             <div style="font-size:12px;color:#6B7280;margin-bottom:6px;">#${s.seq} · ${s.quantity} ta suv · ${new Intl.NumberFormat("uz-UZ").format(s.amount)} so'm</div>
             <div style="font-size:12px;color:#374151;margin-bottom:8px;">${s.address}</div>
             <div style="display:flex;gap:6px;">

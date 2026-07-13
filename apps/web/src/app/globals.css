@@ -14,19 +14,19 @@
     --card-foreground: 221 39% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 221 39% 11%;
-    --primary: 221 83% 53%;         /* #2563EB */
+    --primary: 0 52% 48%;           /* #B93B3B — brend qizil */
     --primary-foreground: 210 40% 98%;
     --secondary: 220 43% 97%;       /* #F4F6FA surface-2 */
     --secondary-foreground: 221 39% 11%;
     --muted: 220 43% 97%;
     --muted-foreground: 220 9% 46%; /* #6B7280 */
-    --accent: 222 100% 97%;         /* #EEF4FF primary-weak */
-    --accent-foreground: 221 83% 45%;
+    --accent: 0 64% 96%;            /* #FBEDED primary-weak */
+    --accent-foreground: 0 52% 42%;
     --destructive: 0 84% 60%;       /* #EF4444 */
     --destructive-foreground: 210 40% 98%;
     --border: 217 22% 94%;          /* #ECEEF3 */
     --input: 217 22% 94%;
-    --ring: 221 83% 53%;
+    --ring: 0 52% 48%;
     --radius: 0.7rem;               /* ~11px — dizayn radiusi */
   }
 
@@ -37,19 +37,19 @@
     --card-foreground: 220 20% 96%;
     --popover: 210 10% 9%;
     --popover-foreground: 220 20% 96%;
-    --primary: 217 91% 60%;         /* #3B82F6 */
+    --primary: 0 54% 62%;           /* #D26A6A — brend qizil (dark) */
     --primary-foreground: 221 39% 11%;
     --secondary: 216 12% 12%;       /* #1A1D21 surface-2 */
     --secondary-foreground: 220 20% 96%;
     --muted: 216 12% 12%;
     --muted-foreground: 215 14% 65%; /* #98A2B3 */
-    --accent: 217 91% 60% / 0.16;
-    --accent-foreground: 222 100% 79%; /* #93B4FF */
+    --accent: 0 54% 62% / 0.16;
+    --accent-foreground: 0 71% 80%; /* #F0A8A8 */
     --destructive: 0 91% 71%;       /* #F87171 */
     --destructive-foreground: 220 20% 96%;
     --border: 220 9% 15%;           /* #24262C */
     --input: 220 9% 15%;
-    --ring: 217 91% 60%;
+    --ring: 0 54% 62%;
   }
 }
 
@@ -76,14 +76,14 @@
   }
 }
 
-/* Matn belgilash rangi — primary-weak */
+/* Matn belgilash rangi — primary-weak (brend qizil) */
 ::selection {
-  background: #DBE7FF;
-  color: #1D4ED8;
+  background: #F7DCDC;
+  color: #A02F2F;
 }
 .dark ::selection {
-  background: rgba(59, 130, 246, 0.3);
-  color: #93B4FF;
+  background: rgba(210, 106, 106, 0.3);
+  color: #F0A8A8;
 }
 
 /* Scrollbar — dizayndagidek: yumaloq, shaffof trek */

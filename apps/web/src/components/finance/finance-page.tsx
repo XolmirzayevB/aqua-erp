@@ -50,7 +50,7 @@ export function FinancePage() {
 
   const paySegs = [
     { label: "Naqd", value: summary?.cashIn ?? 0, color: "#16A34A" },
-    { label: "Karta", value: summary?.cardIn ?? 0, color: "#2563EB" },
+    { label: "Karta", value: summary?.cardIn ?? 0, color: "#B93B3B" },
   ];
   const payTotal = paySegs.reduce((s, x) => s + x.value, 0);
 
@@ -99,7 +99,7 @@ export function FinancePage() {
             </div>
             <div className="flex gap-4">
               <span className="flex items-center gap-1.5 text-[12.5px] text-gray-500 dark:text-gray-400 font-medium">
-                <span className="w-[9px] h-[9px] rounded-[3px] bg-blue-600" /> Tushum
+                <span className="w-[9px] h-[9px] rounded-[3px] bg-green-600" /> Tushum
               </span>
               <span className="flex items-center gap-1.5 text-[12.5px] text-gray-500 dark:text-gray-400 font-medium">
                 <span className="w-[9px] h-[9px] rounded-[3px] bg-red-500" /> Xarajat
@@ -111,9 +111,10 @@ export function FinancePage() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={summary.chart} margin={{ top: 8, right: 4, left: -12, bottom: 0 }}>
                   <defs>
+                    {/* Tushum yashil — xarajat qizil bo'lgani uchun brend qizil ishlatilmaydi (adashadi) */}
                     <linearGradient id="incomeG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2563EB" stopOpacity={0.2} />
-                      <stop offset="80%" stopColor="#2563EB" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor="#16A34A" stopOpacity={0.2} />
+                      <stop offset="80%" stopColor="#16A34A" stopOpacity={0.02} />
                     </linearGradient>
                     <linearGradient id="expenseG" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#EF4444" stopOpacity={0.12} />
@@ -128,7 +129,7 @@ export function FinancePage() {
                     labelStyle={{ fontSize: 11, fontWeight: 600 }}
                     contentStyle={{ borderRadius: 11, border: "1px solid #ECEEF3", fontSize: 12 }}
                   />
-                  <Area type="monotone" dataKey="income" name="Tushum" stroke="#2563EB" strokeWidth={2.5} fill="url(#incomeG)" />
+                  <Area type="monotone" dataKey="income" name="Tushum" stroke="#16A34A" strokeWidth={2.5} fill="url(#incomeG)" />
                   <Area type="monotone" dataKey="expense" name="Xarajat" stroke="#EF4444" strokeWidth={2.5} fill="url(#expenseG)" />
                 </AreaChart>
               </ResponsiveContainer>

@@ -26,7 +26,7 @@ type Period = (typeof PERIODS)[number]["value"];
 
 const RANK_ICONS = [Crown, Medal, Award];
 const RANK_COLORS = ["text-amber-500", "text-gray-400", "text-amber-700"];
-const SEG_COLORS = ["#2563EB", "#0EA5E9", "#7C3AED", "#14B8A6", "#F59E0B", "#EF4444", "#DB2777", "#16A34A"];
+const SEG_COLORS = ["#B93B3B", "#0EA5E9", "#7C3AED", "#14B8A6", "#F59E0B", "#EF4444", "#DB2777", "#16A34A"];
 
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>("monthly");
@@ -63,9 +63,10 @@ export function AnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={finance.chart} margin={{ top: 8, right: 4, left: -12, bottom: 0 }}>
                   <defs>
+                    {/* Tushum yashil — xarajat qizil, brend qizil bilan adashmasin */}
                     <linearGradient id="anIncomeG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2563EB" stopOpacity={0.2} />
-                      <stop offset="80%" stopColor="#2563EB" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor="#16A34A" stopOpacity={0.2} />
+                      <stop offset="80%" stopColor="#16A34A" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
@@ -76,7 +77,7 @@ export function AnalyticsPage() {
                     labelStyle={{ fontSize: 11, fontWeight: 600 }}
                     contentStyle={{ borderRadius: 11, border: "1px solid #ECEEF3", fontSize: 12 }}
                   />
-                  <Area type="monotone" dataKey="income" name="Tushum" stroke="#2563EB" strokeWidth={2.5} fill="url(#anIncomeG)" />
+                  <Area type="monotone" dataKey="income" name="Tushum" stroke="#16A34A" strokeWidth={2.5} fill="url(#anIncomeG)" />
                   <Area type="monotone" dataKey="expense" name="Xarajat" stroke="#EF4444" strokeWidth={2.5} fill="none" />
                 </AreaChart>
               </ResponsiveContainer>

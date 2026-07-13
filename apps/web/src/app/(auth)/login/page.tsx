@@ -71,7 +71,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white mb-4 shadow-glow">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-rose-400 text-white mb-4 shadow-glow">
             <Droplet className="w-8 h-8" />
           </div>
           <h1 className="text-[30px] font-bold text-gray-900 dark:text-white tracking-tight">

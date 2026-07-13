@@ -18,6 +18,25 @@ const designGray = {
   950: "#0A0B0D",
 };
 
+// BREND QIZIL (egasi tanlagan, 2026-07-13) — mockup'dagi g'isht-qizil (#B93B3B).
+// Butun dastur `blue-*` klasslari bilan yozilgan edi; shkalani shu yerda qizilga
+// almashtirish bilan BARCHA primary elementlar (tugma, aktiv holat, link, fokus)
+// bir zumda qizil bo'ladi. Komponentlarda klass nomi "blue" bo'lib qolgan —
+// bu ataylab: yangi rang faqat shu bitta joyda boshqariladi.
+const brandRed = {
+  50: "#FBEDED",
+  100: "#F7DCDC",
+  200: "#EFBDBD",
+  300: "#E39696",
+  400: "#D26A6A",
+  500: "#C24B4B",
+  600: "#B93B3B", // primary — mockup rangi
+  700: "#A02F2F",
+  800: "#862929",
+  900: "#6F2525",
+  950: "#3D1111",
+};
+
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -29,6 +48,7 @@ const config: Config = {
     extend: {
       colors: {
         gray: designGray,
+        blue: brandRed,
         // Dizayn "weak" fonlari — aniq qiymatlar
         green: { 50: "#E7F7EE" },
         amber: { 50: "#FDF3E4" },
@@ -80,7 +100,7 @@ const config: Config = {
         card: "0 1px 2px rgba(16, 24, 40, 0.05)",
         panel: "0 10px 30px rgba(16, 24, 40, 0.05)",
         "card-hover": "0 24px 60px rgba(16, 24, 40, 0.10)",
-        glow: "0 1px 2px rgba(16, 24, 40, 0.2), 0 6px 16px rgba(37, 99, 235, 0.18)",
+        glow: "0 1px 2px rgba(16, 24, 40, 0.2), 0 6px 16px rgba(185, 59, 59, 0.20)",
       },
     },
   },

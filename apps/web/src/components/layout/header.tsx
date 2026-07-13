@@ -36,7 +36,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         </button>
         {/* Mobil logo */}
         <div className="md:hidden flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-rose-400 flex items-center justify-center">
             <Droplet className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-gray-900 dark:text-white text-sm tracking-tight">AquaERP</span>

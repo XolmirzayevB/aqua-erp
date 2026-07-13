@@ -99,7 +99,7 @@ export function StatStrip({ children }: { children: ReactNode }) {
 
 /* ---------- Avatar — dizayn palitrasi, hash rang, kvadrat-yumaloq ---------- */
 const AV_PALETTE = [
-  "#2563EB", "#7C3AED", "#0EA5E9", "#0D9488", "#DB2777",
+  "#B93B3B", "#7C3AED", "#0EA5E9", "#0D9488", "#DB2777",
   "#EA580C", "#16A34A", "#4F46E5", "#CA8A04", "#0891B2",
 ];
 

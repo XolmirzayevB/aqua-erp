@@ -35,7 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 // Donut segment ranglari — dizayndagi qiymatlar
-const SEG_COLORS = { warehouse: "#F59E0B", customers: "#2563EB", broken: "#EF4444", lost: "#9CA3AF" };
+const SEG_COLORS = { warehouse: "#F59E0B", customers: "#B93B3B", broken: "#EF4444", lost: "#9CA3AF" };
 
 export function InventoryPage() {
   const [showIntake, setShowIntake] = useState(false);
