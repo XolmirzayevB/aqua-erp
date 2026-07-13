@@ -50,7 +50,7 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 ### GitHub
 - **Repo:** https://github.com/XolmirzayevB/aqua-erp  (private, branch: `main`)
 - Push uchun: username `XolmirzayevB` + **Personal Access Token** (`workflow` scope YO'Q edi — shuning uchun `.github/workflows/` gitignore qilingan)
-- ⚠️ **Diqqat:** lokalда commit qilinmagan o'zgarishlar bor (GitHub ORTDA). Server Eng yangi (tar orqali). Kerak bo'lsa commit + push qiling.
+- ✅ **2026-07-10 holati:** lokal = GitHub = server, hammasi sinxron (oxirgi commit `7f68389`). Har o'zgarishdan keyin commit + push qiling.
 
 ### Parollar / maxfiy kalitlar
 - **Prod DB paroli:** `bb936e75d7206e2c8e94d8ce70b1d40b` (server `.env.production` da)
@@ -64,9 +64,21 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 | Manager | +998901234568 | Manager@123 |
 | Operator | +998901234569 | Operator@123 |
 | Haydovchi | +998901234570 | Driver@123 |
+| Haydovchi (Aziz aka) | +998908585858 | *(egasi o'zi belgilagan)* |
 
-> Foydalanuvchi hali test parollarni o'zgartirmagan. Test ma'lumotlar (soxta mijozlar) bazada bor.
-> Foydalanuvchi "keyinroq toza reset qilamiz" degan (real ma'lumot dadasidagi daftarda, hozir yo'q).
+> Prod'da 5 ta foydalanuvchi bor (yuqoridagilar). "Aziz aka" — egasi o'zi qo'shgan real haydovchi, parolini biz bilmaymiz.
+> Test parollar hali almashtirilmagan — real ishga o'tganda har kishiga alohida hisob + yangi parol yaratiladi (egasi shunday reja qilgan).
+
+### ⚠️ BAZA TOZALANDI (2026-07-10) — toza sinov boshlandi
+> Egasi so'rovi bilan prod baza 0 dan boshlandi: mijozlar/buyurtmalar/tranzaksiyalar/to'lovlar = 0, ombor = 0.
+> **Saqlangan:** users (5 login), settings (narx/hudud). **Zaxira nusxa:** `/opt/aqua-erp/backups/before_reset_20260710_000053.sql` (kerak bo'lsa qaytarish uchun).
+> Egasi 10 ta mijoz + ombor soni bilan qo'lda test qiladi. Tozalash buyrug'i (kelajakda kerak bo'lsa):
+> `printf 'BEGIN;\nTRUNCATE TABLE audit_logs, customers, driver_sessions, inventory_actions, notifications, orders, payments, push_subscriptions, transactions RESTART IDENTITY CASCADE;\nUPDATE inventory SET quantity = 0;\nCOMMIT;\n' | ssh root@116.203.220.83 'docker exec -i aqua_postgres_prod psql -U aqua_user -d aqua_erp'`
+
+### Boshlash yo'llanmasi (egaga berilgan)
+> To'liq onboarding qo'llanma Artifact sifatida chop etilgan (login/parol, Android o'rnatish, birinchi qadamlar, ombor/qarz mantiqi):
+> https://claude.ai/code/artifact/ea18fed7-a8ea-428c-a48f-ef7211cc780a
+> Yangilash kerak bo'lsa: `scratchpad/aquaerp-guide.html` ni tahrirlab, xuddi shu URL bilan qayta Artifact qiling.
 
 ---
 
@@ -312,16 +324,15 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 5. Mijoz buyurtma tarixida qisqa raqam (1,2,3) uzun ID o'rniga
 6. Haydovchilar bo'limi bug'i tuzatildi (DriverCard'da vergul operatori → fragment)
 
-⏳ **Qolgan/ixtiyoriy ishlar (foydalanuvchi keyin so'rashi mumkin):**
-- **Telegram bot** — ENG KUTILAYOTGANI (foydalanuvchiga tavsiya qilingan): yangi buyurtma haydovchiga Telegram xabar; kechqurun egasiga kunlik xulosa. Hali boshlanmagan.
-- **Doimiy/takroriy buyurtmalar** — mijozga "har juma 2 ta" jadval; tavsiya sifatida aytilgan.
-- **"Yo'qolayotgan mijozlar"** — uzoq buyurtma qilmagan mijozlar ro'yxati; tavsiya sifatida aytilgan.
-- **Toza DB reset** — foydalanuvchi tayyor bo'lganda test ma'lumotni tozalab, 0 dan boshlash.
-  Buyruq: `ssh root@... "cd /opt/aqua-erp && docker compose --env-file .env.production -f docker-compose.prod.yml exec api sh -c 'cd packages/database && npx prisma migrate reset --force'"` (keyin seed).
-  DIQQAT: foydalanuvchi allaqachon REAL mijozlar kirita boshlagan (Behruz, Alisher aka, Hudud Test, Gulbaybek...) — reset oldidan aniqlashtiring!
-- **Test parollarni o'zgartirish** (foydalanuvchiga eslatish — xavfsizlik).
-- **ESKIRDI — Haydovchi sessiyalari**: "Kun boshlash" UI'dan OLIB TASHLANGAN (2026-07-04, foydalanuvchi so'rovi). Ombor harakati endi buyurtma orqali. Backend openSession qolgan, lekin ishlatilmaydi — qayta tiklamang.
-- ~~GitHub'ni yangilash~~ — ✅ 2026-07-07 da commit + push qilindi (GitHub main = lokal).
+⏳ **Qolgan/ixtiyoriy ishlar — 2026-07-10 holati (egasi rejasi):**
+- ❌ **Telegram bot / kunlik Telegram xulosa — RAD ETILDI.** Egasi: "ilovada push bor, Telegram ortiqcha, unda programma nima ish qiladi". Bu yo'nalishga QAYTMANG.
+- ⏳ **Doimiy/takroriy buyurtmalar** — mijozga "har 5 kunda 2 ta" jadval, tizim o'zi zakaz tayyorlaydi. TAVSIYA qilingan, hali boshlanmagan (egasi keyin so'rashi mumkin — kundalik ishni eng ko'p yengillashtiradi).
+- ✅ **"Yo'qolayotgan mijozlar"** — BAJARILDI (2026-07-09, yuqoriga qarang).
+- ✅ **Toza DB reset** — BAJARILDI (2026-07-10, yuqoridagi "BAZA TOZALANDI" bo'limi). Endi egasi qo'lda 10 mijoz bilan test qilyapti.
+- ⏳ **Backup'ni serverdan tashqariga (offsite)** — egaga tushuntirilgan (#5): hozir zaxira nusxa o'sha serverda; server buzilsa nusxa ham ketadi. Nusxani Telegram/bulutga avtomatik yuborish kerak. Egasi "keyin qilamiz" dedi.
+- ⏳ **Har kishiga alohida login + real parollar** — egasi test tugagach o'zi yaratadi va real ishga topshiradi (test parollar shunda almashadi).
+- ⏳ **Haqiqiy domen** (aquaerp.uz) — egasi "keyin, hozir mablag' kam" dedi.
+- **ESKIRDI — Haydovchi sessiyalari**: "Kun boshlash" UI'dan OLIB TASHLANGAN (2026-07-04). Backend openSession qolgan, lekin ishlatilmaydi — qayta tiklamang.
 
 ---
 
