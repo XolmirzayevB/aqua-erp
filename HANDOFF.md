@@ -50,7 +50,7 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 ### GitHub
 - **Repo:** https://github.com/XolmirzayevB/aqua-erp  (private, branch: `main`)
 - Push uchun: username `XolmirzayevB` + **Personal Access Token** (`workflow` scope YO'Q edi — shuning uchun `.github/workflows/` gitignore qilingan)
-- ✅ **2026-07-10 holati:** lokal = GitHub = server, hammasi sinxron (oxirgi commit `7f68389`). Har o'zgarishdan keyin commit + push qiling.
+- ✅ **2026-07-13 holati:** lokal = GitHub = server, hammasi sinxron. Har o'zgarishdan keyin commit + push qiling.
 
 ### Parollar / maxfiy kalitlar
 - **Prod DB paroli:** `bb936e75d7206e2c8e94d8ce70b1d40b` (server `.env.production` da)
@@ -199,6 +199,13 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Bepul HTTPS (Caddy + nip.io + Let's Encrypt)
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
+
+✅ **Haydovchi: hudud filtri + jami tara + GPS opt-in (2026-07-13):**
+- **Haydovchi buyurtmalar sahifasi alohida:** `apps/web/src/components/orders/driver-orders.tsx` (DriverOrders). `orders-view.tsx` (OrdersView) rolga qarab ajratadi: DRIVER → DriverOrders, boshqalar → OrdersTable (admin/operator ko'rinishi O'ZGARMAGAN). `/orders` sahifasi endi OrdersView ni chaqiradi.
+- **Ma'lumot manbai:** useDriverDayOrders (getDriverOrders endpointi) — sahifalashsiz bugungi to'liq to'plam (yopilmagan + bugun yetkazilgan), shuning uchun hudud chiplari va tara hisobi ANIQ. useUpdateOrderStatus allaqachon driver-day-orders cache'ni invalidate qiladi — "Yetkazildi" bosilganda hisob darrov yangilanadi.
+- **Hudud filtri:** yetkazilmagan zakazlardan hudud chiplari (soni bilan), bosganda ro'yxat + tara hisobi shu hududga tushadi. Hududsiz mijozlar "Hududsiz" chipida (NO_ZONE="__none__").
+- **Jami tara:** tepada katta ko'k gradient karta "Bugungi yuk / N ta tara" (+qoldi/yetkazildi/yangi tara). Hudud tanlansa sarlavha "A hudud" bo'ladi.
+- **GPS opt-in (iPhone muammosi hal):** route-map.tsx da watchPosition endi geoEnabled=true bo'lgandagina ishlaydi — ilova/PWA ochilganda lokatsiya ruxsati SO'RALMAYDI. "Mening joyim" tugmasi birinchi bosilganda yoqiladi; sessionStorage("aqua-geo-on") sessiya ichida eslab qoladi. Xarita footer'ida "Joyingizni ko'rish uchun tugmani bosing" maslahati chiqadi.
 
 ✅ **Yo'qolayotgan mijozlar (2026-07-09):**
 - Uzoq (7/14/30 kun) zakaz qilmagan aktiv mijozlar ro'yxati — retention uchun operator qo'ng'iroq qiladi.
