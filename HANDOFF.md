@@ -200,7 +200,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Avtomatik backup (har kuni 02:00, pg_dump)
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
-⏳ **DEPLOY KUTILMOQDA (2026-07-13 kech):** quyidagi "Haydovchi UX 2" to'plami commit+push qilingan (`d6a886c`) va kod serverga tar bilan KO'CHIRILGAN, LEKIN docker rebuild ISHLATILMAGAN (egasi "hozircha shart emas" dedi). Server hali eski build'da. Deploy uchun faqat: `ssh root@116.203.220.83 'cd /opt/aqua-erp && docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build'` (fonda, ~5-8 daq) → keyin sayt tekshiruv.
+⏳ **DEPLOY KUTILMOQDA (2026-07-14):** IKKITA to'plam jonlida YO'Q — "Haydovchi UX 2" (`d6a886c`) va "Brend qizil + formalar" (`dfb0542`). Egasi ikki marta "hozircha shart emas" dedi. Server hali eski build'da; /opt/aqua-erp da faqat d6a886c gacha tar qilingan (redizayn YO'Q). Deploy: TO'LIQ standart jarayon (5-bo'lim: avval tar, keyin docker rebuild) — tar'ni QAYTA qilish shart.
 
 ✅ **BREND QIZIL + forma redizaynlari (2026-07-14, DEPLOY KUTILMOQDA):**
 - **Butun dastur KO'K → G'ISHT-QIZIL (#B93B3B)** — egasi mockup berib so'ragan. Yechim: `tailwind.config.ts`da `blue` shkalasi `brandRed` bilan almashtirilgan (komponentlarda klass nomlari `blue-*` bo'lib QOLGAN — ataylab, rang bitta joydan boshqariladi; YANGI komponentda ham `blue-*` yozng — qizil chiqadi). globals.css --primary/--ring/--accent/selection qizil HSL. shadow-glow qizil.
