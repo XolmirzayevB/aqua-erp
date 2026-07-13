@@ -242,7 +242,7 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true } },
+        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true, lat: true, lng: true } },
         driver: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true } },
         transactions: true,
@@ -444,9 +444,15 @@ export class OrdersService {
   }
 
   async getDriverOrders(driverId: string, date?: string) {
-    const targetDate = date ? new Date(date) : new Date();
-    const start = new Date(targetDate); start.setHours(0, 0, 0, 0);
-    const end = new Date(targetDate); end.setHours(23, 59, 59, 999);
+    // "Bugun" — O'zbekiston (UTC+5) kuni bo'yicha. Server UTC'da ishlaydi:
+    // oddiy setHours(0..23) UTC kunini oladi — lokal 05:00–04:59 oralig'i bo'lib,
+    // kechagi yetkazilganlar ertalab soat 5 gacha ro'yxatda qolib ketardi.
+    const TZ_MS = 5 * 60 * 60 * 1000; // Asia/Tashkent, DST yo'q
+    const base = date ? new Date(date) : new Date();
+    const local = new Date(base.getTime() + TZ_MS);
+    local.setUTCHours(0, 0, 0, 0);
+    const start = new Date(local.getTime() - TZ_MS);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
 
     const orders = await this.prisma.order.findMany({
       where: {

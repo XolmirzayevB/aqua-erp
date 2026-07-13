@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
+import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { QueryFinanceDto, SummaryQueryDto } from "./dto/query-finance.dto";
 import { Prisma, TransactionType } from "@aqua/database";
 import {
@@ -25,6 +26,48 @@ export class FinanceService {
       },
       include: { createdBy: { select: { id: true, name: true } } },
     });
+  }
+
+  // Xarajat kiritish — haydovchi o'ziniki uchun ham ishlaydi.
+  // createdById orqali KIM kiritgani doim ko'rinadi; haydovchi kiritgani
+  // izohda "(haydovchi)" belgisi bilan ajralib turadi.
+  async createExpense(dto: CreateExpenseDto, user: { sub: string; role: string }) {
+    const isDriver = user.role === "DRIVER";
+    const description = [
+      dto.description?.trim() || null,
+      isDriver ? "(haydovchi)" : null,
+    ].filter(Boolean).join(" ") || null;
+
+    return this.prisma.transaction.create({
+      data: {
+        type: "EXPENSE" as TransactionType,
+        amount: dto.amount,
+        paymentMethod: (dto.paymentMethod ?? "CASH") as any,
+        category: dto.category?.trim() || (isDriver ? "Haydovchi xarajati" : "Boshqa"),
+        description,
+        createdById: user.sub,
+      },
+      include: { createdBy: { select: { id: true, name: true } } },
+    });
+  }
+
+  // Foydalanuvchining BUGUNGI (O'zbekiston kuni, UTC+5) o'z xarajatlari
+  async getMyTodayExpenses(userId: string) {
+    const TZ_MS = 5 * 60 * 60 * 1000; // Asia/Tashkent, DST yo'q
+    const local = new Date(Date.now() + TZ_MS);
+    local.setUTCHours(0, 0, 0, 0);
+    const start = new Date(local.getTime() - TZ_MS);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    const data = await this.prisma.transaction.findMany({
+      where: { createdById: userId, type: "EXPENSE", createdAt: { gte: start, lte: end } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, amount: true, category: true, description: true, createdAt: true },
+    });
+    return {
+      data,
+      total: data.reduce((s, t) => s + Number(t.amount), 0),
+    };
   }
 
   async findAll(query: QueryFinanceDto) {

@@ -4,6 +4,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { FinanceService } from "./finance.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
+import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { QueryFinanceDto, SummaryQueryDto } from "./dto/query-finance.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -41,6 +42,24 @@ export class FinanceController {
   @ApiOperation({ summary: "Kategoriyalar bo'yicha xulosa" })
   getCategories() {
     return this.financeService.getCategories();
+  }
+
+  // Haydovchi o'z xarajatini O'ZI kiritadi (benzin, ovqat, remont...).
+  // Oddiy EXPENSE tranzaksiya sifatida yoziladi — moliya xulosasi/foyda
+  // hisobiga avtomatik ta'sir qiladi.
+  @Post("expenses")
+  @Roles(Role.ADMIN, Role.DRIVER)
+  @ApiOperation({ summary: "Xarajat kiritish (haydovchi o'ziniki)" })
+  createExpense(@Body() dto: CreateExpenseDto, @CurrentUser() user: { sub: string; role: string }) {
+    return this.financeService.createExpense(dto, user);
+  }
+
+  // Haydovchining BUGUNGI o'z xarajatlari (tekshirib turishi uchun)
+  @Get("expenses/my")
+  @Roles(Role.ADMIN, Role.DRIVER)
+  @ApiOperation({ summary: "Mening bugungi xarajatlarim" })
+  getMyExpenses(@CurrentUser("sub") userId: string) {
+    return this.financeService.getMyTodayExpenses(userId);
   }
 
   @Get("debts")

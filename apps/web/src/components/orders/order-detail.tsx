@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, MapPin, Package, DollarSign,
   Truck, CheckCircle, XCircle, Clock, User,
@@ -12,6 +13,7 @@ import { AssignDriverModal } from "./assign-driver-modal";
 import { PaymentModal } from "@/components/customers/payment-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
+import { directionsUrl } from "@/lib/nav";
 import { PAYMENT_TYPE_LABELS, ORDER_STATUS_LABELS, OrderStatus } from "@aqua/shared";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -35,6 +37,7 @@ export function OrderDetail({ id }: Props) {
   const { canManageOrders, canDeliver, canCollectDebt, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
+  const router = useRouter();
 
   // Qayerdan kelgan bo'lsa — orqaga o'sha yerga qaytamiz (?from=route → marshrut)
   const [backHref, setBackHref] = useState("/orders");
@@ -43,6 +46,15 @@ export function OrderDetail({ id }: Props) {
       setBackHref("/route");
     }
   }, []);
+
+  // Orqaga: history bo'lsa router.back() — yangi yozuv QO'SHMAYDI (aks holda
+  // ro'yxat↔tafsilot orasida stack o'sib boradi); to'g'ridan kirilgan bo'lsa href.
+  const goBack = (e: React.MouseEvent) => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      e.preventDefault();
+      router.back();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -79,6 +91,7 @@ export function OrderDetail({ id }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={backHref}
+          onClick={goBack}
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-none"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -164,14 +177,17 @@ export function OrderDetail({ id }: Props) {
                 </Wrap>
               );
             })()}
-            {/* Lokatsiya — haydovchi uchun navigatsiya */}
-            {order.customer.locationLink && (
-              <a href={order.customer.locationLink} target="_blank" rel="noopener noreferrer"
-                className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors">
-                <Navigation className="w-4 h-4" />
-                Lokatsiyani ochish (Google Maps)
-              </a>
-            )}
+            {/* Lokatsiya — haydovchi uchun navigatsiya (Google Maps ILOVASIDA ochiladi) */}
+            {(() => {
+              const nav = directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
+              return nav ? (
+                <a href={nav} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors">
+                  <Navigation className="w-4 h-4" />
+                  Yo'l ko'rsatish (Google Maps)
+                </a>
+              ) : null;
+            })()}
             {order.customer.balance !== undefined && Number(order.customer.balance) < 0 && (
               <div className="mt-3 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
                 <p className="text-xs text-orange-600 dark:text-orange-400">

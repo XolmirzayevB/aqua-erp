@@ -8,11 +8,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Droplets, Navigation, CheckCircle, Search, PackagePlus } from "lucide-react";
+import { Droplets, Navigation, CheckCircle, Search, PackagePlus, Wallet } from "lucide-react";
 import { useDriverDayOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
+import { useMyTodayExpenses } from "@/hooks/use-finance";
+import { DriverExpenseModal } from "@/components/finance/driver-expense-modal";
 import { useAuthStore } from "@/store/auth.store";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatPhone, formatDate, cn } from "@/lib/utils";
+import { directionsUrl } from "@/lib/nav";
 import { PageHeader, Pill, cardClass } from "@/components/shared/page-ui";
 
 const NO_ZONE = "__none__";
@@ -25,6 +28,8 @@ export function DriverOrders() {
   const [zone, setZone] = useState<string | null>(null); // null = barcha hududlar
   const [tab, setTab] = useState<"pending" | "delivered">("pending");
   const [search, setSearch] = useState("");
+  const [showExpense, setShowExpense] = useState(false);
+  const { data: myExpenses } = useMyTodayExpenses();
 
   const active = orders.filter((o) => o.status !== "CANCELLED");
   const pending = active.filter((o) => o.status !== "DELIVERED");
@@ -68,7 +73,21 @@ export function DriverOrders() {
       <PageHeader
         title="Buyurtmalar"
         subtitle={`${formatDate(new Date(), "d-MMMM, EEEE")} · sizga biriktirilgan`}
-      />
+      >
+        {/* Haydovchi o'z xarajatini (benzin, ovqat...) shu yerdan kiritadi */}
+        <button
+          onClick={() => setShowExpense(true)}
+          className="inline-flex items-center gap-2 h-[42px] px-4 rounded-xl bg-white dark:bg-gray-900 text-red-600 dark:text-red-400 border border-gray-100 dark:border-gray-800 text-[13.5px] font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+        >
+          <Wallet className="w-4 h-4" />
+          Xarajat
+          {myExpenses && myExpenses.total > 0 && (
+            <span className="tabular-nums text-[12px] font-bold">
+              −{new Intl.NumberFormat("uz-UZ").format(myExpenses.total)}
+            </span>
+          )}
+        </button>
+      </PageHeader>
 
       {/* ── JAMI TARA — ko'zga tashlanadigan asosiy ko'rsatkich ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-glow p-5 mb-4">
@@ -176,16 +195,20 @@ export function DriverOrders() {
                   <span className="font-bold tabular-nums">{formatCurrency(order.totalAmount)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {order.customer.locationLink && (
-                    <a
-                      href={order.customer.locationLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-gray-100 dark:border-gray-800 text-green-600 dark:text-green-400"
-                    >
-                      <Navigation className="w-4 h-4" />
-                    </a>
-                  )}
+                  {(() => {
+                    // Navigatsiya — Google Maps ILOVASIDA (web emas), marshrut tuzadi
+                    const nav = directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
+                    return nav ? (
+                      <a
+                        href={nav}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-gray-100 dark:border-gray-800 text-green-600 dark:text-green-400"
+                      >
+                        <Navigation className="w-4 h-4" />
+                      </a>
+                    ) : null;
+                  })()}
                   {order.status === "ASSIGNED" && (
                     <button
                       onClick={() => updateStatus.mutate({ id: order.id, status: "DELIVERED" })}
@@ -202,6 +225,8 @@ export function DriverOrders() {
           ))
         )}
       </div>
+
+      {showExpense && <DriverExpenseModal onClose={() => setShowExpense(false)} />}
     </div>
   );
 }

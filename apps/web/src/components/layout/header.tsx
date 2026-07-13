@@ -23,7 +23,8 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     } catch {}
     logout();
     toast.success("Tizimdan chiqildi");
-    router.push("/login");
+    // replace — chiqib bo'lgach orqaga bosib dashboard'ga qaytib bo'lmaydi
+    router.replace("/login");
   };
 
   return (

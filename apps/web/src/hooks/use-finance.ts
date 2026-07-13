@@ -73,6 +73,42 @@ export function useCreateTransaction() {
   });
 }
 
+// ─── Haydovchi xarajati ───────────────────────────────────────────────────────
+
+export interface MyExpense {
+  id: string;
+  amount: number;
+  category?: string;
+  description?: string;
+  createdAt: string;
+}
+
+// Haydovchining bugungi o'z xarajatlari (modal ichida ko'rsatiladi)
+export function useMyTodayExpenses(enabled = true) {
+  return useQuery({
+    queryKey: ["my-expenses"],
+    queryFn: () =>
+      api.get("/finance/expenses/my").then((r) => r.data.data as { data: MyExpense[]; total: number }),
+    enabled,
+  });
+}
+
+export function useAddExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { amount: number; category?: string; description?: string }) =>
+      api.post("/finance/expenses", data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-expenses"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["finance-summary"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Xarajat qo'shildi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
 export function useDebts(page = 1, search?: string) {
   return useQuery({
     queryKey: ["debts", page, search],

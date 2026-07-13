@@ -16,6 +16,7 @@ import { useDriverDayOrders } from "@/hooks/use-orders";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { formatCurrency, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { directionsUrl } from "@/lib/nav";
 import { cardClass } from "@/components/shared/page-ui";
 
 interface Stop {
@@ -273,7 +274,8 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
           iconAnchor: [17, 30],
           popupAnchor: [0, -28],
         });
-        const gmaps = s.locationLink || `https://maps.google.com/?q=${s.lat},${s.lng}`;
+        // Navigatsiya — Google Maps ILOVASIDA ochiladi (web emas), marshrut tuzadi
+        const gmaps = directionsUrl(s.lat, s.lng, s.locationLink);
         const popup = `
           <div style="font-family:Inter,sans-serif;min-width:190px;">
             <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.n}. ${s.name}${s.zone ? ` <span style="background:#EFF4FF;color:#2563EB;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;vertical-align:middle;">${s.zone} hudud</span>` : ""}</div>
@@ -423,7 +425,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
                 </div>
               </div>
               <a
-                href={s.locationLink || `https://maps.google.com/?q=${s.lat},${s.lng}`}
+                href={directionsUrl(s.lat, s.lng, s.locationLink) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Borish"

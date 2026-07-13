@@ -103,6 +103,11 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   <Link
                     key={item.href}
                     href={item.href}
+                    // replace: bo'limlar orasida yurish history'da TO'PLANMAYDI —
+                    // orqaga tugmasi har bosilgan sahifani bittalab aylanib yurmaydi.
+                    // Ichki sahifalar (buyurtma/mijoz tafsiloti) esa push bo'lib qoladi,
+                    // ulardan orqaga bosilsa ro'yxatga qaytadi.
+                    replace
                     onClick={onClose}
                     className={cn(
                       "relative flex items-center gap-[11px] px-3 py-2.5 md:py-2 rounded-[11px] text-[13.5px] transition-colors duration-150 select-none",

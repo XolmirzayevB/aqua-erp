@@ -23,7 +23,7 @@ export interface Order {
   notes?: string;
   deliveredAt?: string;
   createdAt: string;
-  customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string };
+  customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
 }

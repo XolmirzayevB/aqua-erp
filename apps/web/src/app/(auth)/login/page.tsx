@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,11 +25,22 @@ type LoginForm = z.infer<typeof loginSchema>;
 const inputCls =
   "w-full px-4 py-3 rounded-[11px] border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-gray-900 transition-all text-sm";
 
+// Rolga qarab "uy" sahifa
+const roleHome = (role?: string) =>
+  role === "DRIVER" ? "/orders" : role === "OPERATOR" ? "/customers" : "/";
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const { isAuthenticated, user } = useAuthStore();
+
+  // Allaqachon tizimda bo'lsa — login ko'rsatilmaydi (orqaga bosilганда ham).
+  // replace: login sahifasi history'da QOLMAYDI.
+  useEffect(() => {
+    if (isAuthenticated && user) router.replace(roleHome(user.role));
+  }, [isAuthenticated, user, router]);
 
   const {
     register,
@@ -45,11 +56,8 @@ export default function LoginPage() {
       const { user, accessToken, refreshToken } = res.data.data;
       setAuth(user, accessToken, refreshToken);
       toast.success(`Xush kelibsiz, ${user.name}!`);
-      router.push(
-        user.role === "DRIVER" ? "/orders"
-        : user.role === "OPERATOR" ? "/customers"
-        : "/"
-      );
+      // replace — orqaga bosilganda login sahifasiga QAYTMAYDI
+      router.replace(roleHome(user.role));
     } catch (err: any) {
       const msg = err?.response?.data?.message?.[0] || "Telefon yoki parol noto'g'ri";
       toast.error(msg);
