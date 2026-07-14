@@ -202,13 +202,13 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ✅ **DEPLOY QILINDI (2026-07-14):** Barcha to'plamlar (`d1da058` gacha — haydovchi UX2, brend qizil+formalar, moliya/timezone/logistika) JONLI serverga chiqarildi va tasdiqlandi: konteynerlar qayta qurildi, sayt 200/201, dashboard `pendingCount`/`pendingAmount` maydonlari jonli, CSS'da `#B93B3B` bor. Egasi qizil rangni ko'rib, yoqmasa boshqasiga o'zgartirish mumkin (`tailwind.config.ts` → `brandRed`, bitta joy).
 
-✅ **Haydovchi realtime + bekor tab + manzil tuzatish (2026-07-14 kech, DEPLOY KUTILMOQDA):**
+✅ **Haydovchi realtime + bekor tab + manzil tuzatish (2026-07-14 kech, DEPLOY QILINDI):**
 - **REALTIME TUZATILDI:** use-notifications.ts socket handlerlari ["orders"]ni yangilardi, haydovchi sahifasi esa ["driver-day-orders"] ishlatadi — endi `refreshOrders()` ikkalasini + dashboard'ni yangilaydi. Jonli sinaldi: haydovchi sahifasi ochiq turganda API'dan zakaz yaratildi → ro'yxat/hisob DARROV yangilandi (navigatsiyasiz).
 - **Haydovchiga BEKOR qilinganlar ko'rinadi:** getDriverOrders'ga `{status:CANCELLED, updatedAt: bugun}` qo'shildi; DriverOrders'da "Bekor" tabi (bo'sh bo'lsa yashirin). Marshrut xaritasiga kirmaydi (frontend filtri avvaldan bor), yuk hisobiga ham kirmaydi.
 - **Yetkazilgan SOATI ko'rsatiladi** ("· 01:07 da", yashil) — driver-orders karta + route-map ro'yxatida. Sabab: egasi tunda 00:26 da yetkazgan #3/#5 "bugun"ga tushib chalkashtirgan — bu XATO EMAS (lokal kun to'g'ri), endi soat ko'rinib turadi.
 - **Tezkor yangi mijoz MANZIL xatosi tuzatildi:** order-form yangi mijozga address "—" (1 belgi) yuborardi → "address must be longer than or equal to 3 characters". Endi Manzil maydoni bor (majburiy, ≥3 belgi validatsiya bilan). Sinaldi: yangi mijoz + zakaz xatosiz yaratildi.
 
-✅ **Buyurtmalar filtri + xarajat erkin matn (2026-07-14 kunduz, DEPLOY KUTILMOQDA):**
+✅ **Buyurtmalar filtri + xarajat erkin matn (2026-07-14 kunduz, DEPLOY QILINDI):**
 - **Buyurtmalar sahifasida KUN TANLASH:** qidiruv yonida date-chip (X bilan tozalanadi) → o'sha kuni YOZILGAN buyurtmalar. Backend findAll dateFrom/dateTo endi `localDayRange` (UTC+5) — avval UTC edi.
 - **Buyurtmalarda HUDUD FILTRI:** status tablar ostida chiplar (Barchasi + hudud nomlari, mijozlar sahifasidagidek). Backend: QueryOrdersDto `zone` + findAll `customer.zone` filtri.
 - **Hudud chipi ism yonidan OLINDI** (egasi so'rovi): endi telefon ostida "📍 X hudud · Lokatsiya" ko'rinishida (jadval + mobil karta).
