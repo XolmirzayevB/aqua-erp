@@ -14,7 +14,7 @@ import Link from "next/link";
 import { Navigation, MapPinOff, Phone, LocateFixed, CheckCircle } from "lucide-react";
 import { useDriverDayOrders } from "@/hooks/use-orders";
 import { StatusBadge } from "@/components/orders/status-badge";
-import { formatCurrency, formatPhone } from "@/lib/utils";
+import { formatCurrency, formatPhone, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { directionsUrl } from "@/lib/nav";
 import { cardClass } from "@/components/shared/page-ui";
@@ -478,6 +478,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
                 </div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
                   {o.quantity} ta · {formatCurrency(Number(o.totalAmount))}
+                  {o.deliveredAt && <span className="text-green-600/80 dark:text-green-400/80"> · {formatDate(o.deliveredAt, "HH:mm")} da</span>}
                 </div>
               </div>
               <span className="flex-none"><StatusBadge status={o.status as any} /></span>

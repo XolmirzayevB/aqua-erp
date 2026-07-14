@@ -41,6 +41,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newZone, setNewZone] = useState("");
+  const [newAddress, setNewAddress] = useState("");
 
   // Buyurtma
   const [deliverCount, setDeliverCount] = useState(1);
@@ -65,7 +66,12 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const newBottles = Math.max(0, deliverCount - owned);
   const total = refillCount * refillPrice + newBottles * newBottlePrice;
 
-  const newCustomerValid = newName.trim().length >= 2 && /^\+998\d{9}$/.test(newPhone);
+  // Backend manzilga kamida 3 belgi talab qiladi — formada ham shuni tekshiramiz
+  // (aks holda "address must be longer than or equal to 3 characters" xatosi chiqadi)
+  const newCustomerValid =
+    newName.trim().length >= 2 &&
+    /^\+998\d{9}$/.test(newPhone) &&
+    newAddress.trim().length >= 3;
   const canSubmit = deliverCount > 0 && (mode === "existing" ? !!selected : newCustomerValid);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,7 +84,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
         name: newName.trim(),
         phone: newPhone,
         zone: newZone || undefined,
-        address: "—", // manzil buyurtma formasida so'ralmaydi (egasi so'rovi)
+        address: newAddress.trim(),
       } as any);
       customerId = created.id;
     }
@@ -234,7 +240,11 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                   </div>
                 </div>
               </div>
-              <p className="text-[12.5px] text-gray-400">Yangi mijozga barcha taralar "yangi tara" narxida sotiladi. Manzil/lokatsiyani keyin mijoz sahifasida qo'shish mumkin.</p>
+              <div>
+                <label className={label15}>Manzil</label>
+                <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="5-kvartal, 23-uy" className={bigInput} />
+              </div>
+              <p className="text-[12.5px] text-gray-400">Yangi mijozga barcha taralar "yangi tara" narxida sotiladi. Lokatsiya havolasini keyin mijoz sahifasida qo'shish mumkin.</p>
             </div>
           )}
 

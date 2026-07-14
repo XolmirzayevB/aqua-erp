@@ -26,7 +26,7 @@ export function DriverOrders() {
   const updateStatus = useUpdateOrderStatus();
 
   const [zone, setZone] = useState<string | null>(null); // null = barcha hududlar
-  const [tab, setTab] = useState<"pending" | "delivered">("pending");
+  const [tab, setTab] = useState<"pending" | "delivered" | "cancelled">("pending");
   const [search, setSearch] = useState("");
   const [showExpense, setShowExpense] = useState(false);
   const { data: myExpenses } = useMyTodayExpenses();
@@ -34,6 +34,8 @@ export function DriverOrders() {
   const active = orders.filter((o) => o.status !== "CANCELLED");
   const pending = active.filter((o) => o.status !== "DELIVERED");
   const delivered = active.filter((o) => o.status === "DELIVERED");
+  // Bugun bekor qilinganlar — haydovchi bilib tursin (yuk/marshrut hisobiga kirmaydi)
+  const cancelled = orders.filter((o) => o.status === "CANCELLED");
 
   // Tanlangan hududga moslik (null = barchasi, NO_ZONE = hududsiz mijozlar)
   const inZone = (z?: string | null) =>
@@ -55,8 +57,8 @@ export function DriverOrders() {
   const totalBottles = pendingInZone.reduce((s, o) => s + o.quantity, 0);
   const newBottles = pendingInZone.reduce((s, o) => s + (o.newBottles || 0), 0);
 
-  // Ro'yxat: tab (yetkazilmagan/yetkazilgan) + hudud + qidiruv
-  const base = tab === "pending" ? pending : delivered;
+  // Ro'yxat: tab (yetkazilmagan/yetkazilgan/bekor) + hudud + qidiruv
+  const base = tab === "pending" ? pending : tab === "delivered" ? delivered : cancelled;
   const q = search.trim().toLowerCase();
   const list = base
     .filter((o) => inZone(o.customer.zone))
@@ -138,6 +140,9 @@ export function DriverOrders() {
         <div className="inline-flex gap-1 p-1 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 rounded-xl">
           <TabBtn active={tab === "pending"} onClick={() => setTab("pending")} label="Qoldi" count={pendingInZone.length} />
           <TabBtn active={tab === "delivered"} onClick={() => setTab("delivered")} label="Yetkazildi" count={deliveredInZone.length} />
+          {cancelled.length > 0 && (
+            <TabBtn active={tab === "cancelled"} onClick={() => setTab("cancelled")} label="Bekor" count={cancelled.filter((o) => inZone(o.customer.zone)).length} />
+          )}
         </div>
         <div className="flex items-center gap-2.5 h-10 px-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[11px] flex-1 min-w-[160px] max-w-xs focus-within:border-blue-300 dark:focus-within:border-blue-700 transition-colors">
           <Search className="w-4 h-4 text-gray-400 flex-none" />
@@ -161,7 +166,9 @@ export function DriverOrders() {
           ))
         ) : list.length === 0 ? (
           <p className={cn(cardClass, "px-5 py-12 text-center text-gray-400 dark:text-gray-500")}>
-            {tab === "pending" ? "Yetkazilishi kerak bo'lgan buyurtma yo'q" : "Yetkazilgan buyurtma yo'q"}
+            {tab === "pending" ? "Yetkazilishi kerak bo'lgan buyurtma yo'q"
+              : tab === "delivered" ? "Yetkazilgan buyurtma yo'q"
+              : "Bugun bekor qilingan buyurtma yo'q"}
           </p>
         ) : (
           list.map((order) => (
@@ -187,12 +194,18 @@ export function DriverOrders() {
                 </span>
               </Link>
 
-              {/* 3-qator: tara/summa + amallar */}
+              {/* 3-qator: tara/summa (+ yetkazilgan SOATI — 00:26 dagi tungi yetkazish
+                  ham "bugun"ga tushishi chalkashtirmasin) + amallar */}
               <div className="flex items-center justify-between gap-2 mt-2.5">
                 <div className="text-[13px] text-gray-700 dark:text-gray-300">
                   <span className="font-semibold tabular-nums">{order.quantity} ta tara</span>
                   <span className="text-gray-300 dark:text-gray-600"> · </span>
                   <span className="font-bold tabular-nums">{formatCurrency(order.totalAmount)}</span>
+                  {order.status === "DELIVERED" && order.deliveredAt && (
+                    <span className="text-[12px] font-medium text-green-600 dark:text-green-400 tabular-nums">
+                      {" "}· {formatDate(order.deliveredAt, "HH:mm")} da
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   {(() => {

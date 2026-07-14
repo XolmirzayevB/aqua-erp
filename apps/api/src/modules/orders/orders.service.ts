@@ -490,6 +490,9 @@ export class OrdersService {
           { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as OrderStatus[] } },
           // Yetkazilganlar — faqat shu kuni yetkazilganlar (ro'yxat to'lib ketmasin)
           { status: "DELIVERED" as OrderStatus, deliveredAt: { gte: start, lte: end } },
+          // Bekor qilinganlar — shu kuni bekor bo'lganlari (haydovchi bilib tursin;
+          // egasi so'rovi 2026-07-14). Marshrut xaritasiga kirmaydi (frontend filtrlaydi).
+          { status: "CANCELLED" as OrderStatus, updatedAt: { gte: start, lte: end } },
         ],
       },
       orderBy: { createdAt: "asc" },

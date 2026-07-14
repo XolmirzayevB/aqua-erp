@@ -37,6 +37,17 @@ export function useRealtimeNotifications() {
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
 
+    // MUHIM: haydovchi sahifasi ["driver-day-orders"] keshidan foydalanadi —
+    // uni ham yangilamasak, push/toast keladi-yu RO'YXAT YANGILANMAYDI
+    // (egasi 2026-07-14 da shu xatoni ko'rgan: zakaz yozildi, haydovchi
+    // sahifasida boshqa sahifaga o'tmaguncha ko'rinmadi).
+    const refreshOrders = (orderId?: string) => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      if (orderId) qc.invalidateQueries({ queryKey: ["orders", orderId] });
+    };
+
     // New order (for drivers)
     socket.on("new_order", (data: any) => {
       toast.info(`Yangi buyurtma: ${data.orderNumber}`, {
@@ -44,21 +55,18 @@ export function useRealtimeNotifications() {
         duration: 8000,
         action: { label: "Ko'rish", onClick: () => window.location.href = `/orders/${data.orderId}` },
       });
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      refreshOrders();
     });
 
     // Status changed
     socket.on("order_status_changed", (data: any) => {
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["orders", data.orderId] });
-      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      refreshOrders(data.orderId);
     });
 
     // Order cancelled notification
     socket.on("order_cancelled", (data: any) => {
       toast.warning(`Buyurtma bekor qilindi: ${data.orderNumber}`, { duration: 5000 });
-      qc.invalidateQueries({ queryKey: ["orders"] });
+      refreshOrders(data.orderId);
     });
 
     // Order created notification
@@ -67,8 +75,7 @@ export function useRealtimeNotifications() {
         description: data.customerName,
         action: { label: "Ko'rish", onClick: () => window.location.href = `/orders/${data.orderId}` },
       });
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      refreshOrders();
     });
 
     return () => { socket.disconnect(); };
