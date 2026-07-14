@@ -171,7 +171,7 @@ export class OrdersService {
 
   async findAll(query: QueryOrdersDto) {
     const {
-      search, status, driverId, customerId, paymentType,
+      search, status, driverId, customerId, paymentType, zone,
       dateFrom, dateTo, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc",
     } = query;
 
@@ -180,11 +180,14 @@ export class OrdersService {
       ...(driverId ? { driverId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(paymentType ? { paymentType: paymentType as any } : {}),
+      // Hudud bo'yicha filtr (mijozning hududi)
+      ...(zone ? { customer: { zone } } : {}),
+      // Sana oralig'i — O'ZBEKISTON kuni bo'yicha (localDayRange), UTC emas
       ...(dateFrom || dateTo
         ? {
             createdAt: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo ? { lte: new Date(dateTo + "T23:59:59") } : {}),
+              ...(dateFrom ? { gte: localDayRange(new Date(dateFrom)).start } : {}),
+              ...(dateTo ? { lte: localDayRange(new Date(dateTo)).end } : {}),
             },
           }
         : {}),

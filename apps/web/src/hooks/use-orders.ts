@@ -49,6 +49,7 @@ export interface OrderQueryParams {
   driverId?: string;
   customerId?: string;
   paymentType?: string;
+  zone?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;

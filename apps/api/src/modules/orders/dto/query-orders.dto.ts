@@ -28,6 +28,11 @@ export class QueryOrdersDto {
   @IsEnum(["CASH", "CARD", "DEBT"])
   paymentType?: string;
 
+  @ApiPropertyOptional({ example: "A", description: "Mijoz hududi bo'yicha filtr" })
+  @IsOptional()
+  @IsString()
+  zone?: string;
+
   @ApiPropertyOptional({ example: "2025-01-01" })
   @IsOptional()
   @IsDateString()

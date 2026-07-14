@@ -54,10 +54,11 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-4">
-          {/* Kategoriya chiplari */}
+          {/* Kategoriya: tez tanlash chiplari YOKI o'zi qo'lda yozadi
+              (masalan "dori" — egasi so'rovi bilan erkin matn qo'shildi) */}
           <div>
             <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nimaga?</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               {CATEGORIES.map((c) => (
                 <button
                   key={c}
@@ -74,6 +75,12 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="yoki o'zingiz yozing: dori, moyka..."
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
           </div>
 
           {/* Summa */}

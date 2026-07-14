@@ -5,8 +5,10 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
+  CalendarDays, X, MapPin,
 } from "lucide-react";
 import { useOrders, useCancelOrder, useUpdateOrderStatus } from "@/hooks/use-orders";
+import { useSettings } from "@/hooks/use-settings";
 import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { StatusBadge } from "./status-badge";
@@ -52,15 +54,25 @@ export function OrdersTable() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // Haydovchi sahifani ochganda darrov O'ZIGA BIRIKTIRILGANLARNI ko'radi
   const [status, setStatus] = useState(isDriver ? "ASSIGNED" : "");
+  // Kun tanlash — tanlansa faqat o'sha kuni YOZILGAN buyurtmalar ko'rinadi
+  const [day, setDay] = useState("");
+  // Hudud filtri — mijozlar sahifasidagidek chiplar
+  const [zone, setZone] = useState("");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+  const { data: settings } = useSettings();
+  const zones = settings?.zones || [];
+
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
     status: status || undefined,
+    zone: zone || undefined,
+    dateFrom: day || undefined,
+    dateTo: day || undefined,
     page,
     limit: 20,
   });
@@ -148,8 +160,8 @@ export function OrdersTable() {
         )}
       </PageHeader>
 
-      {/* Qidiruv + status tablar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      {/* Qidiruv + kun tanlash + status tablar */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex items-center gap-2.5 h-10 px-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[11px] flex-1 min-w-[200px] max-w-sm focus-within:border-blue-300 dark:focus-within:border-blue-700 transition-colors">
           <Search className="w-4 h-4 text-gray-400 flex-none" />
           <input
@@ -159,6 +171,35 @@ export function OrdersTable() {
             className="bg-transparent text-[13.5px] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none w-full"
           />
         </div>
+        {/* Kun tanlash — o'sha kuni yozilgan buyurtmalar */}
+        {!isDriver && (
+          <div
+            className={cn(
+              "flex items-center gap-1.5 h-10 pl-3 pr-1.5 rounded-[11px] border transition-colors",
+              day
+                ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
+                : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+            )}
+          >
+            <CalendarDays className={cn("w-4 h-4 flex-none", day ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
+            <input
+              type="date"
+              value={day}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => { setDay(e.target.value); setPage(1); }}
+              className="bg-transparent text-[13px] font-semibold text-gray-900 dark:text-white focus:outline-none w-[124px]"
+            />
+            {day && (
+              <button
+                onClick={() => { setDay(""); setPage(1); }}
+                title="Kunni bekor qilish"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
         <SegmentTabs
           options={filters.map((f) => ({
             value: f.value,
@@ -169,6 +210,37 @@ export function OrdersTable() {
           onChange={(v) => { setStatus(v); setPage(1); }}
         />
       </div>
+
+      {/* Hudud filtri — mijozlar sahifasidagidek chiplar */}
+      {!isDriver && zones.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mb-4">
+          <button
+            onClick={() => { setZone(""); setPage(1); }}
+            className={cn(
+              "h-9 px-3.5 rounded-[10px] border text-[13px] font-semibold whitespace-nowrap transition-all flex-none",
+              zone === ""
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700"
+            )}
+          >
+            Barchasi
+          </button>
+          {zones.map((z) => (
+            <button
+              key={z}
+              onClick={() => { setZone(zone === z ? "" : z); setPage(1); }}
+              className={cn(
+                "h-9 px-3.5 rounded-[10px] border text-[13px] font-semibold whitespace-nowrap transition-all flex-none",
+                zone === z
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700"
+              )}
+            >
+              {z}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* MOBIL: har buyurtma ALOHIDA karta — oralarida bo'shliq, aniq ajralib turadi */}
       <div className="md:hidden space-y-3">
@@ -198,19 +270,14 @@ export function OrdersTable() {
                   <StatusBadge status={order.status} />
                 </div>
 
-                {/* 2-qator: mijoz + hudud, telefon + vaqt */}
+                {/* 2-qator: mijoz, telefon + vaqt; hudud pastda (ism yonida EMAS — egasi so'rovi) */}
                 <Link
                   href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`}
                   className="block mt-1.5"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium text-gray-900 dark:text-white truncate">
-                      {order.customer.name}
-                    </span>
-                    {order.customer.zone && (
-                      <Pill tone="primary" className="!text-[11px] !py-0.5">{order.customer.zone}</Pill>
-                    )}
-                  </div>
+                  <span className="block text-[14px] font-medium text-gray-900 dark:text-white truncate">
+                    {order.customer.name}
+                  </span>
                   <div className="flex items-center justify-between mt-0.5">
                     <span className="font-mono text-xs text-gray-400 dark:text-gray-500">
                       {formatPhone(order.customer.phone)}
@@ -219,6 +286,12 @@ export function OrdersTable() {
                       {formatDate(order.createdAt, "dd.MM HH:mm")}
                     </span>
                   </div>
+                  {order.customer.zone && (
+                    <span className="inline-flex items-center gap-1 mt-1 text-[11.5px] font-medium text-gray-500 dark:text-gray-400">
+                      <MapPin className="w-3 h-3 text-gray-400" />
+                      {order.customer.zone} hudud
+                    </span>
+                  )}
                 </Link>
 
                 {/* 3-qator: tara/summa + asosiy tugma */}
@@ -330,28 +403,34 @@ export function OrdersTable() {
                         haydovchida buyurtma tafsilotiga (mijoz ma'lumoti u yerda) yo'naltiramiz */}
                     <td className="px-4 py-3">
                       <Link href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`} className="block hover:opacity-80 transition-opacity">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-gray-900 dark:text-white whitespace-nowrap max-w-[150px] truncate">
-                            {order.customer.name}
-                          </span>
-                          {order.customer.zone && (
-                            <Pill tone="primary" className="!text-[11px] !py-0.5">{order.customer.zone}</Pill>
-                          )}
-                        </div>
+                        <span className="block text-[13px] font-medium text-gray-900 dark:text-white whitespace-nowrap max-w-[170px] truncate">
+                          {order.customer.name}
+                        </span>
                         <div className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5 whitespace-nowrap">
                           {formatPhone(order.customer.phone)}
                         </div>
                       </Link>
-                      {order.customer.locationLink && (
-                        <a
-                          href={order.customer.locationLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline"
-                        >
-                          <Navigation className="w-3 h-3" />
-                          Lokatsiya
-                        </a>
+                      {/* Hudud + lokatsiya — ism yonida emas, pastda (egasi so'rovi) */}
+                      {(order.customer.zone || order.customer.locationLink) && (
+                        <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
+                          {order.customer.zone && (
+                            <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-gray-500 dark:text-gray-400">
+                              <MapPin className="w-3 h-3 text-gray-400" />
+                              {order.customer.zone} hudud
+                            </span>
+                          )}
+                          {order.customer.locationLink && (
+                            <a
+                              href={order.customer.locationLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              Lokatsiya
+                            </a>
+                          )}
+                        </div>
                       )}
                     </td>
 

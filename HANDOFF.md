@@ -202,6 +202,13 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ✅ **DEPLOY QILINDI (2026-07-14):** Barcha to'plamlar (`d1da058` gacha — haydovchi UX2, brend qizil+formalar, moliya/timezone/logistika) JONLI serverga chiqarildi va tasdiqlandi: konteynerlar qayta qurildi, sayt 200/201, dashboard `pendingCount`/`pendingAmount` maydonlari jonli, CSS'da `#B93B3B` bor. Egasi qizil rangni ko'rib, yoqmasa boshqasiga o'zgartirish mumkin (`tailwind.config.ts` → `brandRed`, bitta joy).
 
+✅ **Buyurtmalar filtri + xarajat erkin matn (2026-07-14 kunduz, DEPLOY KUTILMOQDA):**
+- **Buyurtmalar sahifasida KUN TANLASH:** qidiruv yonida date-chip (X bilan tozalanadi) → o'sha kuni YOZILGAN buyurtmalar. Backend findAll dateFrom/dateTo endi `localDayRange` (UTC+5) — avval UTC edi.
+- **Buyurtmalarda HUDUD FILTRI:** status tablar ostida chiplar (Barchasi + hudud nomlari, mijozlar sahifasidagidek). Backend: QueryOrdersDto `zone` + findAll `customer.zone` filtri.
+- **Hudud chipi ism yonidan OLINDI** (egasi so'rovi): endi telefon ostida "📍 X hudud · Lokatsiya" ko'rinishida (jadval + mobil karta).
+- **Haydovchi xarajati — ERKIN MATN:** driver-expense-modal'da chiplar ostida input ("yoki o'zingiz yozing: dori, moyka...") — chip bosilsa to'ldiradi, qo'lda yozsa o'sha kategoriya bo'ladi. Sinaldi: "dori" 15,000 saqlandi.
+- Sinov: zone=G → 10 zakaz; kun=14-iyul → 2 zakaz (lokal kun to'g'ri); UI filtrlar jonli ishladi; ikkala prod build o'tdi.
+
 ✅ **MOLIYA MANTIG'I + timezone + logistika (2026-07-14, DEPLOY QILINDI) — MUHIM:**
 - **TUSHUM ENDI YETKAZILGANDA YOZILADI** (egasi so'rovi): INCOME tranzaksiya buyurtma YARATILGANDA emas, `updateStatus(DELIVERED)`da yoziladi (orders.service; naqd/karta; DEBT avvalgidek faqat to'lovda). **Idempotent** — orderId bo'yicha mavjud INCOME tekshiriladi (eski ochiq buyurtmalar yetkazilganda ikki marta yozilmaydi). Bekor qilishda `transaction.deleteMany({orderId})` avvalgidek. DEBT balans mexanikasi O'ZGARMAGAN (yaratishda kamayadi) — faqat INCOME ko'chirildi.
 - **"Kutilayotgan pul" ko'rsatkichi:** dashboard stats + finance summary'da `pendingCount`/`pendingAmount` (NEW/PROCESSING/ASSIGNED zakazlar soni+summasi, sanasidan qat'i nazar). Dashboard xulosa qayta qurildi: 4 chip (Bugun yozildi/Bugun yetkazildi/Yo'lda/Bekor) + 2 pul bloki (yashil "Bugungi tushum (kelgan pul)" + sariq "Kutilmoqda (N ta yo'lda)"). Moliya sahifasida 5-karta "Yo'lda (kutilmoqda)".
