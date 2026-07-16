@@ -57,10 +57,21 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 - JWT secretlar — serverда `/opt/aqua-erp/.env.production` da (openssl rand -hex 32 bilan generatsiya qilingan). Lokalда `.env.production` YO'Q (gitignore).
 - ⚠️ `.env` va `.env.production` HECH QACHON serverga ko'chirilmaydi (deploy tar'dan chiqarilgan). Server o'z nusxasini saqlaydi.
 
-### ⚠️ PROD'DA HAQIQIY HISOBLAR — TEST HISOBLAR YO'Q
-> **Aniqlik (2026-07-16, egasining o'zi aytdi):** hali TO'LIQ real ishga o'tilmagan —
-> hozir tayyorgarlik/sozlash bosqichi ("endi boshlaymiz"). Lekin prod bazada allaqachon
-> HAQIQIY hodim hisoblari bor va tez orada jonli ishlatiladi.
+### 🚀 REAL ISHGA O'TILDI (2026-07-16 kech)
+> Sinov ma'lumotlari TOZALANDI (zaxira: server backups volume + ~/aqua-erp-backups
+> lokalda `before_real_launch_20260716-1707.sql`). Excel'dan **392 REAL mijoz** import
+> qilindi (+6 takroriy raqam qo'shimcha manzil sifatida birlashtirildi; 6 mijozda
+> telefon yo'q edi — vaqtinchalik +99800000000N raqamlar, izohida belgilangan).
+> Hududlar (12): SHAXAR, JOYILMA, OBODON, ELBAYON, TO'LA, OXUNBOBOEV, OQKAMAR,
+> SOVJIRON, INGLIZ, YOSHGAYRAT, QUMQURGON, UNZAVOD.
+> Yangi maydon: `Customer.customerType` ("Nima uchun oladi?": Uy/Do'kon/Ofis/erkin matn).
+> **ADMIN (egasi bergan, 2026-07-16):** +998700460700 / 7070077 — Claude ma'lumot
+> kiritish/nazorat uchun ishlatadi. Boshqa hodimlar parollari egasida.
+> "Aziz aka" haydovchi O'CHIRILDI (egasi so'rovi). 4 hodim: ADMIN Behruz,
+> MANAGER G'ayrat, OPERATOR Shamsiddin, DRIVER Aziz Qoldoshev.
+> Excel manba: ~/Downloads/suv_xizmati_professional.xlsx ("qarz" 41 kishi va "Kuler"
+> 35 ta varag'i HALI import qilinmagan — egasidan tasdiq kutilmoqda).
+> Ombor bo'sh tara soni hali kiritilmagan (set-warehouse).
 > Eski test hisoblar (+998901234567 / Admin@123 va h.k.) **O'CHIRILGAN** — ular bilan
 > kirib bo'lmaydi (401). Prod'dagi real foydalanuvchilar (parollar egasida, bizda YO'Q):
 >
