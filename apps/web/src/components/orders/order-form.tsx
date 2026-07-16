@@ -11,10 +11,10 @@
 // - Jami to'lov: katta panel, taqsimot (almashtirish/yangi tara) bilan.
 // - Yangi mijoz rejimi: ism, telefon, "Hudud" dropdown (faqat hudud nomi).
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X, Loader2, Search, User, UserPlus, Package, ShoppingBag,
-  Minus, Plus, Check, ChevronDown, MapPin, Home,
+  Minus, Plus, Check, ChevronDown, MapPin, Home, RefreshCw,
 } from "lucide-react";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useDrivers } from "@/hooks/use-drivers";
@@ -25,6 +25,56 @@ import { formatCurrency, formatPhone, cn } from "@/lib/utils";
 import { Avatar } from "@/components/shared/page-ui";
 
 interface Props { onClose: () => void; defaultCustomer?: Customer | null }
+
+// Bitta tara-turi uchun katta − / + stepper (to'ldirish yoki yangi tara).
+// Funksional yangilash — tez ketma-ket bosishda ham har bosish sanaladi.
+function QtyStepper({
+  label, hint, icon: Icon, value, onChange, min = 0, max, tone,
+}: {
+  label: string; hint: string; icon: any; value: number;
+  onChange: (updater: (c: number) => number) => void;
+  min?: number; max?: number; tone: "blue" | "green";
+}) {
+  const atMax = max !== undefined && value >= max;
+  const toneCls = tone === "blue"
+    ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400"
+    : "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400";
+  return (
+    <div className="rounded-[16px] border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 p-3.5">
+      <div className="flex items-center gap-3">
+        <span className={`w-10 h-10 rounded-[12px] flex items-center justify-center flex-none ${toneCls}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[14.5px] font-semibold text-gray-800 dark:text-gray-200 leading-tight">{label}</p>
+          <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{hint}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-none">
+          <button type="button" onClick={() => onChange((c) => Math.max(min, c - 1))}
+            disabled={value <= min}
+            className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 flex-none">
+            <Minus className="w-[18px] h-[18px]" />
+          </button>
+          <input
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => {
+              let n = parseInt(e.target.value.replace(/\D/g, "")) || 0;
+              if (max !== undefined) n = Math.min(n, max);
+              onChange(() => Math.max(min, n));
+            }}
+            className="w-[58px] h-[46px] text-center rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-[22px] font-bold tabular-nums focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 transition-all"
+          />
+          <button type="button" onClick={() => onChange((c) => (max !== undefined ? Math.min(max, c + 1) : c + 1))}
+            disabled={atMax}
+            className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 flex-none">
+            <Plus className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Katta input uslubi — formaning barcha maydonlari bir xil bo'yda
 const bigInput =
@@ -46,8 +96,12 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const [newZone, setNewZone] = useState("");
   const [newAddress, setNewAddress] = useState("");
 
-  // Buyurtma
-  const [deliverCount, setDeliverCount] = useState(1);
+  // Buyurtma — TO'LDIRISH va YANGI TARA alohida boshqariladi (2026-07-16).
+  // Sabab: avval bitta "nechta tara" kiritilib avtomatik ajratilardi (to'ldirish
+  // maksimal qilib olinardi). Endi operator aniq belgilaydi: masalan mijozda 3 ta
+  // bo'lsa ham "1 to'ldirish + 3 yangi" yozish mumkin.
+  const [refillCount, setRefillCount] = useState(0);
+  const [newBottles, setNewBottles] = useState(1);
   const [driverId, setDriverId] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -72,9 +126,22 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const newBottlePrice = settings?.newBottlePrice ?? 45000;
 
   const owned = mode === "existing" ? (selected?.bottlesOwned ?? 0) : 0;
-  const refillCount = Math.min(deliverCount, owned);
-  const newBottles = Math.max(0, deliverCount - owned);
-  const total = refillCount * refillPrice + newBottles * newBottlePrice;
+  // To'ldirish mijozdagi taradan oshmasin (mijoz tugmasi almashganda ham xavfsiz)
+  const refillCapped = Math.min(refillCount, owned);
+  const total = refillCapped * refillPrice + newBottles * newBottlePrice;
+
+  // Mijoz tanlanganda oqilona boshlang'ich qiymat: tarasi bor bo'lsa "1 to'ldirish",
+  // aks holda (yangi mijoz / tarasiz) "1 yangi tara". Operator keyin o'zgartiradi.
+  useEffect(() => {
+    if (mode === "existing" && owned > 0) {
+      setRefillCount(1);
+      setNewBottles(0);
+    } else {
+      setRefillCount(0);
+      setNewBottles(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, mode]);
 
   // Backend manzilga kamida 3 belgi talab qiladi — formada ham shuni tekshiramiz
   // (aks holda "address must be longer than or equal to 3 characters" xatosi chiqadi)
@@ -82,7 +149,8 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
     newName.trim().length >= 2 &&
     /^\+998\d{9}$/.test(newPhone) &&
     newAddress.trim().length >= 3;
-  const canSubmit = deliverCount > 0 && (mode === "existing" ? !!selected : newCustomerValid);
+  const totalCount = refillCapped + newBottles;
+  const canSubmit = totalCount > 0 && (mode === "existing" ? !!selected : newCustomerValid);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +170,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
 
     await createOrder.mutateAsync({
       customerId,
-      refillCount,
+      refillCount: refillCapped,
       newBottles,
       locationId: locationId || undefined,
       driverId: driverId || undefined,
@@ -276,27 +344,31 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
             </div>
           )}
 
-          {/* ── TARA SONI — katta stepper ── */}
-          <div>
-            <label className={label15}>Nechta tara?</label>
-            <div className="flex items-center gap-3">
-              {/* Funksional yangilash — tez ketma-ket bosilganda ham har bosish sanaladi */}
-              <button type="button" onClick={() => setDeliverCount((c) => Math.max(1, c - 1))}
-                disabled={deliverCount <= 1}
-                className="w-[56px] h-[56px] rounded-[14px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 flex-none">
-                <Minus className="w-5 h-5" />
-              </button>
-              <input
-                inputMode="numeric"
-                value={deliverCount}
-                onChange={(e) => setDeliverCount(Math.max(1, parseInt(e.target.value.replace(/\D/g, "")) || 1))}
-                className="flex-1 h-[56px] text-center rounded-[14px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-[28px] font-bold tabular-nums focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 transition-all"
+          {/* ── TARA SONI — TO'LDIRISH + YANGI TARA alohida ──
+              Mijozda tara bo'lsa ikkalasi ko'rinadi (operator aniq belgilaydi:
+              masalan "1 to'ldirish + 3 yangi"). Tarasi yo'q bo'lsa faqat yangi. */}
+          <div className="space-y-3.5">
+            {owned > 0 && (
+              <QtyStepper
+                label="To'ldirish (almashtirish)"
+                hint={`Mijozdagi bo'sh tarani to'ldirish · ${formatCurrency(refillPrice)} · mijozda ${owned} ta`}
+                icon={RefreshCw}
+                value={refillCapped}
+                min={0}
+                max={owned}
+                onChange={setRefillCount}
+                tone="blue"
               />
-              <button type="button" onClick={() => setDeliverCount((c) => c + 1)}
-                className="w-[56px] h-[56px] rounded-[14px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all flex-none">
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
+            )}
+            <QtyStepper
+              label="Yangi tara"
+              hint={`Yangi sotib olinadigan tara · ${formatCurrency(newBottlePrice)}`}
+              icon={Package}
+              value={newBottles}
+              min={0}
+              onChange={setNewBottles}
+              tone="green"
+            />
           </div>
 
           {/* ── QAYERGA YETKAZILADI? — mijoz manzillari (Uy, Apteka...) ──
@@ -388,8 +460,8 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-gray-400 dark:text-gray-500">Jami to'lov</p>
               <p className="text-[13px] text-gray-600 dark:text-gray-300 mt-0.5 leading-snug">
-                {refillCount > 0 && <span>{refillCount} × almashtirish ({formatCurrency(refillPrice)})</span>}
-                {refillCount > 0 && newBottles > 0 && <span className="text-gray-300 dark:text-gray-600"> + </span>}
+                {refillCapped > 0 && <span>{refillCapped} × almashtirish ({formatCurrency(refillPrice)})</span>}
+                {refillCapped > 0 && newBottles > 0 && <span className="text-gray-300 dark:text-gray-600"> + </span>}
                 {newBottles > 0 && <span>{newBottles} × yangi tara ({formatCurrency(newBottlePrice)})</span>}
               </p>
               <p className="text-[12px] text-gray-400 dark:text-gray-500 mt-1">
