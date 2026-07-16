@@ -190,7 +190,23 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
 
-✅ **3 YANGI IMKONIYAT (2026-07-16) — DEPLOY QILINDI:**
+✅ **SESSIYA + LOGIN TOZALASH (2026-07-16 kech, DEPLOY QILINDI va TASDIQLANDI):**
+- **Sessiya siyosati (egasi so'rovi: "kirgan odam chiqib ketmasin"):** yangi
+  `refresh_tokens` jadvali — HAR QURILMA alohida sessiya (telefon+kompyuter bir
+  vaqtda ishlaydi). Token SHA-256 bilan saqlanadi (bcrypt EMAS — 72-bayt cheklovi
+  tufayli bir userning hamma JWT'i bir-biriga mos chiqardi!). Refresh ROTATSIYASIZ
+  (parallel so'rovlar chiqarib yubormaydi); muddati 365d (docker-compose.prod.yml da
+  QAT'IY yozilgan — .env.production'dagi 7d e'tiborga olinmaydi). Refresh JWT'da
+  unikal `jti` bor. Logout faqat SHU qurilma sessiyasini o'chiradi (frontend
+  refreshToken yuboradi). api.ts: internet uzilganda logout QILINMAYDI (faqat
+  server 401/403 qaytarsa). Eski users.refresh_token dan bir martalik ko'chirish bor.
+  ⚠️ Hozir kirgan eski qurilmalar ≤7 kun ichida bir marta qayta kiradi (eski token muddati).
+- **Login sahifadan test login/parollar OLIB TASHLANDI** (real ish).
+- Sinovlar: 6 stsenariy lokal o'tdi (2 qurilma, parallel refresh, qurilma-logout,
+  365d muddat). Prod tekshirildi: jadval bor, env=365d, sahifa toza.
+- ⚠️ Server disk 82% band (6.6G bo'sh) — kuzatib turing, kerak bo'lsa docker builder prune.
+
+✅ **3 YANGI IMKONIYAT (2026-07-16) — DEPLOY QILINDI va PROD'DA TASDIQLANDI:**
 1. **To'lov turi endi YETKAZILGANDA tanlanadi (haydovchi):** operator zakaz yozganda
    to'lov TANLAMAYDI (formada yo'q). Haydovchi/admin "Yetkazildi" bosganda DeliverModal
    chiqadi: Naqd / Karta (Click) / Nasiya. Backend: `Order.paymentType` endi **nullable**;
@@ -233,7 +249,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 🔴 **AVTOMATIK BACKUP BUZILGAN EDI — TUZATILDI (2026-07-16, DEPLOY KUTILMOQDA):**
 - **Muammo:** har kungi 02:00 avtomatik backup (va Sozlamalar→Backup tugmasi) 2026-07-14 dan beri ISHLAMAGAN. Log: `pg_dump: error: invalid URI query parameter: "schema"`. Sabab: `DATABASE_URL` da Prisma'ning `?schema=public` bo'lagi bor, pg_dump/psql uni qabul qilmaydi. Ya'ni real ishga o'tilgandan beri BIRORTA zaxira olinmagan (jonli ma'lumot xavf ostida edi).
 - **Tuzatish:** `apps/api/src/modules/backup/backup.service.ts` — `stripQuery()` helperi URL'dagi `?...` ni olib tashlaydi (to'liq baza baribir olinadi). createBackup + restoreBackup ikkalasida. Serverда tuzatilgan buyruq sinaldi (105KB dump OK).
-- **Qo'lda zaxira olindi:** `/app/backups/manual-20260716-103701.sql` (105KB, konteyner ichida). ⚠️ Konteyner /app/backups volume'mi yoki efemermi — TEKSHIRISH kerak (efemer bo'lsa deploy'da yo'qoladi; host `/opt/aqua-erp/backups` ga chiqarish yaxshi). Eski `before_reset_20260710` host'da.
+- **Qo'lda zaxira olindi:** `/app/backups/manual-20260716-103701.sql` (105KB). ✅ TEKSHIRILDI (2026-07-16 kech): /app/backups NAMED VOLUME (`backups`) — rebuild'da SAQLANADI. Backup tuzatishi PROD'DA JONLI va sinovdan o'tdi (pg_dump stripped URL bilan 123KB dump OK).
 - ⏳ **Offsite backup hali YO'Q** (HANDOFF #8-bo'lim) — endi real ma'lumot bor, bu MUHIMROQ bo'ldi. Zaxirani serverdan tashqariga (Telegram/bulut) avtomatik yuborish tavsiya etiladi.
 
 ✅ **Haydovchi realtime + bekor tab + manzil tuzatish (2026-07-14 kech, DEPLOY QILINDI):**
