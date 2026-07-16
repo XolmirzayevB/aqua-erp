@@ -108,6 +108,8 @@ model Customer {
   phone2           String?  @db.VarChar(20)
   address          String   @db.Text
   zone             String?  @db.VarChar(50)
+  // Mijoz turi: "Uy", "Do'kon", "Ofis"... — tez tanlanadi yoki qo'lda yoziladi
+  customerType     String?  @map("customer_type") @db.VarChar(60)
   locationLink     String?  @map("location_link") @db.Text
   lat              Decimal? @db.Decimal(10, 8)
   lng              Decimal? @db.Decimal(11, 8)

@@ -265,6 +265,10 @@ function CustomerRow({
             </span>
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {customer._count?.orders ?? 0} buyurtma
+              {/* Mijoz turi (Uy/Do'kon/Ofis...) — ism ostida kichik yozuv */}
+              {customer.customerType && (
+                <span className="text-amber-600 dark:text-amber-400 font-medium"> · {customer.customerType}</span>
+              )}
             </div>
           </div>
         </Link>

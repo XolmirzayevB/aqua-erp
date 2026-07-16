@@ -24,6 +24,7 @@ export interface Customer {
   phone2?: string;
   address: string;
   zone?: string;
+  customerType?: string; // Uy / Do'kon / Ofis... (erkin matn ham bo'ladi)
   locationLink?: string;
   lat?: number;
   lng?: number;

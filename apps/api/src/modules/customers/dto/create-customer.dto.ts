@@ -34,6 +34,12 @@ export class CreateCustomerDto {
   @MaxLength(50)
   zone?: string;
 
+  @ApiPropertyOptional({ example: "Uy", description: "Mijoz turi: Uy / Do'kon / Ofis yoki erkin matn" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  customerType?: string;
+
   @ApiPropertyOptional({ example: "https://maps.google.com/...", description: "Lokatsiya havolasi" })
   @IsOptional()
   @IsString()

@@ -145,6 +145,9 @@ export function CustomerDetail({ id }: Props) {
               <InfoRow icon={Phone} label="Qo'shimcha telefon" value={formatPhone(customer.phone2)} mono />
             )}
             <InfoRow icon={MapPin} label="Manzil" value={customer.address} className="sm:col-span-2" />
+            {customer.customerType && (
+              <InfoRow icon={Package} label="Nima uchun oladi" value={customer.customerType} />
+            )}
             {customer.notes && (
               <InfoRow icon={AlertCircle} label="Izoh" value={customer.notes} className="sm:col-span-2" />
             )}

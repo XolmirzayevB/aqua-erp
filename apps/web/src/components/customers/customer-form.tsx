@@ -23,6 +23,8 @@ const schema = z.object({
     "To'liq raqam kiriting yoki bo'sh qoldiring"
   ),
   zone: z.string().optional().or(z.literal("")),
+  // Mijoz turi: tez tanlash (Uy/Do'kon/Ofis) yoki qo'lda erkin matn
+  customerType: z.string().max(60).optional().or(z.literal("")),
   address: z.string().min(3, "Manzil kiriting"),
   locationLink: z.string().url("Havola noto'g'ri").optional().or(z.literal("")),
   bottlesOwned: z.coerce.number().int().min(0).default(0),
@@ -71,6 +73,7 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
       phone: defaultValues?.phone || "",
       phone2: defaultValues?.phone2 || "",
       zone: defaultValues?.zone || "",
+      customerType: defaultValues?.customerType || "",
       address: defaultValues?.address || "",
       locationLink: defaultValues?.locationLink || "",
       bottlesOwned: defaultValues?.bottlesOwned ?? 0,
@@ -138,6 +141,31 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
               <input {...register("address")} placeholder="5-kvartal, 23-uy" className={bigInput} />
             </Field>
           </div>
+
+          {/* Mijoz turi — tez tanlash chiplari + qo'lda yozish (egasi so'rovi 2026-07-16) */}
+          <Controller name="customerType" control={control} render={({ field }) => (
+            <Field label="Nima uchun oladi?" optional>
+              <div className="flex flex-wrap gap-2 mb-2.5">
+                {["Uy", "Do'kon", "Ofis"].map((t) => (
+                  <button key={t} type="button" onClick={() => field.onChange(field.value === t ? "" : t)}
+                    className={cn(
+                      "h-10 px-4 rounded-[11px] border-2 text-[13.5px] font-semibold transition-all",
+                      field.value === t
+                        ? "border-blue-500/70 bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                        : "border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700"
+                    )}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                placeholder="yoki o'zingiz yozing: maktab, oshxona..."
+                className={bigInput}
+              />
+            </Field>
+          )} />
 
           {/* Daftardan ko'chirish — ajralib turadigan panel + stepper */}
           <Controller name="bottlesOwned" control={control} render={({ field }) => {
