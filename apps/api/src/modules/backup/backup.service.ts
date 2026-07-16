@@ -8,6 +8,14 @@ import * as path from "path";
 
 const execAsync = promisify(exec);
 
+// pg_dump/psql ulanish URI'sida Prisma'ning `?schema=public` (va boshqa)
+// query paramlarini QABUL QILMAYDI ("invalid URI query parameter: schema").
+// Ular olib tashlanadi — to'liq baza (public sxema ichida) baribir olinadi.
+function stripQuery(dbUrl: string): string {
+  const q = dbUrl.indexOf("?");
+  return q === -1 ? dbUrl : dbUrl.slice(0, q);
+}
+
 @Injectable()
 export class BackupService {
   private readonly logger = new Logger(BackupService.name);
@@ -40,7 +48,7 @@ export class BackupService {
     const filename = `backup-${timestamp}.sql`;
     const filepath = path.join(this.backupDir, filename);
 
-    await execAsync(`pg_dump "${dbUrl}" -f "${filepath}" --no-owner --no-acl`);
+    await execAsync(`pg_dump "${stripQuery(dbUrl)}" -f "${filepath}" --no-owner --no-acl`);
     return filename;
   }
 
@@ -70,7 +78,7 @@ export class BackupService {
     if (!fs.existsSync(filepath)) throw new NotFoundException("Backup fayli topilmadi");
 
     const dbUrl = this.config.get<string>("DATABASE_URL");
-    await execAsync(`psql "${dbUrl}" -f "${filepath}"`);
+    await execAsync(`psql "${stripQuery(dbUrl!)}" -f "${filepath}"`);
     return { message: "Backup tiklandi" };
   }
 

@@ -50,30 +50,30 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 ### GitHub
 - **Repo:** https://github.com/XolmirzayevB/aqua-erp  (private, branch: `main`)
 - Push uchun: username `XolmirzayevB` + **Personal Access Token** (`workflow` scope YO'Q edi — shuning uchun `.github/workflows/` gitignore qilingan)
-- ✅ **2026-07-13 holati:** lokal = GitHub = server, hammasi sinxron. Har o'zgarishdan keyin commit + push qiling.
+- ✅ **2026-07-16 holati:** lokal = GitHub = server, hammasi sinxron. Har o'zgarishdan keyin commit + push qiling.
 
 ### Parollar / maxfiy kalitlar
 - **Prod DB paroli:** `bb936e75d7206e2c8e94d8ce70b1d40b` (server `.env.production` da)
 - JWT secretlar — serverда `/opt/aqua-erp/.env.production` da (openssl rand -hex 32 bilan generatsiya qilingan). Lokalда `.env.production` YO'Q (gitignore).
 - ⚠️ `.env` va `.env.production` HECH QACHON serverga ko'chirilmaydi (deploy tar'dan chiqarilgan). Server o'z nusxasini saqlaydi.
 
-### Test hisoblar (login)
-| Rol | Telefon | Parol |
-|-----|---------|-------|
-| Admin | +998901234567 | Admin@123 |
-| Manager | +998901234568 | Manager@123 |
-| Operator | +998901234569 | Operator@123 |
-| Haydovchi | +998901234570 | Driver@123 |
-| Haydovchi (Aziz aka) | +998908585858 | *(egasi o'zi belgilagan)* |
-
-> Prod'da 5 ta foydalanuvchi bor (yuqoridagilar). "Aziz aka" — egasi o'zi qo'shgan real haydovchi, parolini biz bilmaymiz.
-> Test parollar hali almashtirilmagan — real ishga o'tganda har kishiga alohida hisob + yangi parol yaratiladi (egasi shunday reja qilgan).
-
-### ⚠️ BAZA TOZALANDI (2026-07-10) — toza sinov boshlandi
-> Egasi so'rovi bilan prod baza 0 dan boshlandi: mijozlar/buyurtmalar/tranzaksiyalar/to'lovlar = 0, ombor = 0.
-> **Saqlangan:** users (5 login), settings (narx/hudud). **Zaxira nusxa:** `/opt/aqua-erp/backups/before_reset_20260710_000053.sql` (kerak bo'lsa qaytarish uchun).
-> Egasi 10 ta mijoz + ombor soni bilan qo'lda test qiladi. Tozalash buyrug'i (kelajakda kerak bo'lsa):
-> `printf 'BEGIN;\nTRUNCATE TABLE audit_logs, customers, driver_sessions, inventory_actions, notifications, orders, payments, push_subscriptions, transactions RESTART IDENTITY CASCADE;\nUPDATE inventory SET quantity = 0;\nCOMMIT;\n' | ssh root@116.203.220.83 'docker exec -i aqua_postgres_prod psql -U aqua_user -d aqua_erp'`
+### ⚠️ REAL ISHGA O'TILDI (2026-07-16 holatida aniqlandi) — TEST HISOBLAR YO'Q
+> Egasi real ishga o'tgan: prod bazada endi HAQIQIY hisoblar va ma'lumot bor.
+> Eski test hisoblar (+998901234567 / Admin@123 va h.k.) **O'CHIRILGAN** — ular bilan
+> kirib bo'lmaydi (401). Prod'dagi real foydalanuvchilar (parollar egasida, bizda YO'Q):
+>
+> | Rol | Telefon | Ism |
+> |-----|---------|-----|
+> | ADMIN | +998700460700 | Behruz Xolmirzayev (egasi) |
+> | OPERATOR | +998902470700 | Shamsiddin Bobonazarov |
+> | MANAGER | +998888480880 | G'ayrat Elmurodov |
+> | DRIVER | +998917272772 | Aziz Qoldoshev |
+> | DRIVER | +998908585858 | Aziz aka |
+>
+> **Ma'lumot (2026-07-16):** ~8 mijoz, ~16 buyurtma (real). ⚠️ Endi bu JONLI biznes
+> ma'lumoti — prod bazani TOZALAMANG/reset qilmang (avvalgi TRUNCATE buyrug'i endi
+> XAVFLI). Sinov faqat lokal dev bazada (seed.ts test hisoblari lokalda ishlaydi).
+> Lokal dev'da hali eski test hisoblar (Admin@123 va h.k.) bor — UI sinovi shular bilan.
 
 ### Boshlash yo'llanmasi (egaga berilgan)
 > To'liq onboarding qo'llanma Artifact sifatida chop etilgan (login/parol, Android o'rnatish, birinchi qadamlar, ombor/qarz mantiqi):
@@ -201,6 +201,12 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 - Real-time (Socket.io) — haydovchiga yangi buyurtma xabari
 
 ✅ **DEPLOY QILINDI (2026-07-14):** Barcha to'plamlar (`d1da058` gacha — haydovchi UX2, brend qizil+formalar, moliya/timezone/logistika) JONLI serverga chiqarildi va tasdiqlandi: konteynerlar qayta qurildi, sayt 200/201, dashboard `pendingCount`/`pendingAmount` maydonlari jonli, CSS'da `#B93B3B` bor. Egasi qizil rangni ko'rib, yoqmasa boshqasiga o'zgartirish mumkin (`tailwind.config.ts` → `brandRed`, bitta joy).
+
+🔴 **AVTOMATIK BACKUP BUZILGAN EDI — TUZATILDI (2026-07-16, DEPLOY KUTILMOQDA):**
+- **Muammo:** har kungi 02:00 avtomatik backup (va Sozlamalar→Backup tugmasi) 2026-07-14 dan beri ISHLAMAGAN. Log: `pg_dump: error: invalid URI query parameter: "schema"`. Sabab: `DATABASE_URL` da Prisma'ning `?schema=public` bo'lagi bor, pg_dump/psql uni qabul qilmaydi. Ya'ni real ishga o'tilgandan beri BIRORTA zaxira olinmagan (jonli ma'lumot xavf ostida edi).
+- **Tuzatish:** `apps/api/src/modules/backup/backup.service.ts` — `stripQuery()` helperi URL'dagi `?...` ni olib tashlaydi (to'liq baza baribir olinadi). createBackup + restoreBackup ikkalasida. Serverда tuzatilgan buyruq sinaldi (105KB dump OK).
+- **Qo'lda zaxira olindi:** `/app/backups/manual-20260716-103701.sql` (105KB, konteyner ichida). ⚠️ Konteyner /app/backups volume'mi yoki efemermi — TEKSHIRISH kerak (efemer bo'lsa deploy'da yo'qoladi; host `/opt/aqua-erp/backups` ga chiqarish yaxshi). Eski `before_reset_20260710` host'da.
+- ⏳ **Offsite backup hali YO'Q** (HANDOFF #8-bo'lim) — endi real ma'lumot bor, bu MUHIMROQ bo'ldi. Zaxirani serverdan tashqariga (Telegram/bulut) avtomatik yuborish tavsiya etiladi.
 
 ✅ **Haydovchi realtime + bekor tab + manzil tuzatish (2026-07-14 kech, DEPLOY QILINDI):**
 - **REALTIME TUZATILDI:** use-notifications.ts socket handlerlari ["orders"]ni yangilardi, haydovchi sahifasi esa ["driver-day-orders"] ishlatadi — endi `refreshOrders()` ikkalasini + dashboard'ni yangilaydi. Jonli sinaldi: haydovchi sahifasi ochiq turganda API'dan zakaz yaratildi → ro'yxat/hisob DARROV yangilandi (navigatsiyasiz).
