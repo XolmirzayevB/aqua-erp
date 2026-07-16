@@ -155,22 +155,8 @@ export default function LoginPage() {
           <InstallPWA />
         </div>
 
-        {/* Test accounts hint */}
-        <div className="mt-6 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-card">
-          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
-            Test hisoblar:
-          </p>
-          <div className="space-y-1">
-            {[
-              { role: "Admin", phone: "+998901234567", pass: "Admin@123" },
-              { role: "Haydovchi", phone: "+998901234570", pass: "Driver@123" },
-            ].map((acc) => (
-              <p key={acc.role} className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                {acc.role}: {acc.phone} / {acc.pass}
-              </p>
-            ))}
-          </div>
-        </div>
+        {/* Real ish: hisob ma'lumotlari sahifada KO'RSATILMAYDI (2026-07-16).
+            Login/parolni administrator (egasi) beradi. */}
       </div>
     </div>
   );

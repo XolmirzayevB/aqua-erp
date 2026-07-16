@@ -46,7 +46,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      # 365d — foydalanuvchi logout qilmaguncha chiqib ketmasin (egasi so'rovi
+      # 2026-07-16). .env.production'dagi eski 7d qiymatini ATAYLAB e'tiborga
+      # olmaymiz — sessiya siyosati repo'da bir joydan boshqariladi.
+      JWT_REFRESH_EXPIRES_IN: 365d
       NODE_ENV: production
       API_PORT: 3001
       FRONTEND_URL: ${FRONTEND_URL}

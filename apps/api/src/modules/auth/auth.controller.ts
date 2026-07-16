@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Get, Version } from "@nestjs/common";
+import { Controller, Post, Body, Get, Version, Headers } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
+import { LogoutDto } from "./dto/logout.dto";
 import { Public } from "../../common/decorators/public.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtPayload } from "@aqua/shared";
@@ -15,8 +16,8 @@ export class AuthController {
   @Public()
   @Post("login")
   @ApiOperation({ summary: "Tizimga kirish" })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Headers("user-agent") userAgent?: string) {
+    return this.authService.login(dto, userAgent);
   }
 
   @Public()
@@ -28,9 +29,9 @@ export class AuthController {
 
   @Post("logout")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Tizimdan chiqish" })
-  logout(@CurrentUser("sub") userId: string) {
-    return this.authService.logout(userId);
+  @ApiOperation({ summary: "Tizimdan chiqish (faqat shu qurilma sessiyasi)" })
+  logout(@CurrentUser("sub") userId: string, @Body() dto: LogoutDto) {
+    return this.authService.logout(userId, dto?.refreshToken);
   }
 
   @Get("me")

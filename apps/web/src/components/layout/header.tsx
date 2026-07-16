@@ -19,7 +19,11 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout");
+      // refreshToken yuboriladi — serverda FAQAT shu qurilma sessiyasi o'chadi
+      // (bir hisob bilan boshqa qurilmada kirgan odam chiqib ketmaydi)
+      await api.post("/auth/logout", {
+        refreshToken: useAuthStore.getState().refreshToken,
+      });
     } catch {}
     logout();
     toast.success("Tizimdan chiqildi");
