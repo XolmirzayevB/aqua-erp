@@ -23,9 +23,17 @@ export class CreateOrderDto {
   @Type(() => Number)
   newBottles?: number;
 
-  @ApiProperty({ enum: ["CASH", "CARD", "DEBT"] })
+  // To'lov turi endi YETKAZILGANDA haydovchi tomonidan tanlanadi —
+  // yaratishda yuborilmaydi (eski klientlar uchun ixtiyoriy qoldirildi).
+  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT"] })
+  @IsOptional()
   @IsEnum(["CASH", "CARD", "DEBT"])
-  paymentType: "CASH" | "CARD" | "DEBT";
+  paymentType?: "CASH" | "CARD" | "DEBT";
+
+  @ApiPropertyOptional({ description: "Mijozning qo'shimcha manzili (CustomerLocation ID). Bo'sh = asosiy manzil" })
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
 
   @ApiPropertyOptional({ example: 3, description: "Qaytarilgan bo'sh tara soni (odatda = almashtirilgan)" })
   @IsOptional()

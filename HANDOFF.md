@@ -57,8 +57,10 @@ Tizim JONLI ishlab turibdi va real ishlatilmoqda.
 - JWT secretlar — serverда `/opt/aqua-erp/.env.production` da (openssl rand -hex 32 bilan generatsiya qilingan). Lokalда `.env.production` YO'Q (gitignore).
 - ⚠️ `.env` va `.env.production` HECH QACHON serverga ko'chirilmaydi (deploy tar'dan chiqarilgan). Server o'z nusxasini saqlaydi.
 
-### ⚠️ REAL ISHGA O'TILDI (2026-07-16 holatida aniqlandi) — TEST HISOBLAR YO'Q
-> Egasi real ishga o'tgan: prod bazada endi HAQIQIY hisoblar va ma'lumot bor.
+### ⚠️ PROD'DA HAQIQIY HISOBLAR — TEST HISOBLAR YO'Q
+> **Aniqlik (2026-07-16, egasining o'zi aytdi):** hali TO'LIQ real ishga o'tilmagan —
+> hozir tayyorgarlik/sozlash bosqichi ("endi boshlaymiz"). Lekin prod bazada allaqachon
+> HAQIQIY hodim hisoblari bor va tez orada jonli ishlatiladi.
 > Eski test hisoblar (+998901234567 / Admin@123 va h.k.) **O'CHIRILGAN** — ular bilan
 > kirib bo'lmaydi (401). Prod'dagi real foydalanuvchilar (parollar egasida, bizda YO'Q):
 >
@@ -186,6 +188,32 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ---
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
+
+
+✅ **3 YANGI IMKONIYAT (2026-07-16) — DEPLOY QILINDI:**
+1. **To'lov turi endi YETKAZILGANDA tanlanadi (haydovchi):** operator zakaz yozganda
+   to'lov TANLAMAYDI (formada yo'q). Haydovchi/admin "Yetkazildi" bosganda DeliverModal
+   chiqadi: Naqd / Karta (Click) / Nasiya. Backend: `Order.paymentType` endi **nullable**;
+   `updateStatus(DELIVERED)` da `paymentType` majburiy (agar avvaldan belgilanmagan bo'lsa);
+   CASH/CARD → INCOME shu yerda, DEBT → mijoz balansi SHU YERDA kamayadi (yaratishda emas).
+   ESKI zakazlar (paymentType yaratishda bor): o'zgartirish 400, DEBT ikki marta yozilmaydi
+   (applyDebtNow faqat yangi oqimda). Bekor qilish: yangi oqimda ochiq zakaz balansga tegmaydi.
+   Fayllar: orders.service updateStatus, deliver-modal.tsx, order-form/orders-table/driver-orders/order-detail.
+2. **Bir mijozga BIR NECHA LOKATSIYA (Uy, Apteka...):** yangi `customer_locations` jadvali
+   (label/address/locationLink/lat/lng, FK cascade; Order.locationId ON DELETE SET NULL).
+   Zakaz formasida mijoz tanlangach "Qayerga yetkaziladi?" chiplar (Asosiy + joylar + "+ Yangi joy"
+   tez qo'shish). Mijoz sahifasida "Qo'shimcha manzillar" kartasi (CRUD, ADMIN+OPERATOR).
+   Haydovchi karta/xarita/navigatsiya/push — tanlangan joyga (lokatsiya tanlangan bo'lsa
+   customer koordinatasiga QAYTMAYDI — noto'g'ri joyga bormasin, noCoords ro'yxatiga tushadi).
+   Endpointlar: POST/PATCH/DELETE /customers/:id/locations(/:locationId). Geo-ajratish bor.
+3. **QOLIB KETGAN zakazlar:** `GET /orders?overdue=true` — avvalgi lokal kunlardan ochiq
+   qolganlar, eng eskisi birinchi. Buyurtmalar sahifasida qizil banner ("N ta zakaz avvalgi
+   kunlardan qolib ketgan") + "⏰ Qolib ketgan" tab; kartalarda/jadvalda "X kun Y soat kechikdi"
+   badge (24h+ ochiq zakazlarda hamma joyda); haydovchi kartasida "N kun oldin yozilgan".
+   Migratsiya: `20260716105954_payment_on_delivery_and_locations` (faqat qo'shimcha — xavfsiz).
+   Sinovlar: backend curl (9 stsenariy: to'lovsiz 400, DEBT balans −45000 faqat yetkazishda,
+   CASH INCOME 13000, eski uslub ikki marta yozilmadi, noto'g'ri lokatsiya 404, bekor balanssiz)
+   + UI (forma chiplar, DeliverModal Karta bilan yopish, overdue tab, mijoz manzillar kartasi).
 
 ✅ **Tugallangan va JONLI (deploy qilingan):**
 - Barcha 14 modul (dashboard, mijozlar, buyurtmalar, haydovchilar, ombor, moliya, qarzdorlik, hisobotlar, analytics, foydalanuvchilar/RBAC, audit log, backup, settings, notifications)

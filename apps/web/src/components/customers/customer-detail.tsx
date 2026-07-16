@@ -5,10 +5,12 @@ import Link from "next/link";
 import {
   ArrowLeft, Phone, MapPin, Package, Wallet, Edit,
   ShoppingCart, CreditCard, TrendingUp, Banknote, Navigation, AlertCircle,
+  Plus, Trash2, Loader2, X,
 } from "lucide-react";
 import {
   useCustomer, useCustomerStats, useCustomerOrders,
   useCustomerPayments, useUpdateCustomer,
+  useAddLocation, useUpdateLocation, useDeleteLocation, CustomerLocation,
 } from "@/hooks/use-customers";
 import { CustomerForm } from "./customer-form";
 import { PaymentModal } from "./payment-modal";
@@ -161,6 +163,9 @@ export function CustomerDetail({ id }: Props) {
         )}
       </div>
 
+      {/* QO'SHIMCHA MANZILLAR (Uy, Apteka...) — zakaz yozilganda tanlanadi */}
+      <LocationsCard customerId={id} locations={customer.locations || []} readOnly={readOnly} />
+
       {/* Buyurtma holatlari xulosasi — mobilda gorizontal aylanadigan chiplar */}
       {stats?.orderStats && (
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
@@ -239,7 +244,10 @@ export function CustomerDetail({ id }: Props) {
                           {formatCurrency(order.totalAmount)}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {PAYMENT_TYPE_LABELS[order.paymentType as keyof typeof PAYMENT_TYPE_LABELS]}
+                          {/* Ochiq zakazda to'lov hali tanlanmagan (yetkazishda tanlanadi) */}
+                          {order.paymentType
+                            ? PAYMENT_TYPE_LABELS[order.paymentType as keyof typeof PAYMENT_TYPE_LABELS]
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           {order.driver?.name ?? "—"}
@@ -329,6 +337,163 @@ export function CustomerDetail({ id }: Props) {
           onClose={() => setShowPayment(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── QO'SHIMCHA MANZILLAR kartasi (Uy, Apteka, Do'kon...) ──────────────────
+// Zakaz yozilganda operator shulardan birini tanlaydi; haydovchi o'sha joyga boradi.
+function LocationsCard({
+  customerId, locations, readOnly,
+}: {
+  customerId: string; locations: CustomerLocation[]; readOnly: boolean;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const addLocation = useAddLocation();
+  const updateLocation = useUpdateLocation();
+  const deleteLocation = useDeleteLocation();
+
+  const handleDelete = async (loc: CustomerLocation) => {
+    if (!confirm(`"${loc.label}" manzilini o'chirmoqchimisiz?`)) return;
+    await deleteLocation.mutateAsync({ customerId, locationId: loc.id });
+  };
+
+  return (
+    <div className={cn(cardClass, "p-4 md:p-5")}>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div>
+          <h3 className="text-[14px] font-bold text-gray-900 dark:text-white">Qo'shimcha manzillar</h3>
+          <p className="text-[12px] text-gray-400 dark:text-gray-500 mt-0.5">
+            Mijoz bir nechta joyga suv aytadi (uy, apteka...) — zakazda tanlanadi
+          </p>
+        </div>
+        {!readOnly && !adding && (
+          <button
+            onClick={() => { setAdding(true); setEditId(null); }}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[10px] border border-gray-100 dark:border-gray-800 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors flex-none"
+          >
+            <Plus className="w-4 h-4" /> Qo'shish
+          </button>
+        )}
+      </div>
+
+      {locations.length === 0 && !adding && (
+        <p className="text-[13px] text-gray-400 dark:text-gray-500 py-3">
+          Hozircha qo'shimcha manzil yo'q — faqat asosiy manzil ishlatiladi.
+        </p>
+      )}
+
+      <div className="mt-2 space-y-2">
+        {locations.map((loc) =>
+          editId === loc.id ? (
+            <LocationForm
+              key={loc.id}
+              initial={loc}
+              pending={updateLocation.isPending}
+              onCancel={() => setEditId(null)}
+              onSave={async (data) => {
+                await updateLocation.mutateAsync({ customerId, locationId: loc.id, data });
+                setEditId(null);
+              }}
+            />
+          ) : (
+            <div
+              key={loc.id}
+              className="flex items-center gap-3 px-3.5 py-3 rounded-[13px] border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40"
+            >
+              <span className="w-9 h-9 rounded-[10px] bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-none">
+                <MapPin className="w-4 h-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-gray-900 dark:text-white truncate">{loc.label}</p>
+                {(loc.address || loc.locationLink) && (
+                  <p className="text-[12.5px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                    {loc.address || "Faqat lokatsiya havolasi"}
+                  </p>
+                )}
+              </div>
+              {loc.locationLink && (
+                <a
+                  href={loc.locationLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Xaritada ochish"
+                  className="w-9 h-9 rounded-[10px] flex items-center justify-center text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors flex-none"
+                >
+                  <Navigation className="w-4 h-4" />
+                </a>
+              )}
+              {!readOnly && (
+                <>
+                  <button
+                    onClick={() => { setEditId(loc.id); setAdding(false); }}
+                    title="Tahrirlash"
+                    className="w-9 h-9 rounded-[10px] flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-none"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(loc)}
+                    title="O'chirish"
+                    className="w-9 h-9 rounded-[10px] flex items-center justify-center text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex-none"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          )
+        )}
+
+        {adding && (
+          <LocationForm
+            pending={addLocation.isPending}
+            onCancel={() => setAdding(false)}
+            onSave={async (data) => {
+              await addLocation.mutateAsync({ customerId, data });
+              setAdding(false);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Manzil qo'shish/tahrirlash mini-formasi
+function LocationForm({
+  initial, pending, onSave, onCancel,
+}: {
+  initial?: CustomerLocation;
+  pending: boolean;
+  onSave: (data: { label: string; address?: string; locationLink?: string }) => void;
+  onCancel: () => void;
+}) {
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [address, setAddress] = useState(initial?.address ?? "");
+  const [link, setLink] = useState(initial?.locationLink ?? "");
+  const inputCls =
+    "w-full h-11 px-3.5 rounded-[11px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[13.5px] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all";
+
+  return (
+    <div className="p-3.5 rounded-[13px] border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-500/5 space-y-2.5">
+      <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Joy nomi (masalan: Apteka)" className={inputCls} autoFocus />
+      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Manzil (ixtiyoriy)" className={inputCls} />
+      <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Google Maps havolasi (ixtiyoriy)" className={inputCls} />
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="h-9 px-3.5 rounded-[10px] text-[13px] font-semibold text-gray-500 hover:bg-white dark:hover:bg-gray-800 transition-colors inline-flex items-center gap-1">
+          <X className="w-3.5 h-3.5" /> Bekor
+        </button>
+        <button
+          onClick={() => onSave({ label: label.trim(), address: address.trim() || undefined, locationLink: link.trim() || undefined })}
+          disabled={label.trim().length < 1 || pending}
+          className="h-9 px-4 rounded-[10px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-semibold transition-colors inline-flex items-center gap-1.5"
+        >
+          {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+          Saqlash
+        </button>
+      </div>
     </div>
   );
 }

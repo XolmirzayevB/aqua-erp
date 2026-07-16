@@ -124,11 +124,32 @@ model Customer {
   orders       Order[]
   transactions Transaction[]
   payments     Payment[]
+  locations    CustomerLocation[]
 
   @@index([phone])
   @@index([name])
   @@index([isActive])
   @@map("customers")
+}
+
+// Mijozning QO'SHIMCHA manzillari (Uy, Apteka, Do'kon...).
+// Asosiy manzil — Customer.address/locationLink/lat/lng da qoladi.
+// Zakaz yozilganda operator qaysi joyga ekanini tanlaydi (Order.locationId).
+model CustomerLocation {
+  id           String   @id @default(uuid())
+  customerId   String   @map("customer_id")
+  label        String   @db.VarChar(60) // "Uy", "Apteka", "Ukasining uyi"...
+  address      String?  @db.Text
+  locationLink String?  @map("location_link") @db.Text
+  lat          Decimal? @db.Decimal(10, 8)
+  lng          Decimal? @db.Decimal(11, 8)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([customerId])
+  @@map("customer_locations")
 }
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
@@ -149,7 +170,11 @@ model Order {
   newBottlePrice   Decimal     @default(0) @map("new_bottle_price") @db.Decimal(10, 2)
   totalAmount      Decimal     @map("total_amount") @db.Decimal(12, 2)
   bottlesReturned  Int         @default(0) @map("bottles_returned")
-  paymentType      PaymentType @map("payment_type")
+  // To'lov turi endi YETKAZILGANDA tanlanadi (haydovchi belgilaydi) —
+  // shuning uchun ixtiyoriy. Ochiq zakazda null bo'lishi normal holat.
+  paymentType      PaymentType? @map("payment_type")
+  // Qaysi manzilga (mijozning qo'shimcha lokatsiyasi). null = asosiy manzil.
+  locationId       String?     @map("location_id")
   status           OrderStatus @default(NEW)
   notes            String?     @db.Text
   deliveredAt      DateTime?   @map("delivered_at") @db.Timestamptz
@@ -159,6 +184,7 @@ model Order {
   customer     Customer      @relation(fields: [customerId], references: [id])
   driver       User?         @relation("DriverOrders", fields: [driverId], references: [id])
   createdBy    User          @relation("CreatedOrders", fields: [createdById], references: [id])
+  location     CustomerLocation? @relation(fields: [locationId], references: [id])
   transactions Transaction[]
 
   @@index([status])

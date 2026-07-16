@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useOrder, useUpdateOrderStatus, useAssignDriver } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
+import { DeliverModal } from "./deliver-modal";
 import { PaymentModal } from "@/components/customers/payment-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
@@ -34,6 +35,8 @@ interface Props { id: string }
 export function OrderDetail({ id }: Props) {
   const [showAssign, setShowAssign] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  // "Yetkazildi" → to'lov turini tanlash modali
+  const [showDeliver, setShowDeliver] = useState(false);
   const { canManageOrders, canDeliver, canCollectDebt, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
@@ -77,6 +80,11 @@ export function OrderDetail({ id }: Props) {
   const canAssign = canManageOrders && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status);
 
   const handleAction = async (status: string) => {
+    // "Yetkazildi" — avval to'lov turi so'raladi (modal)
+    if (status === "DELIVERED") {
+      setShowDeliver(true);
+      return;
+    }
     await updateStatus.mutateAsync({ id, status });
   };
 
@@ -172,14 +180,25 @@ export function OrderDetail({ id }: Props) {
                         <MapPin className="w-3 h-3" />{order.customer.address}
                       </span>
                     </div>
+                    {/* Tanlangan yetkazish joyi (Apteka, Uy...) — asosiy manzildan FARQLI */}
+                    {order.location && (
+                      <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+                        <MapPin className="w-3.5 h-3.5" />
+                        Yetkazish joyi: {order.location.label}
+                        {order.location.address ? ` — ${order.location.address}` : ""}
+                      </span>
+                    )}
                   </div>
                   {!isDriver && <ChevronRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
                 </Wrap>
               );
             })()}
-            {/* Lokatsiya — haydovchi uchun navigatsiya (Google Maps ILOVASIDA ochiladi) */}
+            {/* Lokatsiya — haydovchi uchun navigatsiya (Google Maps ILOVASIDA ochiladi).
+                Tanlangan lokatsiya (Apteka...) bo'lsa O'SHA joyga yo'naltiradi. */}
             {(() => {
-              const nav = directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
+              const nav = order.location
+                ? directionsUrl(order.location.lat, order.location.lng, order.location.locationLink)
+                : directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
               return nav ? (
                 <a href={nav} target="_blank" rel="noopener noreferrer"
                   className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors">
@@ -268,9 +287,13 @@ export function OrderDetail({ id }: Props) {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">To'lov turi</span>
-                <span className={cn("font-medium", order.paymentType === "DEBT" ? "text-orange-600" : "text-green-600")}>
-                  {PAYMENT_TYPE_LABELS[order.paymentType]}
-                </span>
+                {order.paymentType ? (
+                  <span className={cn("font-medium", order.paymentType === "DEBT" ? "text-orange-600" : "text-green-600")}>
+                    {PAYMENT_TYPE_LABELS[order.paymentType]}
+                  </span>
+                ) : (
+                  <span className="font-medium text-gray-400">Yetkazilganda tanlanadi</span>
+                )}
               </div>
               {order.bottlesReturned > 0 && (
                 <div className="flex justify-between text-sm">
@@ -314,6 +337,10 @@ export function OrderDetail({ id }: Props) {
           currentBalance={Number(order.customer.balance ?? 0)}
           onClose={() => setShowPayment(false)}
         />
+      )}
+      {/* Yetkazildi → to'lov turini tanlash (naqd/karta/nasiya) */}
+      {showDeliver && (
+        <DeliverModal order={order} onClose={() => setShowDeliver(false)} />
       )}
     </div>
   );

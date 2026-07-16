@@ -4,6 +4,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
+// Mijozning qo'shimcha manzili (Uy, Apteka...) — buyurtmaga biriktiriladi
+export interface OrderLocation {
+  id: string;
+  label: string;
+  address?: string | null;
+  locationLink?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -18,11 +28,14 @@ export interface Order {
   newBottlePrice: number;
   totalAmount: number;
   bottlesReturned: number;
-  paymentType: "CASH" | "CARD" | "DEBT";
+  // null = to'lov turi hali tanlanmagan (yetkazilganda haydovchi tanlaydi)
+  paymentType: "CASH" | "CARD" | "DEBT" | null;
   status: "NEW" | "PROCESSING" | "ASSIGNED" | "DELIVERED" | "CANCELLED";
   notes?: string;
   deliveredAt?: string;
   createdAt: string;
+  locationId?: string | null;
+  location?: OrderLocation | null;
   customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
@@ -52,6 +65,8 @@ export interface OrderQueryParams {
   zone?: string;
   dateFrom?: string;
   dateTo?: string;
+  // Qolib ketgan (kechikkan) ochiq zakazlar — eng eskisi birinchi
+  overdue?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -81,8 +96,9 @@ export interface CreateOrderPayload {
   customerId: string;
   refillCount?: number;
   newBottles?: number;
-  paymentType: "CASH" | "CARD" | "DEBT";
+  // To'lov turi endi yaratishda YUBORILMAYDI — yetkazilganda haydovchi tanlaydi
   bottlesReturned?: number;
+  locationId?: string; // mijozning qo'shimcha manzili (Uy/Apteka...)
   driverId?: string;
   notes?: string;
 }
@@ -106,13 +122,18 @@ export function useCreateOrder() {
 export function useUpdateOrderStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) =>
-      api.patch(`/orders/${id}/status`, { status, notes }).then((r) => r.data.data),
+    // paymentType — "Yetkazildi"da haydovchi tanlagan to'lov turi (naqd/karta/nasiya)
+    mutationFn: ({ id, status, notes, paymentType }: { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" }) =>
+      api.patch(`/orders/${id}/status`, { status, notes, paymentType }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      // Nasiya bilan yetkazilganda mijoz balansi/qarzdorlik o'zgaradi
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["debts"] });
+      qc.invalidateQueries({ queryKey: ["finance-summary"] });
       toast.success("Status yangilandi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),

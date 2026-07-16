@@ -73,7 +73,8 @@ export class ExportService {
         phone: o.customer.phone,
         qty: o.quantity,
         total: Number(o.totalAmount),
-        payment: PAYMENT_LABELS[o.paymentType],
+        // Ochiq zakazda to'lov turi hali tanlanmagan bo'lishi mumkin (null)
+        payment: o.paymentType ? PAYMENT_LABELS[o.paymentType] : "—",
         status: STATUS_LABELS[o.status],
         driver: o.driver?.name ?? "—",
         date: format(new Date(o.createdAt), "dd.MM.yyyy HH:mm"),

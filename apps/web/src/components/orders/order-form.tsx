@@ -4,18 +4,21 @@
 // - Mijoz: yozib qidiriladigan combobox (ism/telefon), tanlangach karta ko'rinishida.
 // - Tara soni: katta − / + stepper (mahsulot tanlash YO'Q — bitta mahsulot: 19L suv).
 // - Sana/vaqt/manzil maydonlari YO'Q (egasi so'rovi).
-// - To'lov turi: segment (Naqd / Karta / Nasiya), aktiv = oq pill.
+// - TO'LOV TURI YO'Q (2026-07-16): to'lovni haydovchi YETKAZGANDA tanlaydi.
+// - LOKATSIYA TANLASH (2026-07-16): mijozning bir nechta manzili bo'lsa
+//   (Uy, Apteka...) operator qaysi joyga ekanini tanlaydi; yangi joy ham
+//   shu yerdan qo'shiladi.
 // - Jami to'lov: katta panel, taqsimot (almashtirish/yangi tara) bilan.
 // - Yangi mijoz rejimi: ism, telefon, "Hudud" dropdown (faqat hudud nomi).
 
 import { useState } from "react";
 import {
   X, Loader2, Search, User, UserPlus, Package, ShoppingBag,
-  Minus, Plus, Check, ChevronDown,
+  Minus, Plus, Check, ChevronDown, MapPin, Home,
 } from "lucide-react";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useDrivers } from "@/hooks/use-drivers";
-import { useCustomers, useCreateCustomer, Customer } from "@/hooks/use-customers";
+import { useCustomers, useCreateCustomer, useAddLocation, Customer } from "@/hooks/use-customers";
 import { useSettings } from "@/hooks/use-settings";
 import { PhoneInput } from "@/components/shared/phone-input";
 import { formatCurrency, formatPhone, cn } from "@/lib/utils";
@@ -45,12 +48,19 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
 
   // Buyurtma
   const [deliverCount, setDeliverCount] = useState(1);
-  const [paymentType, setPaymentType] = useState<"CASH" | "CARD" | "DEBT">("CASH");
   const [driverId, setDriverId] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Lokatsiya tanlash: "" = asosiy manzil, aks holda CustomerLocation.id
+  const [locationId, setLocationId] = useState("");
+  const [addingLoc, setAddingLoc] = useState(false);
+  const [locLabel, setLocLabel] = useState("");
+  const [locAddress, setLocAddress] = useState("");
+  const [locLink, setLocLink] = useState("");
+
   const createOrder = useCreateOrder();
   const createCustomer = useCreateCustomer();
+  const addLocation = useAddLocation();
   const { data: settings } = useSettings();
   const { data: driversData } = useDrivers();
   const { data: customersData } = useCustomers({ search: query, limit: 8 });
@@ -94,11 +104,29 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
       customerId,
       refillCount,
       newBottles,
-      paymentType,
+      locationId: locationId || undefined,
       driverId: driverId || undefined,
       notes: notes || undefined,
     });
     onClose();
+  };
+
+  // "+ Yangi joy" — mijozga qo'shimcha manzil qo'shib, darrov tanlaymiz
+  const handleAddLocation = async () => {
+    if (!selected || locLabel.trim().length < 1) return;
+    const loc = await addLocation.mutateAsync({
+      customerId: selected.id,
+      data: {
+        label: locLabel.trim(),
+        address: locAddress.trim() || undefined,
+        locationLink: locLink.trim() || undefined,
+      },
+    });
+    // selected — snapshot: yangi manzilni lokal ro'yxatga ham qo'shamiz
+    setSelected({ ...selected, locations: [...(selected.locations || []), loc] });
+    setLocationId(loc.id);
+    setAddingLoc(false);
+    setLocLabel(""); setLocAddress(""); setLocLink("");
   };
 
   const isPending = createOrder.isPending || createCustomer.isPending;
@@ -157,7 +185,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                   <span className="flex items-center gap-1 text-[12.5px] font-semibold text-gray-500 dark:text-gray-400 flex-none">
                     <Package className="w-4 h-4" /> {owned} ta
                   </span>
-                  <button type="button" onClick={() => { setSelected(null); setQuery(""); setOpen(true); }}
+                  <button type="button" onClick={() => { setSelected(null); setLocationId(""); setAddingLoc(false); setQuery(""); setOpen(true); }}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-none" title="Boshqa mijoz tanlash">
                     <X className="w-4 h-4" />
                   </button>
@@ -184,7 +212,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                           <p className="text-center text-[13.5px] text-gray-400 py-6">Topilmadi</p>
                         ) : customers.map((c) => (
                           <button key={c.id} type="button"
-                            onMouseDown={(e) => { e.preventDefault(); setSelected(c); setOpen(false); setQuery(""); }}
+                            onMouseDown={(e) => { e.preventDefault(); setSelected(c); setLocationId(""); setAddingLoc(false); setOpen(false); setQuery(""); }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                             <Avatar name={c.name} size={34} />
                             <div className="flex-1 min-w-0">
@@ -271,32 +299,70 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
             </div>
           </div>
 
-          {/* ── TO'LOV TURI — segment (mockup'dagidek aktiv = oq pill) ── */}
-          <div>
-            <label className={label15}>To'lov turi</label>
-            <div className="grid grid-cols-3 gap-1 p-1.5 bg-gray-50 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-800 rounded-2xl">
-              {[
-                { value: "CASH", label: "Naqd" },
-                { value: "CARD", label: "Karta" },
-                { value: "DEBT", label: "Nasiya" },
-              ].map(({ value, label }) => (
-                <button key={value} type="button" onClick={() => setPaymentType(value as any)}
+          {/* ── QAYERGA YETKAZILADI? — mijoz manzillari (Uy, Apteka...) ──
+              To'lov turi bu formada YO'Q — haydovchi yetkazganda tanlaydi. */}
+          {mode === "existing" && selected && (
+            <div>
+              <label className={label15}>Qayerga yetkaziladi?</label>
+              <div className="flex flex-wrap gap-2">
+                {/* Asosiy manzil */}
+                <button type="button" onClick={() => setLocationId("")}
                   className={cn(
-                    "h-12 rounded-[12px] text-[15px] font-semibold transition-all",
-                    paymentType === value
-                      ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-card border border-gray-100 dark:border-gray-700"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    "inline-flex items-center gap-2 h-11 px-3.5 rounded-[12px] border-2 text-[13.5px] font-semibold transition-all max-w-full",
+                    locationId === ""
+                      ? "border-blue-500/70 bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                      : "border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700"
                   )}>
-                  {label}
+                  <Home className="w-4 h-4 flex-none" />
+                  <span className="truncate">
+                    Asosiy{selected.address && selected.address !== "—" ? ` · ${selected.address}` : ""}
+                  </span>
                 </button>
-              ))}
+                {/* Qo'shimcha manzillar */}
+                {(selected.locations || []).map((loc) => (
+                  <button key={loc.id} type="button" onClick={() => setLocationId(loc.id)}
+                    className={cn(
+                      "inline-flex items-center gap-2 h-11 px-3.5 rounded-[12px] border-2 text-[13.5px] font-semibold transition-all max-w-full",
+                      locationId === loc.id
+                        ? "border-blue-500/70 bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                        : "border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700"
+                    )}>
+                    <MapPin className="w-4 h-4 flex-none" />
+                    <span className="truncate">{loc.label}</span>
+                  </button>
+                ))}
+                {/* Yangi joy qo'shish */}
+                <button type="button" onClick={() => setAddingLoc((v) => !v)}
+                  className="inline-flex items-center gap-1.5 h-11 px-3.5 rounded-[12px] border-2 border-dashed border-gray-200 dark:border-gray-700 text-[13.5px] font-semibold text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400 transition-all">
+                  <Plus className="w-4 h-4" /> Yangi joy
+                </button>
+              </div>
+
+              {/* Yangi joy mini-formasi */}
+              {addingLoc && (
+                <div className="mt-3 p-4 rounded-[14px] border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 space-y-3">
+                  <input value={locLabel} onChange={(e) => setLocLabel(e.target.value)}
+                    placeholder="Joy nomi (masalan: Apteka)" className={bigInput} autoFocus />
+                  <input value={locAddress} onChange={(e) => setLocAddress(e.target.value)}
+                    placeholder="Manzil (ixtiyoriy)" className={bigInput} />
+                  <input value={locLink} onChange={(e) => setLocLink(e.target.value)}
+                    placeholder="Google Maps havolasi (ixtiyoriy)" className={bigInput} />
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setAddingLoc(false)}
+                      className="h-10 px-4 rounded-[11px] text-[13.5px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      Bekor
+                    </button>
+                    <button type="button" onClick={handleAddLocation}
+                      disabled={locLabel.trim().length < 1 || addLocation.isPending}
+                      className="h-10 px-4 rounded-[11px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13.5px] font-semibold transition-colors flex items-center gap-1.5">
+                      {addLocation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      Qo'shish
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            {paymentType === "DEBT" && (
-              <p className="mt-2 text-[13px] font-medium text-amber-600 dark:text-amber-400">
-                Nasiya — summa mijoz qarziga yoziladi, to'lov keyin qabul qilinadi
-              </p>
-            )}
-          </div>
+          )}
 
           {/* ── Haydovchi + Izoh ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -325,6 +391,9 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                 {refillCount > 0 && <span>{refillCount} × almashtirish ({formatCurrency(refillPrice)})</span>}
                 {refillCount > 0 && newBottles > 0 && <span className="text-gray-300 dark:text-gray-600"> + </span>}
                 {newBottles > 0 && <span>{newBottles} × yangi tara ({formatCurrency(newBottlePrice)})</span>}
+              </p>
+              <p className="text-[12px] text-gray-400 dark:text-gray-500 mt-1">
+                To'lov turini haydovchi yetkazganda belgilaydi
               </p>
             </div>
             <p className="text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tabular-nums whitespace-nowrap flex-none">

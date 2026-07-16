@@ -192,20 +192,29 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
   const deliveredOrders = active.filter((o) => o.status === "DELIVERED");
   const pendingOrders = active.filter((o) => o.status !== "DELIVERED");
 
-  // Kutilayotganlar: koordinatalilarni ENG QISQA YO'L bo'yicha tartiblaymiz
-  const pendingKey = JSON.stringify(pendingOrders.map((o) => [o.id, o.customer.lat, o.customer.lng]));
+  // Kutilayotganlar: koordinatalilarni ENG QISQA YO'L bo'yicha tartiblaymiz.
+  // Zakazga LOKATSIYA tanlangan bo'lsa (Apteka, Uy...) — pin O'SHA joyda turadi;
+  // mijozning asosiy koordinatasiga QAYTMAYMIZ (haydovchi noto'g'ri joyga bormasin).
+  const pendingKey = JSON.stringify(
+    pendingOrders.map((o) => [o.id, o.location?.lat ?? o.customer.lat, o.location?.lng ?? o.customer.lng])
+  );
   const { stops, noCoords, totalKm } = useMemo(() => {
     const withCoords: Stop[] = [];
     const noC: typeof pendingOrders = [];
     pendingOrders.forEach((o) => {
-      const lat = o.customer.lat != null ? Number(o.customer.lat) : NaN;
-      const lng = o.customer.lng != null ? Number(o.customer.lng) : NaN;
+      const src = o.location ?? o.customer; // tanlangan joy yoki asosiy manzil
+      const lat = src.lat != null ? Number(src.lat) : NaN;
+      const lng = src.lng != null ? Number(src.lng) : NaN;
       if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
         withCoords.push({
           id: o.id, seq: o.seq, n: 0, lat, lng,
-          name: o.customer.name, phone: o.customer.phone, address: o.customer.address,
+          name: o.customer.name, phone: o.customer.phone,
+          address: o.location
+            ? `${o.location.label}${o.location.address ? " — " + o.location.address : ""}`
+            : o.customer.address,
           quantity: o.quantity, amount: Number(o.totalAmount), status: o.status,
-          locationLink: o.customer.locationLink, zone: o.customer.zone, legKm: 0,
+          locationLink: (o.location ? o.location.locationLink : o.customer.locationLink) ?? undefined,
+          zone: o.customer.zone, legKm: 0,
         });
       } else {
         noC.push(o);
@@ -450,7 +459,9 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
                   <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 flex-none">#{o.seq}</span>
                 </div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                  Lokatsiya yo'q · {o.customer.address}
+                  Lokatsiya yo'q · {o.location
+                    ? `${o.location.label}${o.location.address ? " — " + o.location.address : ""}`
+                    : o.customer.address}
                 </div>
               </div>
               <a

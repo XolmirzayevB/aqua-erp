@@ -45,6 +45,14 @@ export class OrdersService {
       if (!driver) throw new NotFoundException("Haydovchi topilmadi");
     }
 
+    // Lokatsiya tanlangan bo'lsa — SHU mijozники bo'lishi shart
+    if (dto.locationId) {
+      const loc = await this.prisma.customerLocation.findFirst({
+        where: { id: dto.locationId, customerId: dto.customerId },
+      });
+      if (!loc) throw new NotFoundException("Tanlangan manzil bu mijozga tegishli emas");
+    }
+
     const refillCount = dto.refillCount ?? 0;
     const newBottles = dto.newBottles ?? 0;
 
@@ -84,7 +92,10 @@ export class OrdersService {
           newBottlePrice,
           totalAmount,
           bottlesReturned,
-          paymentType: dto.paymentType as any,
+          // To'lov turi endi odatda YETKAZILGANDA tanlanadi (null bo'lib turadi).
+          // Eski klient yuborsa — eski mantiq saqlanadi (DEBT balansi pastda).
+          paymentType: (dto.paymentType as any) ?? null,
+          locationId: dto.locationId || null,
           status: dto.driverId ? "ASSIGNED" : "NEW",
           notes: dto.notes,
         },
@@ -92,6 +103,7 @@ export class OrdersService {
           customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
           driver: { select: { id: true, name: true, phone: true } },
           createdBy: { select: { id: true, name: true } },
+          location: true,
         },
       });
 
@@ -102,6 +114,8 @@ export class OrdersService {
           bottlesOwned: { increment: newBottles },
           bottlesGiven: { increment: quantity },
           bottlesReturned: { increment: bottlesReturned },
+          // Faqat eski klient DEBT yuborsa (yangi oqimda paymentType kelmaydi —
+          // nasiya balansi yetkazilganda yoziladi)
           ...(dto.paymentType === "DEBT" ? { balance: { decrement: totalAmount } } : {}),
         },
       });
@@ -138,17 +152,21 @@ export class OrdersService {
 
     // Real-time: notify driver
     if (order.driverId) {
+      // Tanlangan lokatsiya bo'lsa — xabarda o'sha manzil ko'rsatiladi
+      const deliverAddr = order.location
+        ? `${order.location.label}${order.location.address ? " — " + order.location.address : ""}`
+        : order.customer.address;
       this.notifications.emitToUser(order.driverId, "new_order", {
         orderId: order.id,
         orderNumber: order.orderNumber,
         customer: order.customer,
         quantity: order.quantity,
-        address: order.customer.address,
+        address: deliverAddr,
       });
       // Push: ilova yopiq bo'lsa ham telefonga xabar boradi
       this.push.sendToUser(order.driverId, {
         title: `Yangi buyurtma #${order.seq}`,
-        body: `${order.customer.name} — ${order.quantity} ta suv${order.customer.address ? ", " + order.customer.address : ""}`,
+        body: `${order.customer.name} — ${order.quantity} ta suv${deliverAddr ? ", " + deliverAddr : ""}`,
         url: `/orders/${order.id}`,
         tag: `order-${order.id}`,
       }).catch(() => {});
@@ -172,18 +190,34 @@ export class OrdersService {
   async findAll(query: QueryOrdersDto) {
     const {
       search, status, driverId, customerId, paymentType, zone,
-      dateFrom, dateTo, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc",
+      dateFrom, dateTo, page = 1, limit = 20, overdue,
     } = query;
+    let { sortBy = "createdAt", sortOrder = "desc" } = query;
+
+    // QOLIB KETGAN zakazlar: avvalgi kunlardan ochiq qolganlar (bugungi lokal
+    // kun boshidan OLDIN yozilgan, hali yetkazilmagan). Eng eskisi birinchi.
+    const todayStart = localDayRange(new Date()).start;
+    if (overdue) {
+      sortBy = "createdAt";
+      sortOrder = "asc";
+    }
 
     const where: Prisma.OrderWhereInput = {
-      ...(status ? { status: status as OrderStatus } : {}),
+      ...(overdue
+        ? {
+            status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as OrderStatus[] },
+            createdAt: { lt: todayStart },
+          }
+        : {}),
+      ...(status && !overdue ? { status: status as OrderStatus } : {}),
       ...(driverId ? { driverId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(paymentType ? { paymentType: paymentType as any } : {}),
       // Hudud bo'yicha filtr (mijozning hududi)
       ...(zone ? { customer: { zone } } : {}),
       // Sana oralig'i — O'ZBEKISTON kuni bo'yicha (localDayRange), UTC emas
-      ...(dateFrom || dateTo
+      // (overdue rejimida ishlatilmaydi — u o'z createdAt filtriga ega)
+      ...((dateFrom || dateTo) && !overdue
         ? {
             createdAt: {
               ...(dateFrom ? { gte: localDayRange(new Date(dateFrom)).start } : {}),
@@ -217,6 +251,7 @@ export class OrdersService {
           customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
           driver: { select: { id: true, name: true } },
           createdBy: { select: { id: true, name: true } },
+          location: true,
         },
       }),
       this.prisma.order.count({ where }),
@@ -235,6 +270,7 @@ export class OrdersService {
         customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true, lat: true, lng: true } },
         driver: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true } },
+        location: true,
         transactions: true,
       },
     });
@@ -268,12 +304,36 @@ export class OrdersService {
       );
     }
 
+    // TO'LOV TURI YETKAZILGANDA TANLANADI (2026-07-16, egasi so'rovi):
+    // haydovchi "Yetkazildi" bosganda naqd/karta/nasiya ni belgilaydi.
+    // - Buyurtmada to'lov turi yo'q (yangi oqim) → dto.paymentType MAJBURIY.
+    // - Buyurtmada avvaldan bor (eski oqim: yaratishda tanlangan) → o'zgartirib
+    //   bo'lmaydi (nasiya balansi yaratishда yozilgan — almashtirish chalkashtiradi).
+    let effectivePayment: "CASH" | "CARD" | "DEBT" | null =
+      (order.paymentType as any) ?? null;
+    let applyDebtNow = false; // nasiya balansini SHU yetkazishda yozish kerakmi
+    if (dto.status === "DELIVERED") {
+      if (!order.paymentType) {
+        if (!dto.paymentType) {
+          throw new BadRequestException("To'lov turini tanlang: naqd, karta yoki nasiya");
+        }
+        effectivePayment = dto.paymentType;
+        applyDebtNow = dto.paymentType === "DEBT";
+      } else if (dto.paymentType && dto.paymentType !== order.paymentType) {
+        throw new BadRequestException(
+          "Bu buyurtmada to'lov turi avvaldan belgilangan — o'zgartirib bo'lmaydi"
+        );
+      }
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.order.update({
         where: { id },
         data: {
           status: dto.status as OrderStatus,
-          ...(dto.status === "DELIVERED" ? { deliveredAt: new Date() } : {}),
+          ...(dto.status === "DELIVERED"
+            ? { deliveredAt: new Date(), paymentType: effectivePayment as any }
+            : {}),
           ...(dto.notes ? { notes: dto.notes } : {}),
         },
         include: {
@@ -288,7 +348,7 @@ export class OrdersService {
       //   (customers.addPayment "Qarz to'lovi"). Ikki marta hisoblanmasin.
       // - Idempotent: eski (o'tish davri) buyurtmalarda kirim yaratishда
       //   yozilgan bo'lishi mumkin — bor bo'lsa qayta yozilmaydi.
-      if (dto.status === "DELIVERED" && order.paymentType !== "DEBT") {
+      if (dto.status === "DELIVERED" && effectivePayment && effectivePayment !== "DEBT") {
         const existing = await tx.transaction.findFirst({
           where: { orderId: id, type: "INCOME" },
           select: { id: true },
@@ -298,7 +358,7 @@ export class OrdersService {
             data: {
               type: "INCOME",
               amount: order.totalAmount,
-              paymentMethod: order.paymentType === "CASH" ? "CASH" : "CARD",
+              paymentMethod: effectivePayment === "CASH" ? "CASH" : "CARD",
               category: "Suv sotuvi",
               description: `${result.customer.name} — buyurtma #${result.seq} yetkazildi`,
               orderId: id,
@@ -307,6 +367,16 @@ export class OrdersService {
             },
           });
         }
+      }
+
+      // NASIYA yetkazishda tanlangan bo'lsa — summa mijoz qarziga SHU YERDA
+      // yoziladi (yangi oqim). Eski oqimda (yaratishda DEBT) allaqachon yozilgan
+      // bo'ladi — applyDebtNow=false, ikki marta yozilmaydi.
+      if (dto.status === "DELIVERED" && applyDebtNow) {
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: { balance: { decrement: order.totalAmount } },
+        });
       }
 
       // Bekor qilinganda — tara/ombor/pul qaytariladi
@@ -361,6 +431,7 @@ export class OrdersService {
       include: {
         customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
         driver: { select: { id: true, name: true } },
+        location: true,
       },
     });
 
@@ -377,18 +448,21 @@ export class OrdersService {
       }).catch(() => {});
     }
 
-    // Notify the assigned driver
+    // Notify the assigned driver — tanlangan lokatsiya bo'lsa o'sha manzil
+    const assignAddr = updated.location
+      ? `${updated.location.label}${updated.location.address ? " — " + updated.location.address : ""}`
+      : updated.customer.address;
     this.notifications.emitToUser(dto.driverId, "new_order", {
       orderId: id,
       orderNumber: order.orderNumber,
       customer: updated.customer,
       quantity: order.quantity,
-      address: updated.customer.address,
+      address: assignAddr,
     });
     // Push: ilova yopiq bo'lsa ham telefonga xabar boradi
     this.push.sendToUser(dto.driverId, {
       title: `Yangi buyurtma #${updated.seq}`,
-      body: `${updated.customer.name} — ${updated.quantity} ta suv${updated.customer.address ? ", " + updated.customer.address : ""}`,
+      body: `${updated.customer.name} — ${updated.quantity} ta suv${assignAddr ? ", " + assignAddr : ""}`,
       url: `/orders/${id}`,
       tag: `order-${id}`,
     }).catch(() => {});
@@ -498,12 +572,15 @@ export class OrdersService {
       orderBy: { createdAt: "asc" },
       include: {
         customer: { select: { id: true, name: true, phone: true, address: true, lat: true, lng: true, zone: true, locationLink: true } },
+        location: true,
       },
     });
 
     // Xarita uchun: lokatsiya linki bor, lekin lat/lng bo'sh mijozlarning
     // koordinatasini ajratib olamiz va saqlaymiz (keyingi safar tayyor bo'ladi).
     await this.ensureCustomerCoords(orders.map((o) => o.customer));
+    // Tanlangan qo'shimcha manzillar (Apteka, Uy...) uchun ham xuddi shu
+    await this.ensureLocationCoords(orders.map((o) => o.location).filter(Boolean) as any[]);
 
     return orders;
   }
@@ -536,6 +613,38 @@ export class OrdersService {
           }
         } catch {
           // best-effort — bitta mijoz xatosi butun so'rovni buzmasin
+        }
+      }),
+    );
+  }
+
+  // Qo'shimcha manzil (CustomerLocation) linkidan lat/lng ajratib saqlaydi —
+  // ensureCustomerCoords bilan bir xil mantiq, faqat boshqa jadvalga yozadi.
+  private async ensureLocationCoords(
+    locations: { id: string; lat: any; lng: any; locationLink: string | null }[],
+  ) {
+    const seen = new Set<string>();
+    const pending = locations.filter((l) => {
+      if (!l || seen.has(l.id) || l.lat != null || !l.locationLink) return false;
+      seen.add(l.id);
+      return true;
+    });
+    if (pending.length === 0) return;
+
+    await Promise.all(
+      pending.map(async (l) => {
+        try {
+          const coords = parseLatLngFromUrl(l.locationLink!) || (await resolveLatLng(l.locationLink!));
+          if (coords) {
+            await this.prisma.customerLocation.update({
+              where: { id: l.id },
+              data: { lat: coords.lat, lng: coords.lng },
+            });
+            (l as any).lat = coords.lat;
+            (l as any).lng = coords.lng;
+          }
+        } catch {
+          // best-effort
         }
       }),
     );

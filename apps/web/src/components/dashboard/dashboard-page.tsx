@@ -235,7 +235,10 @@ export function DashboardPage() {
                       {formatCurrency(order.totalAmount)}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {PAYMENT_TYPE_LABELS[order.paymentType as keyof typeof PAYMENT_TYPE_LABELS]}
+                      {/* Ochiq zakazda to'lov hali tanlanmagan bo'ladi (yetkazishda tanlanadi) */}
+                      {order.paymentType
+                        ? PAYMENT_TYPE_LABELS[order.paymentType as keyof typeof PAYMENT_TYPE_LABELS]
+                        : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />

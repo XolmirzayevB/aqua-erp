@@ -5,12 +5,13 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
-  CalendarDays, X, MapPin,
+  CalendarDays, X, MapPin, Clock,
 } from "lucide-react";
-import { useOrders, useCancelOrder, useUpdateOrderStatus } from "@/hooks/use-orders";
+import { useOrders, useCancelOrder, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
 import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
+import { DeliverModal } from "./deliver-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
@@ -47,6 +48,15 @@ const PAYMENT_TONES: Record<string, Tone> = {
   PARTIAL: "warning",
 };
 
+// Qolib ketgan zakaz qancha kechikkani: "2 kun 5 soat" / "7 soat"
+function lateLabel(createdAt: string): string {
+  const diff = Date.now() - new Date(createdAt).getTime();
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `${days} kun${hours > 0 ? ` ${hours} soat` : ""}`;
+  return `${Math.max(1, hours)} soat`;
+}
+
 export function OrdersTable() {
   const { isDriver, canCreateOrder, canDeliver } = usePermissions();
   const filters = isDriver ? DRIVER_FILTERS : STATUS_FILTERS;
@@ -63,22 +73,32 @@ export function OrdersTable() {
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  // "Yetkazildi" → to'lov turini so'raydigan modal (admin uchun ham)
+  const [deliverOrder, setDeliverOrder] = useState<Order | null>(null);
 
   const { data: settings } = useSettings();
   const zones = settings?.zones || [];
 
+  // "QOLIB KETGAN" — maxsus rejim: avvalgi kunlardan ochiq qolgan zakazlar,
+  // eng ko'p kechikkani birinchi (backend overdue filtri)
+  const isOverdueView = status === "OVERDUE";
+
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
-    status: status || undefined,
+    status: isOverdueView ? undefined : status || undefined,
+    overdue: isOverdueView || undefined,
     zone: zone || undefined,
-    dateFrom: day || undefined,
-    dateTo: day || undefined,
+    dateFrom: !isOverdueView && day ? day : undefined,
+    dateTo: !isOverdueView && day ? day : undefined,
     page,
     limit: 20,
   });
 
+  // Banner/tab uchun doimiy hisob — nechta zakaz qolib ketgan
+  const { data: overdueMeta } = useOrders({ overdue: true, limit: 1 });
+  const overdueCount = overdueMeta?.meta?.total ?? 0;
+
   const cancelOrder = useCancelOrder();
-  const updateStatus = useUpdateOrderStatus();
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -89,8 +109,8 @@ export function OrdersTable() {
     }, 400);
   };
 
-  const handleQuickDeliver = async (id: string) => {
-    await updateStatus.mutateAsync({ id, status: "DELIVERED" });
+  const handleQuickDeliver = (order: Order) => {
+    setDeliverOrder(order);
     setOpenMenu(null);
   };
 
@@ -149,7 +169,7 @@ export function OrdersTable() {
     <div>
       <PageHeader
         title="Buyurtmalar"
-        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
+        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${isOverdueView ? "Qolib ketgan" : filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
       >
         {/* Zakazni faqat operator (yoki admin) yozadi */}
         {canCreateOrder && (
@@ -159,6 +179,27 @@ export function OrdersTable() {
           </button>
         )}
       </PageHeader>
+
+      {/* ⏰ QOLIB KETGAN zakazlar banneri — bor bo'lsa doim ko'rinib turadi */}
+      {!isDriver && overdueCount > 0 && !isOverdueView && (
+        <button
+          onClick={() => { setStatus("OVERDUE"); setDay(""); setPage(1); }}
+          className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-2xl border-2 border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-left hover:border-red-300 dark:hover:border-red-800 transition-colors"
+        >
+          <span className="w-9 h-9 rounded-[11px] bg-red-100 dark:bg-red-500/15 flex items-center justify-center flex-none">
+            <Clock className="w-[18px] h-[18px] text-red-600 dark:text-red-400" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-bold text-red-700 dark:text-red-400">
+              {overdueCount} ta zakaz avvalgi kunlardan qolib ketgan
+            </span>
+            <span className="block text-[12.5px] text-red-500/80 dark:text-red-400/70 mt-0.5">
+              Bosib ko'ring — eng ko'p kechikkani birinchi turadi
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-red-400 flex-none" />
+        </button>
+      )}
 
       {/* Qidiruv + kun tanlash + status tablar */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -201,11 +242,17 @@ export function OrdersTable() {
           </div>
         )}
         <SegmentTabs
-          options={filters.map((f) => ({
-            value: f.value,
-            label: f.label,
-            count: status === f.value ? meta?.total : undefined,
-          }))}
+          options={[
+            ...filters.map((f) => ({
+              value: f.value,
+              label: f.label,
+              count: status === f.value ? meta?.total : undefined,
+            })),
+            // Qolib ketganlar tabi — faqat bor bo'lsa ko'rinadi
+            ...(!isDriver && (overdueCount > 0 || isOverdueView)
+              ? [{ value: "OVERDUE", label: "⏰ Qolib ketgan", count: overdueCount }]
+              : []),
+          ]}
           value={status}
           onChange={(v) => { setStatus(v); setPage(1); }}
         />
@@ -292,6 +339,20 @@ export function OrdersTable() {
                       {order.customer.zone} hudud
                     </span>
                   )}
+                  {/* Tanlangan yetkazish joyi (Apteka, Uy...) */}
+                  {order.location && (
+                    <span className="inline-flex items-center gap-1 mt-1 ml-2 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[11.5px] font-semibold text-amber-700 dark:text-amber-400">
+                      <MapPin className="w-3 h-3" />
+                      {order.location.label}
+                    </span>
+                  )}
+                  {/* Qolib ketgan — qancha kechikkani */}
+                  {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
+                    Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
+                      <span className="block mt-1 text-[11.5px] font-bold text-red-500 dark:text-red-400">
+                        ⏰ {lateLabel(order.createdAt)} kechikdi
+                      </span>
+                    )}
                 </Link>
 
                 {/* 3-qator: tara/summa + asosiy tugma */}
@@ -314,9 +375,8 @@ export function OrdersTable() {
                     )}
                     {order.status === "ASSIGNED" && canDeliver && (
                       <button
-                        onClick={() => handleQuickDeliver(order.id)}
-                        disabled={updateStatus.isPending}
-                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors disabled:opacity-60"
+                        onClick={() => handleQuickDeliver(order)}
+                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors"
                       >
                         <CheckCircle className="w-4 h-4" />
                         Yetkazildi
@@ -411,7 +471,7 @@ export function OrdersTable() {
                         </div>
                       </Link>
                       {/* Hudud + lokatsiya — ism yonida emas, pastda (egasi so'rovi) */}
-                      {(order.customer.zone || order.customer.locationLink) && (
+                      {(order.customer.zone || order.customer.locationLink || order.location) && (
                         <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
                           {order.customer.zone && (
                             <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-gray-500 dark:text-gray-400">
@@ -419,9 +479,16 @@ export function OrdersTable() {
                               {order.customer.zone} hudud
                             </span>
                           )}
-                          {order.customer.locationLink && (
+                          {/* Tanlangan yetkazish joyi (Apteka, Uy...) */}
+                          {order.location && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[11.5px] font-semibold text-amber-700 dark:text-amber-400">
+                              <MapPin className="w-3 h-3" />
+                              {order.location.label}
+                            </span>
+                          )}
+                          {(order.location?.locationLink || order.customer.locationLink) && (
                             <a
-                              href={order.customer.locationLink}
+                              href={order.location?.locationLink || order.customer.locationLink}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline"
@@ -432,6 +499,13 @@ export function OrdersTable() {
                           )}
                         </div>
                       )}
+                      {/* Qolib ketgan — qancha kechikkani */}
+                      {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
+                        Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
+                          <span className="block mt-1 text-[11.5px] font-bold text-red-500 dark:text-red-400 whitespace-nowrap">
+                            ⏰ {lateLabel(order.createdAt)} kechikdi
+                          </span>
+                        )}
                     </td>
 
                     {/* Tara: soni + taqsimot */}
@@ -453,11 +527,15 @@ export function OrdersTable() {
                       {formatCurrency(order.totalAmount)}
                     </td>
 
-                    {/* To'lov */}
+                    {/* To'lov — ochiq zakazda hali tanlanmagan (haydovchi yetkazganda belgilaydi) */}
                     <td className="px-4 py-3">
-                      <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
-                        {PAYMENT_TYPE_LABELS[order.paymentType]}
-                      </Pill>
+                      {order.paymentType ? (
+                        <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
+                          {PAYMENT_TYPE_LABELS[order.paymentType]}
+                        </Pill>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
 
                     {/* Holat */}
@@ -504,9 +582,8 @@ export function OrdersTable() {
                         {/* "Yetkazildi"ni faqat haydovchi (yoki admin) bosadi */}
                         {order.status === "ASSIGNED" && canDeliver && (
                           <button
-                            onClick={() => handleQuickDeliver(order.id)}
-                            disabled={updateStatus.isPending}
-                            className="inline-flex items-center gap-1 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap disabled:opacity-60"
+                            onClick={() => handleQuickDeliver(order)}
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             Yetkazildi
@@ -532,7 +609,7 @@ export function OrdersTable() {
                               </Link>
                               {order.status === "ASSIGNED" && canDeliver && (
                                 <button
-                                  onClick={() => handleQuickDeliver(order.id)}
+                                  onClick={() => handleQuickDeliver(order)}
                                   className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors"
                                 >
                                   <CheckCircle className="w-3.5 h-3.5" />
@@ -580,6 +657,10 @@ export function OrdersTable() {
           currentDriverId={assignDriverId}
           onClose={() => setAssignOrderId(null)}
         />
+      )}
+      {/* Yetkazildi → to'lov turini tanlash (naqd/karta/nasiya) */}
+      {deliverOrder && (
+        <DeliverModal order={deliverOrder} onClose={() => setDeliverOrder(null)} />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsUUID, IsDateString } from "class-validator";
+import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsUUID, IsDateString, IsBoolean } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 
 export class QueryOrdersDto {
   @ApiPropertyOptional()
@@ -32,6 +32,14 @@ export class QueryOrdersDto {
   @IsOptional()
   @IsString()
   zone?: string;
+
+  // Qolib ketgan zakazlar: avvalgi kunlardan beri ochiq (yetkazilmagan) turganlar.
+  // true bo'lsa status/sort e'tiborga olinmaydi — eng eskisi birinchi qaytadi.
+  @ApiPropertyOptional({ description: "Faqat qolib ketgan (kechikkan) ochiq zakazlar" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  overdue?: boolean;
 
   @ApiPropertyOptional({ example: "2025-01-01" })
   @IsOptional()

@@ -8,6 +8,7 @@ import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { QueryCustomersDto } from "./dto/query-customers.dto";
 import { AddPaymentDto } from "./dto/add-payment.dto";
+import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Role, JwtPayload } from "@aqua/shared";
@@ -102,6 +103,39 @@ export class CustomersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.customersService.addPayment(id, dto, user);
+  }
+
+  // ── Qo'shimcha manzillar (Uy, Apteka...) — zakazda tanlash uchun ──
+
+  @Post(":id/locations")
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Mijozga qo'shimcha manzil qo'shish" })
+  addLocation(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: CreateLocationDto,
+  ) {
+    return this.customersService.addLocation(id, dto);
+  }
+
+  @Patch(":id/locations/:locationId")
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Mijoz manzilini tahrirlash" })
+  updateLocation(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("locationId", ParseUUIDPipe) locationId: string,
+    @Body() dto: UpdateLocationDto,
+  ) {
+    return this.customersService.updateLocation(id, locationId, dto);
+  }
+
+  @Delete(":id/locations/:locationId")
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Mijoz manzilini o'chirish" })
+  removeLocation(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("locationId", ParseUUIDPipe) locationId: string,
+  ) {
+    return this.customersService.removeLocation(id, locationId);
   }
 
   @Patch(":id")

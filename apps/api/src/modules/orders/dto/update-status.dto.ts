@@ -10,4 +10,11 @@ export class UpdateStatusDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // "Yetkazildi" bosilganda haydovchi to'lov turini tanlaydi (naqd/karta/nasiya).
+  // Buyurtmada to'lov turi hali belgilanmagan bo'lsa MAJBURIY.
+  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT"] })
+  @IsOptional()
+  @IsEnum(["CASH", "CARD", "DEBT"])
+  paymentType?: "CASH" | "CARD" | "DEBT";
 }

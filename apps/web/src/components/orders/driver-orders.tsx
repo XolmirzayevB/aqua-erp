@@ -8,10 +8,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Droplets, Navigation, CheckCircle, Search, PackagePlus, Wallet } from "lucide-react";
-import { useDriverDayOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
+import { Droplets, Navigation, CheckCircle, Search, PackagePlus, Wallet, MapPin } from "lucide-react";
+import { useDriverDayOrders, Order } from "@/hooks/use-orders";
 import { useMyTodayExpenses } from "@/hooks/use-finance";
 import { DriverExpenseModal } from "@/components/finance/driver-expense-modal";
+import { DeliverModal } from "./deliver-modal";
 import { useAuthStore } from "@/store/auth.store";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatPhone, formatDate, cn } from "@/lib/utils";
@@ -23,12 +24,13 @@ const NO_ZONE = "__none__";
 export function DriverOrders() {
   const driverId = useAuthStore((s) => s.user?.id);
   const { data: orders = [], isLoading } = useDriverDayOrders(driverId);
-  const updateStatus = useUpdateOrderStatus();
 
   const [zone, setZone] = useState<string | null>(null); // null = barcha hududlar
   const [tab, setTab] = useState<"pending" | "delivered" | "cancelled">("pending");
   const [search, setSearch] = useState("");
   const [showExpense, setShowExpense] = useState(false);
+  // "Yetkazildi" bosilganda to'lov turini so'raydigan modal
+  const [deliverOrder, setDeliverOrder] = useState<Order | null>(null);
   const { data: myExpenses } = useMyTodayExpenses();
 
   const active = orders.filter((o) => o.status !== "CANCELLED");
@@ -192,6 +194,24 @@ export function DriverOrders() {
                 <span className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5 block">
                   {formatPhone(order.customer.phone)}
                 </span>
+                {/* QAYSI MANZILGA — tanlangan lokatsiya (Apteka, Uy...) aniq ko'rinsin,
+                    haydovchi adashib asosiy manzilga olib bormasin */}
+                {order.location && (
+                  <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+                    <MapPin className="w-3 h-3" />
+                    {order.location.label}
+                    {order.location.address ? ` — ${order.location.address}` : ""}
+                  </span>
+                )}
+                {/* Avvalgi kunlardan qolib ketgan zakaz — haydovchi bilib tursin */}
+                {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (() => {
+                  const days = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86400000);
+                  return days >= 1 ? (
+                    <span className="block mt-1 text-[11.5px] font-semibold text-red-500 dark:text-red-400">
+                      ⏰ {days} kun oldin yozilgan
+                    </span>
+                  ) : null;
+                })()}
               </Link>
 
               {/* 3-qator: tara/summa (+ yetkazilgan SOATI — 00:26 dagi tungi yetkazish
@@ -209,8 +229,11 @@ export function DriverOrders() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   {(() => {
-                    // Navigatsiya — Google Maps ILOVASIDA (web emas), marshrut tuzadi
-                    const nav = directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
+                    // Navigatsiya — Google Maps ILOVASIDA (web emas), marshrut tuzadi.
+                    // Tanlangan lokatsiya (Apteka...) bo'lsa — O'SHA joyga yo'naltiradi.
+                    const nav = order.location
+                      ? directionsUrl(order.location.lat, order.location.lng, order.location.locationLink)
+                      : directionsUrl(order.customer.lat, order.customer.lng, order.customer.locationLink);
                     return nav ? (
                       <a
                         href={nav}
@@ -224,9 +247,8 @@ export function DriverOrders() {
                   })()}
                   {order.status === "ASSIGNED" && (
                     <button
-                      onClick={() => updateStatus.mutate({ id: order.id, status: "DELIVERED" })}
-                      disabled={updateStatus.isPending}
-                      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors disabled:opacity-60"
+                      onClick={() => setDeliverOrder(order)}
+                      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold transition-colors"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Yetkazildi
@@ -240,6 +262,10 @@ export function DriverOrders() {
       </div>
 
       {showExpense && <DriverExpenseModal onClose={() => setShowExpense(false)} />}
+      {/* Yetkazildi → to'lov turini tanlash (naqd/karta/nasiya) */}
+      {deliverOrder && (
+        <DeliverModal order={deliverOrder} onClose={() => setDeliverOrder(null)} />
+      )}
     </div>
   );
 }

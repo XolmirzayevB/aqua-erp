@@ -6,6 +6,7 @@ import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { QueryCustomersDto } from "./dto/query-customers.dto";
 import { AddPaymentDto } from "./dto/add-payment.dto";
+import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { Prisma } from "@aqua/database";
 import { parseLatLngFromUrl, resolveLatLng } from "../../common/utils/geo.util";
 
@@ -90,6 +91,8 @@ export class CustomersService {
         include: {
           createdBy: { select: { id: true, name: true } },
           _count: { select: { orders: true } },
+          // Zakaz formasi mijoz tanlanganda manzillarini ko'rsatadi
+          locations: { orderBy: { createdAt: "asc" } },
         },
       }),
       this.prisma.customer.count({ where }),
@@ -107,10 +110,49 @@ export class CustomersService {
       include: {
         createdBy: { select: { id: true, name: true } },
         _count: { select: { orders: true, payments: true } },
+        locations: { orderBy: { createdAt: "asc" } },
       },
     });
     if (!customer) throw new NotFoundException("Mijoz topilmadi");
     return customer;
+  }
+
+  // ── Qo'shimcha manzillar (Uy, Apteka...) ──────────────────────────────────
+
+  async addLocation(customerId: string, dto: CreateLocationDto) {
+    await this.assertExists(customerId);
+    // Havoladan koordinata ajratamiz (xarita/navigatsiya uchun)
+    const geo = dto.lat == null ? await this.geoFromLink(dto.locationLink) : {};
+    return this.prisma.customerLocation.create({
+      data: { ...dto, ...geo, customerId },
+    });
+  }
+
+  async updateLocation(customerId: string, locationId: string, dto: UpdateLocationDto) {
+    const loc = await this.prisma.customerLocation.findFirst({
+      where: { id: locationId, customerId },
+    });
+    if (!loc) throw new NotFoundException("Manzil topilmadi");
+    // Havola o'zgargan bo'lsa koordinatani qayta ajratamiz
+    const geo =
+      dto.locationLink && dto.locationLink !== loc.locationLink && dto.lat == null
+        ? { lat: null, lng: null, ...(await this.geoFromLink(dto.locationLink)) }
+        : {};
+    return this.prisma.customerLocation.update({
+      where: { id: locationId },
+      data: { ...dto, ...geo },
+    });
+  }
+
+  async removeLocation(customerId: string, locationId: string) {
+    const loc = await this.prisma.customerLocation.findFirst({
+      where: { id: locationId, customerId },
+    });
+    if (!loc) throw new NotFoundException("Manzil topilmadi");
+    // Eski buyurtmalar tarixi buzilmasin: FK ON DELETE SET NULL —
+    // o'chirilsa buyurtmadagi locationId bo'shaydi (asosiy manzilga qaytadi).
+    await this.prisma.customerLocation.delete({ where: { id: locationId } });
+    return { message: "Manzil o'chirildi" };
   }
 
   // Yo'qolayotgan mijozlar: oxirgi buyurtmasi `days` kundan oldin bo'lganlar.

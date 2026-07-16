@@ -4,6 +4,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
+// Mijozning QO'SHIMCHA manzili (Uy, Apteka, Do'kon...) —
+// zakaz yozilganda operator shulardan birini tanlaydi
+export interface CustomerLocation {
+  id: string;
+  customerId: string;
+  label: string;
+  address?: string | null;
+  locationLink?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  createdAt: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -23,6 +36,7 @@ export interface Customer {
   createdAt: string;
   createdBy: { id: string; name: string };
   _count?: { orders: number };
+  locations?: CustomerLocation[];
 }
 
 export interface CustomerQueryParams {
@@ -128,6 +142,56 @@ export function useDeleteCustomer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Mijoz o'chirildi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
+// ── Qo'shimcha manzillar (Uy, Apteka...) ──────────────────────────────────
+
+export interface LocationPayload {
+  label: string;
+  address?: string;
+  locationLink?: string;
+}
+
+export function useAddLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ customerId, data }: { customerId: string; data: LocationPayload }) =>
+      api.post(`/customers/${customerId}/locations`, data).then((r) => r.data.data as CustomerLocation),
+    onSuccess: (_, { customerId }) => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customers", customerId] });
+      toast.success("Manzil qo'shildi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
+export function useUpdateLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ customerId, locationId, data }: { customerId: string; locationId: string; data: LocationPayload }) =>
+      api.patch(`/customers/${customerId}/locations/${locationId}`, data).then((r) => r.data.data),
+    onSuccess: (_, { customerId }) => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customers", customerId] });
+      toast.success("Manzil yangilandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
+export function useDeleteLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ customerId, locationId }: { customerId: string; locationId: string }) =>
+      api.delete(`/customers/${customerId}/locations/${locationId}`).then((r) => r.data.data),
+    onSuccess: (_, { customerId }) => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customers", customerId] });
+      toast.success("Manzil o'chirildi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
   });
