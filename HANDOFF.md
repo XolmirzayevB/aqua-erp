@@ -201,6 +201,16 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
 
+✅ **ZAKAZ: TO'LDIRISH va YANGI TARA ALOHIDA (2026-07-16 kech, DEPLOY QILINDI):**
+- Muammo (egasi): mijozda 3 tara bo'lsa "1 to'ldirish + 3 yangi" zakaz yozib bo'lmasdi
+  (avtomatik ajratish to'ldirishni MAKSIMAL olardi). Yechim: order-form.tsx da bitta
+  "Nechta tara?" o'rniga IKKI stepper — QtyStepper (To'ldirish max=owned + Yangi tara).
+  Mijoz tanlanganda default: owned>0 → refill=1/new=0, aks holda refill=0/new=1.
+  Backend O'ZGARMAGAN (refillCount/newBottles allaqachon alohida). Sinov (lokal UI+API):
+  mijoz 3 tara → 1 to'ldirish+3 yangi=148000, mijoz 6 tara bo'ldi.
+- Server disk: build cache 22.5GB o'sgan edi (6 deploy) — `docker builder prune -f`
+  bilan tozalandi (79%→21%). ⚠️ Har necha deploydan keyin takrorlash kerak.
+
 ✅ **SESSIYA + LOGIN TOZALASH (2026-07-16 kech, DEPLOY QILINDI va TASDIQLANDI):**
 - **Sessiya siyosati (egasi so'rovi: "kirgan odam chiqib ketmasin"):** yangi
   `refresh_tokens` jadvali — HAR QURILMA alohida sessiya (telefon+kompyuter bir
