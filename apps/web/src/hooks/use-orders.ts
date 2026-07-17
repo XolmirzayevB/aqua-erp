@@ -29,7 +29,8 @@ export interface Order {
   totalAmount: number;
   bottlesReturned: number;
   // null = to'lov turi hali tanlanmagan (yetkazilganda haydovchi tanlaydi)
-  paymentType: "CASH" | "CARD" | "DEBT" | null;
+  // FREE = imtiyozli/bepul zakaz (pul olinmaydi)
+  paymentType: "CASH" | "CARD" | "DEBT" | "FREE" | null;
   status: "NEW" | "PROCESSING" | "ASSIGNED" | "DELIVERED" | "CANCELLED";
   notes?: string;
   deliveredAt?: string;
@@ -98,6 +99,8 @@ export interface CreateOrderPayload {
   newBottles?: number;
   // To'lov turi endi yaratishda YUBORILMAYDI — yetkazilganda haydovchi tanlaydi
   bottlesReturned?: number;
+  // Operator mijozdan so'rab aniqlagan uyidagi HAQIQIY tara soni (daftar tuzatiladi)
+  actualBottlesOwned?: number;
   locationId?: string; // mijozning qo'shimcha manzili (Uy/Apteka...)
   driverId?: string;
   notes?: string;
@@ -123,7 +126,7 @@ export function useUpdateOrderStatus() {
   const qc = useQueryClient();
   return useMutation({
     // paymentType — "Yetkazildi"da haydovchi tanlagan to'lov turi (naqd/karta/nasiya)
-    mutationFn: ({ id, status, notes, paymentType }: { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" }) =>
+    mutationFn: ({ id, status, notes, paymentType }: { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" | "FREE" }) =>
       api.patch(`/orders/${id}/status`, { status, notes, paymentType }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });

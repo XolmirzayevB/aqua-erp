@@ -125,15 +125,24 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const refillPrice = settings?.refillPrice ?? 12000;
   const newBottlePrice = settings?.newBottlePrice ?? 45000;
 
-  const owned = mode === "existing" ? (selected?.bottlesOwned ?? 0) : 0;
-  // To'ldirish mijozdagi taradan oshmasin (mijoz tugmasi almashganda ham xavfsiz)
+  // UYIDAGI TARA ANIQLASHTIRISH (2026-07-17, egasi so'rovi): daftar noaniq —
+  // operator zakaz olayotganda mijozdan "uyingizda nechta tara bor?" deb so'raydi
+  // va shu yerda tuzatadi. O'zgartirilgan bo'lsa backend mijoz kartasini yangilaydi.
+  const [ownedInput, setOwnedInput] = useState(0);
+  const savedOwned = selected?.bottlesOwned ?? 0; // tizimda (daftardan) yozilgani
+  const ownedCorrected = mode === "existing" && !!selected && ownedInput !== savedOwned;
+
+  const owned = mode === "existing" ? ownedInput : 0;
+  // To'ldirish mijozdagi taradan oshmasin (son pasaytirilganda ham xavfsiz)
   const refillCapped = Math.min(refillCount, owned);
   const total = refillCapped * refillPrice + newBottles * newBottlePrice;
 
-  // Mijoz tanlanganda oqilona boshlang'ich qiymat: tarasi bor bo'lsa "1 to'ldirish",
-  // aks holda (yangi mijoz / tarasiz) "1 yangi tara". Operator keyin o'zgartiradi.
+  // Mijoz tanlanganda: uyidagi son tizimdagidan boshlanadi; tarasi bor bo'lsa
+  // "1 to'ldirish", aks holda "1 yangi tara". Operator keyin o'zgartiradi.
   useEffect(() => {
-    if (mode === "existing" && owned > 0) {
+    const base = selected?.bottlesOwned ?? 0;
+    setOwnedInput(base);
+    if (mode === "existing" && base > 0) {
       setRefillCount(1);
       setNewBottles(0);
     } else {
@@ -172,6 +181,8 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
       customerId,
       refillCount: refillCapped,
       newBottles,
+      // Operator sonni tuzatgan bo'lsa — mijoz kartasi ham yangilanadi (backend)
+      actualBottlesOwned: ownedCorrected ? ownedInput : undefined,
       locationId: locationId || undefined,
       driverId: driverId || undefined,
       notes: notes || undefined,
@@ -341,6 +352,51 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                 <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="5-kvartal, 23-uy" className={bigInput} />
               </div>
               <p className="text-[12.5px] text-gray-400">Yangi mijozga barcha taralar "yangi tara" narxida sotiladi. Lokatsiya havolasini keyin mijoz sahifasida qo'shish mumkin.</p>
+            </div>
+          )}
+
+          {/* ── UYIDA NECHTA TARA BOR? — telefonda so'rab aniqlashtirish ──
+              Daftar noaniq: operator mijozdan so'rab shu yerda tuzatadi.
+              O'zgartirilsa mijoz kartasi ham yangilanadi (zakaz bilan birga). */}
+          {mode === "existing" && selected && (
+            <div className={cn(
+              "rounded-[16px] border p-3.5 transition-colors",
+              ownedCorrected
+                ? "border-amber-300 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-500/10"
+                : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40"
+            )}>
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-[12px] bg-amber-100/80 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-none">
+                  <Package className="w-[18px] h-[18px]" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14.5px] font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                    Uyida nechta tara bor?
+                  </p>
+                  <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">
+                    {ownedCorrected
+                      ? `Tizimda ${savedOwned} ta edi — saqlashda ${ownedInput} taga tuzatiladi`
+                      : "Mijozdan so'rang — noto'g'ri bo'lsa shu yerda tuzating"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-none">
+                  <button type="button" onClick={() => setOwnedInput((c) => Math.max(0, c - 1))}
+                    disabled={ownedInput <= 0}
+                    className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 flex-none">
+                    <Minus className="w-[18px] h-[18px]" />
+                  </button>
+                  <input
+                    inputMode="numeric"
+                    value={ownedInput}
+                    onChange={(e) => setOwnedInput(Math.max(0, parseInt(e.target.value.replace(/\D/g, "")) || 0))}
+                    className="w-[58px] h-[46px] text-center rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-[22px] font-bold tabular-nums focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 transition-all"
+                  />
+                  <button type="button" onClick={() => setOwnedInput((c) => c + 1)}
+                    className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all flex-none">
+                    <Plus className="w-[18px] h-[18px]" />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

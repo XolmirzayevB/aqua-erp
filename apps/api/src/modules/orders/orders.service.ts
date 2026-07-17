@@ -60,11 +60,18 @@ export class OrdersService {
       throw new BadRequestException("Kamida 1 ta tara to'ldirish yoki yangi tara bo'lishi kerak");
     }
 
+    // ANIQLASHTIRISH (2026-07-17, egasi so'rovi): daftardagi tara soni noaniq —
+    // operator mijozdan telefonda so'rab haqiqiy sonni yuboradi. Mijozning
+    // bottlesOwned qiymati SHU songa tuzatiladi (zakaz hisobidan OLDIN).
+    const ownedCorrected =
+      dto.actualBottlesOwned != null && dto.actualBottlesOwned !== customer.bottlesOwned;
+    const ownedNow = ownedCorrected ? dto.actualBottlesOwned! : customer.bottlesOwned;
+
     // Tara qoidasi: mijoz o'zidagidan ko'p tara to'ldira olmaydi.
     // Ko'proq kerak bo'lsa — yangi tara sotib olishi shart.
-    if (refillCount > customer.bottlesOwned) {
+    if (refillCount > ownedNow) {
       throw new BadRequestException(
-        `Mijozda faqat ${customer.bottlesOwned} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
+        `Mijozda faqat ${ownedNow} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
       );
     }
 
@@ -97,7 +104,11 @@ export class OrdersService {
           paymentType: (dto.paymentType as any) ?? null,
           locationId: dto.locationId || null,
           status: dto.driverId ? "ASSIGNED" : "NEW",
-          notes: dto.notes,
+          // Aniqlashtirish izi qoldiriladi — keyin "nega o'zgardi" degan savol chiqmasin
+          notes: ownedCorrected
+            ? [dto.notes, `Tara aniqlashtirildi: ${customer.bottlesOwned} → ${ownedNow} (mijozdan so'raldi)`]
+                .filter(Boolean).join(" · ")
+            : dto.notes,
         },
         include: {
           customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
@@ -107,11 +118,15 @@ export class OrdersService {
         },
       });
 
-      // Mijoz tarasi: yangi sotib olingan tara mijozники bo'ladi
+      // Mijoz tarasi: yangi sotib olingan tara mijozники bo'ladi.
+      // Aniqlashtirilgan bo'lsa — increment EMAS, to'g'ridan-to'g'ri
+      // "haqiqiy son + yangi tara" qilib O'RNATILADI (daftar tuzatildi).
       await tx.customer.update({
         where: { id: dto.customerId },
         data: {
-          bottlesOwned: { increment: newBottles },
+          ...(ownedCorrected
+            ? { bottlesOwned: ownedNow + newBottles }
+            : { bottlesOwned: { increment: newBottles } }),
           bottlesGiven: { increment: quantity },
           bottlesReturned: { increment: bottlesReturned },
           // Faqat eski klient DEBT yuborsa (yangi oqimda paymentType kelmaydi —
@@ -309,13 +324,13 @@ export class OrdersService {
     // - Buyurtmada to'lov turi yo'q (yangi oqim) → dto.paymentType MAJBURIY.
     // - Buyurtmada avvaldan bor (eski oqim: yaratishda tanlangan) → o'zgartirib
     //   bo'lmaydi (nasiya balansi yaratishда yozilgan — almashtirish chalkashtiradi).
-    let effectivePayment: "CASH" | "CARD" | "DEBT" | null =
+    let effectivePayment: "CASH" | "CARD" | "DEBT" | "FREE" | null =
       (order.paymentType as any) ?? null;
     let applyDebtNow = false; // nasiya balansini SHU yetkazishda yozish kerakmi
     if (dto.status === "DELIVERED") {
       if (!order.paymentType) {
         if (!dto.paymentType) {
-          throw new BadRequestException("To'lov turini tanlang: naqd, karta yoki nasiya");
+          throw new BadRequestException("To'lov turini tanlang: naqd, karta, nasiya yoki bepul");
         }
         effectivePayment = dto.paymentType;
         applyDebtNow = dto.paymentType === "DEBT";
@@ -346,9 +361,13 @@ export class OrdersService {
       // naqd/karta pulini olganда moliyaga kirim tushadi. Yaratilganda EMAS.
       // - DEBT: INCOME yozilMAYDI — pul mijoz qarzini to'laganda keladi
       //   (customers.addPayment "Qarz to'lovi"). Ikki marta hisoblanmasin.
+      // - FREE (imtiyozli/bepul): INCOME ham, qarz ham YOZILMAYDI — pul yo'q.
       // - Idempotent: eski (o'tish davri) buyurtmalarda kirim yaratishда
       //   yozilgan bo'lishi mumkin — bor bo'lsa qayta yozilmaydi.
-      if (dto.status === "DELIVERED" && effectivePayment && effectivePayment !== "DEBT") {
+      if (
+        dto.status === "DELIVERED" &&
+        effectivePayment && effectivePayment !== "DEBT" && effectivePayment !== "FREE"
+      ) {
         const existing = await tx.transaction.findFirst({
           where: { orderId: id, type: "INCOME" },
           select: { id: true },

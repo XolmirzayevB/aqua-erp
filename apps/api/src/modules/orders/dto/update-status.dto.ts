@@ -11,10 +11,11 @@ export class UpdateStatusDto {
   @IsString()
   notes?: string;
 
-  // "Yetkazildi" bosilganda haydovchi to'lov turini tanlaydi (naqd/karta/nasiya).
+  // "Yetkazildi" bosilganda haydovchi to'lov turini tanlaydi:
+  // naqd/karta/nasiya/BEPUL (imtiyozli — prokuratura kabi, pul olinmaydi).
   // Buyurtmada to'lov turi hali belgilanmagan bo'lsa MAJBURIY.
-  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT"] })
+  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT", "FREE"] })
   @IsOptional()
-  @IsEnum(["CASH", "CARD", "DEBT"])
-  paymentType?: "CASH" | "CARD" | "DEBT";
+  @IsEnum(["CASH", "CARD", "DEBT", "FREE"])
+  paymentType?: "CASH" | "CARD" | "DEBT" | "FREE";
 }

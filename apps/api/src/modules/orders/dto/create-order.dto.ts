@@ -25,10 +25,21 @@ export class CreateOrderDto {
 
   // To'lov turi endi YETKAZILGANDA haydovchi tomonidan tanlanadi —
   // yaratishda yuborilmaydi (eski klientlar uchun ixtiyoriy qoldirildi).
-  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT"] })
+  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT", "FREE"] })
   @IsOptional()
-  @IsEnum(["CASH", "CARD", "DEBT"])
-  paymentType?: "CASH" | "CARD" | "DEBT";
+  @IsEnum(["CASH", "CARD", "DEBT", "FREE"])
+  paymentType?: "CASH" | "CARD" | "DEBT" | "FREE";
+
+  // Operator mijozdan telefonda so'rab ANIQLAGAN uyidagi tara soni.
+  // Daftar noaniq edi — zakaz yozishda haqiqiy son shu yerda tuzatiladi:
+  // mijozning bottlesOwned qiymati SHU songa o'rnatiladi (zakazdan OLDIN),
+  // keyin to'ldirish/yangi hisob-kitob shunga asoslanadi.
+  @ApiPropertyOptional({ example: 4, description: "Mijozning uyidagi haqiqiy tara soni (aniqlashtirish)" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  actualBottlesOwned?: number;
 
   @ApiPropertyOptional({ description: "Mijozning qo'shimcha manzili (CustomerLocation ID). Bo'sh = asosiy manzil" })
   @IsOptional()

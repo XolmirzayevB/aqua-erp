@@ -7,7 +7,7 @@
 // Eski zakazlarda to'lov avvaldan belgilangan bo'lsa — faqat tasdiq so'raladi.
 
 import { useState } from "react";
-import { X, Loader2, CheckCircle, Banknote, CreditCard, NotebookPen } from "lucide-react";
+import { X, Loader2, CheckCircle, Banknote, CreditCard, NotebookPen, Gift } from "lucide-react";
 import { useUpdateOrderStatus, Order } from "@/hooks/use-orders";
 import { formatCurrency, cn } from "@/lib/utils";
 
@@ -23,12 +23,14 @@ const OPTIONS = [
   { value: "CASH", label: "Naqd", desc: "Pul qo'lda olindi", icon: Banknote, active: "border-green-500 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" },
   { value: "CARD", label: "Karta / Click", desc: "Kartaga o'tkazildi", icon: CreditCard, active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
   { value: "DEBT", label: "Nasiya", desc: "Qarzga yozildi", icon: NotebookPen, active: "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  // Imtiyozli zakaz (prokuratura kabi) — pul olinmaydi, moliyaga hech narsa yozilmaydi
+  { value: "FREE", label: "Bepul (imtiyoz)", desc: "Pul olinmaydi", icon: Gift, active: "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400" },
 ] as const;
 
 export function DeliverModal({ order, onClose, onDone }: Props) {
   // Eski zakazda to'lov avvaldan bor — o'zgartirib bo'lmaydi, faqat tasdiqlanadi
   const locked = !!order.paymentType;
-  const [payment, setPayment] = useState<"CASH" | "CARD" | "DEBT">(order.paymentType || "CASH");
+  const [payment, setPayment] = useState<"CASH" | "CARD" | "DEBT" | "FREE">(order.paymentType || "CASH");
   const updateStatus = useUpdateOrderStatus();
 
   const handleConfirm = async () => {
@@ -112,6 +114,11 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
           {!locked && payment === "DEBT" && (
             <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
               {formatCurrency(order.totalAmount)} mijoz qarziga yoziladi — pul keyin olinadi
+            </p>
+          )}
+          {!locked && payment === "FREE" && (
+            <p className="text-[13px] font-medium text-violet-600 dark:text-violet-400">
+              Imtiyozli zakaz — pul olinmaydi, tushumga ham, qarzga ham yozilmaydi
             </p>
           )}
 

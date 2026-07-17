@@ -46,6 +46,7 @@ const PAYMENT_TONES: Record<string, Tone> = {
   CLICK: "primary",
   DEBT: "danger",
   PARTIAL: "warning",
+  FREE: "violet", // imtiyozli/bepul zakaz
 };
 
 // Qolib ketgan zakaz qancha kechikkani: "2 kun 5 soat" / "7 soat"

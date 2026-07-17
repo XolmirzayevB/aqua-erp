@@ -28,6 +28,7 @@ enum PaymentType {
   CASH
   CARD
   DEBT
+  FREE // Imtiyozli/bepul zakaz (prokuratura kabi) — pul olinmaydi
 }
 
 enum TransactionType {
