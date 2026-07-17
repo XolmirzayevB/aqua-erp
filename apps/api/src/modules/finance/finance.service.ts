@@ -114,7 +114,7 @@ export class FinanceService {
       default:        from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
     }
 
-    const [transactions, pendingAgg] = await Promise.all([
+    const [transactions, pendingAgg, freeAgg] = await Promise.all([
       this.prisma.transaction.findMany({
         where: { createdAt: { gte: from, lte: to } },
       }),
@@ -122,6 +122,17 @@ export class FinanceService {
       // Tushum yetkazilganda yoziladi; bu — hali kelmagani (sanasidan qat'i nazar).
       this.prisma.order.aggregate({
         where: { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as any } },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+      // IMTIYOZLI (bepul) yetkazilganlar — davr bo'yicha (tushumga kirmaydi,
+      // lekin egasi qancha "sovg'a" ketganini bilib turishi kerak)
+      this.prisma.order.aggregate({
+        where: {
+          paymentType: "FREE" as any,
+          status: "DELIVERED" as any,
+          deliveredAt: { gte: from, lte: to },
+        },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
@@ -169,9 +180,78 @@ export class FinanceService {
       // Yo'lda (yetkazilmagan zakazlar) — kutilayotgan pul
       pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
       pendingCount: pendingAgg._count.id,
+      // Imtiyozli (bepul) berilganlar — shu davrda
+      freeAmount: Number(freeAgg._sum.totalAmount ?? 0),
+      freeCount: freeAgg._count.id,
       transactionCount: transactions.length,
       chart,
       period: { from, to },
+    };
+  }
+
+  // ── IMTIYOZLI (BEPUL) ZAKAZLAR HISOBOTI (2026-07-17, egasi so'rovi) ──
+  // Prokuratura kabi joylarga bepul berilganlar: jami soni/tarasi/summasi
+  // + KIMGA qancha berilgani (mijoz bo'yicha guruhlab, eng ko'pi birinchi).
+  // period: daily/weekly/monthly/yearly yoki "all" (butun vaqt).
+  async getFreeOrders(period = "monthly") {
+    const localNow = toLocal(new Date());
+    let from: Date | undefined, to: Date | undefined;
+    switch (period) {
+      case "daily": { const r = localDayRange(); from = r.start; to = r.end; break; }
+      case "weekly": from = fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })); to = fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })); break;
+      case "yearly": from = fromLocal(startOfYear(localNow)); to = fromLocal(endOfYear(localNow)); break;
+      case "all": break; // butun vaqt — filtr yo'q
+      default: from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        paymentType: "FREE" as any,
+        status: "DELIVERED" as any,
+        ...(from ? { deliveredAt: { gte: from, lte: to } } : {}),
+      },
+      orderBy: { deliveredAt: "desc" },
+      include: {
+        customer: { select: { id: true, name: true, phone: true, zone: true, customerType: true } },
+        driver: { select: { name: true } },
+      },
+    });
+
+    // Mijoz bo'yicha guruhlash — "kimga qancha berilgan"
+    const map = new Map<string, any>();
+    for (const o of orders) {
+      const m = map.get(o.customerId) ?? {
+        customerId: o.customerId,
+        name: o.customer.name,
+        phone: o.customer.phone,
+        zone: o.customer.zone,
+        customerType: o.customer.customerType,
+        count: 0, bottles: 0, amount: 0, lastAt: null as Date | null,
+      };
+      m.count += 1;
+      m.bottles += o.quantity;
+      m.amount += Number(o.totalAmount);
+      if (o.deliveredAt && (!m.lastAt || o.deliveredAt > m.lastAt)) m.lastAt = o.deliveredAt;
+      map.set(o.customerId, m);
+    }
+    const byCustomer = [...map.values()].sort((a, b) => b.amount - a.amount);
+
+    return {
+      totalCount: orders.length,
+      totalBottles: orders.reduce((s, o) => s + o.quantity, 0),
+      totalAmount: orders.reduce((s, o) => s + Number(o.totalAmount), 0),
+      byCustomer,
+      // Oxirgi 50 tasi — tafsilot ro'yxati
+      orders: orders.slice(0, 50).map((o) => ({
+        id: o.id, seq: o.seq,
+        customerId: o.customerId,
+        customerName: o.customer.name,
+        quantity: o.quantity,
+        totalAmount: Number(o.totalAmount),
+        deliveredAt: o.deliveredAt,
+        driverName: o.driver?.name ?? null,
+      })),
+      period: { from: from ?? null, to: to ?? null },
     };
   }
 

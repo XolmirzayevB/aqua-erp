@@ -29,9 +29,38 @@ export interface FinanceSummary {
   // Yo'ldagi (yetkazilmagan) zakazlar — kutilayotgan pul
   pendingAmount: number;
   pendingCount: number;
+  // Imtiyozli (bepul) berilganlar — shu davrda
+  freeAmount: number;
+  freeCount: number;
   transactionCount: number;
   chart: { label: string; income: number; expense: number }[];
   period: { from: string; to: string };
+}
+
+// ── Imtiyozli (bepul) zakazlar hisoboti ──
+export interface FreeOrdersReport {
+  totalCount: number;
+  totalBottles: number;
+  totalAmount: number;
+  byCustomer: {
+    customerId: string; name: string; phone: string; zone?: string | null;
+    customerType?: string | null; count: number; bottles: number; amount: number;
+    lastAt: string | null;
+  }[];
+  orders: {
+    id: string; seq: number; customerId: string; customerName: string;
+    quantity: number; totalAmount: number; deliveredAt: string | null;
+    driverName: string | null;
+  }[];
+  period: { from: string | null; to: string | null };
+}
+
+export function useFreeOrders(period: "daily" | "weekly" | "monthly" | "yearly" | "all" = "monthly") {
+  return useQuery({
+    queryKey: ["free-orders", period],
+    queryFn: () =>
+      api.get("/finance/free-orders", { params: { period } }).then((r) => r.data.data as FreeOrdersReport),
+  });
 }
 
 export interface DebtCustomer {

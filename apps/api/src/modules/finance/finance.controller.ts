@@ -44,6 +44,15 @@ export class FinanceController {
     return this.financeService.getCategories();
   }
 
+  // Imtiyozli (bepul) zakazlar: jami + kimga qancha berilgani
+  @Get("free-orders")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Imtiyozli (bepul) zakazlar hisoboti" })
+  @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly", "all"] })
+  getFreeOrders(@Query("period") period?: string) {
+    return this.financeService.getFreeOrders(period);
+  }
+
   // Haydovchi o'z xarajatini O'ZI kiritadi (benzin, ovqat, remont...).
   // Oddiy EXPENSE tranzaksiya sifatida yoziladi — moliya xulosasi/foyda
   // hisobiga avtomatik ta'sir qiladi.

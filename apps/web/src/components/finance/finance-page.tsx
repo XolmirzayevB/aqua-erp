@@ -3,9 +3,11 @@
 import { useState } from "react";
 import {
   Plus, TrendingUp, TrendingDown, Wallet, Percent, Truck,
-  ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight,
+  ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, Gift, Droplets,
 } from "lucide-react";
-import { useFinanceSummary, useTransactions } from "@/hooks/use-finance";
+import { useFinanceSummary, useTransactions, useFreeOrders } from "@/hooks/use-finance";
+import { Avatar } from "@/components/shared/page-ui";
+import { formatPhone } from "@/lib/utils";
 import { TransactionModal } from "./transaction-modal";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -177,6 +179,9 @@ export function FinancePage() {
         </div>
       </div>
 
+      {/* 🎁 Imtiyozli (bepul) zakazlar — alohida hisob-kitob (egasi so'rovi 2026-07-17) */}
+      <FreeOrdersCard pagePeriod={period} />
+
       {/* So'nggi tranzaksiyalar — dizayn ro'yxati */}
       <div className={cn(cardClass, "overflow-hidden")}>
         <div className="px-5 py-4 flex items-center justify-between gap-3">
@@ -262,6 +267,106 @@ export function FinancePage() {
       </div>
 
       {showModal && <TransactionModal onClose={() => setShowModal(false)} />}
+    </div>
+  );
+}
+
+// ── 🎁 IMTIYOZLI (BEPUL) ZAKAZLAR — alohida hisob-kitob ──────────────────────
+// Prokuratura kabi joylarga bepul berilganlar: jami soni/tarasi/qiymati +
+// KIMGA qancha berilgani. Davr — sahifadagi tanlov bo'yicha; "Butun vaqt"
+// tugmasi bilan boshidan beri jami ham ko'riladi.
+function FreeOrdersCard({ pagePeriod }: { pagePeriod: "daily" | "weekly" | "monthly" | "yearly" }) {
+  const [allTime, setAllTime] = useState(false);
+  const { data, isLoading } = useFreeOrders(allTime ? "all" : pagePeriod);
+
+  const periodLabel = allTime
+    ? "butun vaqt"
+    : { daily: "bugun", weekly: "shu hafta", monthly: "shu oy", yearly: "shu yil" }[pagePeriod];
+
+  return (
+    <div className={cn(cardClass, "overflow-hidden mb-4")}>
+      {/* Sarlavha */}
+      <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
+        <span className="w-9 h-9 rounded-[11px] bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center flex-none">
+          <Gift className="w-[18px] h-[18px]" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
+            Imtiyozli (bepul) berilganlar
+          </h2>
+          <p className="text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5">
+            Pul olinmagan zakazlar — {periodLabel}
+          </p>
+        </div>
+        <button
+          onClick={() => setAllTime((v) => !v)}
+          className={cn(
+            "h-9 px-3.5 rounded-[10px] border text-[12.5px] font-semibold transition-all flex-none",
+            allTime
+              ? "bg-violet-600 text-white border-violet-600"
+              : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-800 hover:border-violet-300"
+          )}
+        >
+          Butun vaqt
+        </button>
+      </div>
+
+      {/* Jami ko'rsatkichlar */}
+      <div className="grid grid-cols-3 border-t border-gray-400/70 dark:border-gray-600">
+        {[
+          { label: "Zakazlar", value: `${data?.totalCount ?? 0} ta`, icon: Gift },
+          { label: "Tara (suv)", value: `${data?.totalBottles ?? 0} ta`, icon: Droplets },
+          { label: "Qiymati", value: formatCurrency(data?.totalAmount ?? 0), icon: Wallet },
+        ].map((s) => (
+          <div key={s.label} className="px-4 py-3.5 flex items-center gap-2.5 border-r last:border-r-0 border-gray-400/70 dark:border-gray-600 min-w-0">
+            <s.icon className="w-4 h-4 text-violet-500 flex-none" />
+            <div className="min-w-0">
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{s.label}</p>
+              <p className="text-[14px] font-bold text-gray-900 dark:text-white tabular-nums truncate">
+                {isLoading ? "…" : s.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Kimga qancha berilgan — mijoz bo'yicha, eng ko'pi birinchi */}
+      {data && data.byCustomer.length > 0 ? (
+        <div>
+          {data.byCustomer.map((c) => (
+            <div
+              key={c.customerId}
+              className="flex items-center gap-3 px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 even:bg-gray-50 dark:even:bg-gray-800/25"
+            >
+              <Avatar name={c.name} size={34} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate">
+                  {c.name}
+                  {c.customerType && (
+                    <span className="ml-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">{c.customerType}</span>
+                  )}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
+                  {formatPhone(c.phone)}{c.zone ? ` · ${c.zone}` : ""}
+                  {c.lastAt ? ` · oxirgisi ${formatDate(c.lastAt, "dd.MM")}` : ""}
+                </p>
+              </div>
+              <div className="text-right flex-none">
+                <p className="text-[13.5px] font-bold text-violet-600 dark:text-violet-400 tabular-nums">
+                  {formatCurrency(c.amount)}
+                </p>
+                <p className="text-[11.5px] text-gray-400 tabular-nums mt-0.5">
+                  {c.count} zakaz · {c.bottles} tara
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="px-5 py-6 text-center text-[13px] text-gray-400 border-t border-gray-400/70 dark:border-gray-600">
+          {isLoading ? "Yuklanmoqda..." : `Bepul berilgan zakaz yo'q (${periodLabel})`}
+        </div>
+      )}
     </div>
   );
 }
