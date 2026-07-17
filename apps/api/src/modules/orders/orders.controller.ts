@@ -7,6 +7,7 @@ import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";
+import { AdjustOrderDto } from "./dto/adjust-order.dto";
 import { AssignDriverDto } from "./dto/assign-driver.dto";
 import { QueryOrdersDto } from "./dto/query-orders.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -56,6 +57,18 @@ export class OrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.ordersService.updateStatus(id, dto, user.sub, user.role);
+  }
+
+  // Yopilgan zakazni 24 soat ichida tuzatish — FAQAT operator va admin
+  @Patch(":id/adjust")
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Yetkazilgan zakazni tahrirlash (24 soat ichida)" })
+  adjustDelivered(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AdjustOrderDto,
+    @CurrentUser("sub") userId: string,
+  ) {
+    return this.ordersService.adjustDelivered(id, dto, userId);
   }
 
   @Patch(":id/assign")

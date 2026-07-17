@@ -5,13 +5,14 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
-  CalendarDays, X, MapPin, Clock,
+  CalendarDays, X, MapPin, Clock, PencilLine,
 } from "lucide-react";
 import { useOrders, useCancelOrder, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
 import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { DeliverModal } from "./deliver-modal";
+import { AdjustOrderModal } from "./adjust-order-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
@@ -49,6 +50,15 @@ const PAYMENT_TONES: Record<string, Tone> = {
   FREE: "violet", // imtiyozli/bepul zakaz
 };
 
+// Yopilgan zakazni tahrirlash muddati ichidami (24 soat)
+function withinEditWindow(o: Order): boolean {
+  return (
+    o.status === "DELIVERED" &&
+    !!o.deliveredAt &&
+    Date.now() - new Date(o.deliveredAt).getTime() <= 24 * 3600 * 1000
+  );
+}
+
 // Qolib ketgan zakaz qancha kechikkani: "2 kun 5 soat" / "7 soat"
 function lateLabel(createdAt: string): string {
   const diff = Date.now() - new Date(createdAt).getTime();
@@ -59,7 +69,7 @@ function lateLabel(createdAt: string): string {
 }
 
 export function OrdersTable() {
-  const { isDriver, canCreateOrder, canDeliver } = usePermissions();
+  const { isDriver, canCreateOrder, canDeliver, canManageOrders } = usePermissions();
   const filters = isDriver ? DRIVER_FILTERS : STATUS_FILTERS;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -76,6 +86,8 @@ export function OrdersTable() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   // "Yetkazildi" → to'lov turini so'raydigan modal (admin uchun ham)
   const [deliverOrder, setDeliverOrder] = useState<Order | null>(null);
+  // Yopilgan zakazni tahrirlash (24h ichida, operator/admin)
+  const [adjustOrder, setAdjustOrder] = useState<Order | null>(null);
 
   const { data: settings } = useSettings();
   const zones = settings?.zones || [];
@@ -315,7 +327,15 @@ export function OrdersTable() {
                   >
                     #{order.seq}
                   </Link>
-                  <StatusBadge status={order.status} />
+                  <span className="flex items-center gap-1.5">
+                    {order.editedAt && (
+                      <span title="Yopilgandan keyin tahrirlangan"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                        <PencilLine className="w-3 h-3" /> Tahrirlangan
+                      </span>
+                    )}
+                    <StatusBadge status={order.status} />
+                  </span>
                 </div>
 
                 {/* 2-qator: mijoz, telefon + vaqt; hudud pastda (ism yonida EMAS — egasi so'rovi) */}
@@ -542,6 +562,12 @@ export function OrdersTable() {
                     {/* Holat */}
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
+                      {order.editedAt && (
+                        <span title="Yopilgandan keyin tahrirlangan"
+                          className="mt-1 inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-600 dark:text-amber-400">
+                          <PencilLine className="w-3 h-3" /> Tahrirlangan
+                        </span>
+                      )}
                     </td>
 
                     {/* Haydovchi — biriktirilgan bo'lsa ham bosib ALMASHTIRSA bo'ladi */}
@@ -617,6 +643,16 @@ export function OrdersTable() {
                                   Yetkazildi
                                 </button>
                               )}
+                              {/* Yopilgan zakazni tuzatish — mijoz sonini o'zgartirsa (24h) */}
+                              {canManageOrders && withinEditWindow(order) && (
+                                <button
+                                  onClick={() => { setAdjustOrder(order); setOpenMenu(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+                                >
+                                  <PencilLine className="w-3.5 h-3.5" />
+                                  Tahrirlash
+                                </button>
+                              )}
                               {/* Haydovchi/tayinlash/bekor — operator/admin ishi (haydovchi emas) */}
                               {!isDriver && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
                                 <button
@@ -662,6 +698,10 @@ export function OrdersTable() {
       {/* Yetkazildi → to'lov turini tanlash (naqd/karta/nasiya) */}
       {deliverOrder && (
         <DeliverModal order={deliverOrder} onClose={() => setDeliverOrder(null)} />
+      )}
+      {/* Yopilgan zakazni tahrirlash (24h ichida) */}
+      {adjustOrder && (
+        <AdjustOrderModal order={adjustOrder} onClose={() => setAdjustOrder(null)} />
       )}
     </div>
   );

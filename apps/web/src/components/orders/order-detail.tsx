@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, MapPin, Package, DollarSign,
   Truck, CheckCircle, XCircle, Clock, User,
-  ChevronRight, Banknote, CreditCard, FileText, Navigation,
+  ChevronRight, Banknote, CreditCard, FileText, Navigation, PencilLine,
 } from "lucide-react";
 import { useOrder, useUpdateOrderStatus, useAssignDriver } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { DeliverModal } from "./deliver-modal";
+import { AdjustOrderModal } from "./adjust-order-modal";
 import { PaymentModal } from "@/components/customers/payment-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
@@ -37,6 +38,8 @@ export function OrderDetail({ id }: Props) {
   const [showPayment, setShowPayment] = useState(false);
   // "Yetkazildi" → to'lov turini tanlash modali
   const [showDeliver, setShowDeliver] = useState(false);
+  // Yopilgan zakazni tahrirlash (24h ichida, operator/admin)
+  const [showAdjust, setShowAdjust] = useState(false);
   const { canManageOrders, canDeliver, canCollectDebt, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
@@ -78,6 +81,12 @@ export function OrderDetail({ id }: Props) {
   );
   const canCancel = canManageOrders && CANCEL_ALLOWED.includes(order.status);
   const canAssign = canManageOrders && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status);
+  // Yopilgan zakazni tahrirlash: operator/admin, yetkazilganidan 24 soat ichida
+  const canAdjust =
+    canManageOrders &&
+    order.status === "DELIVERED" &&
+    !!order.deliveredAt &&
+    Date.now() - new Date(order.deliveredAt).getTime() <= 24 * 3600 * 1000;
 
   const handleAction = async (status: string) => {
     // "Yetkazildi" — avval to'lov turi so'raladi (modal)
@@ -146,8 +155,29 @@ export function OrderDetail({ id }: Props) {
               Bekor
             </button>
           )}
+          {/* Yopilgan zakazni tuzatish — mijoz yetkazishda sonini o'zgartirsa */}
+          {canAdjust && (
+            <button
+              onClick={() => setShowAdjust(true)}
+              className="flex flex-1 sm:flex-initial items-center justify-center gap-2 px-3 py-2 border border-amber-300 dark:border-amber-500/40 text-amber-600 dark:text-amber-400 text-sm font-medium rounded-xl hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+            >
+              <PencilLine className="w-4 h-4" />
+              Tahrirlash
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Tahrirlangan belgisi — kim va qachon tuzatgani ko'rinib turadi */}
+      {order.editedAt && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
+          <PencilLine className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-none" />
+          <p className="text-[13px] font-medium text-amber-700 dark:text-amber-400">
+            Bu zakaz yopilgandan keyin TAHRIRLANGAN
+            {order.editedBy?.name ? ` — ${order.editedBy.name}` : ""} · {formatDate(order.editedAt, "dd.MM HH:mm")}
+          </p>
+        </div>
+      )}
 
       {/* Main grid — mobilda bitta ustun, md+ da 3 ustun */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -341,6 +371,10 @@ export function OrderDetail({ id }: Props) {
       {/* Yetkazildi → to'lov turini tanlash (naqd/karta/nasiya) */}
       {showDeliver && (
         <DeliverModal order={order} onClose={() => setShowDeliver(false)} />
+      )}
+      {/* Yopilgan zakazni tahrirlash (24h ichida) */}
+      {showAdjust && (
+        <AdjustOrderModal order={order} onClose={() => setShowAdjust(false)} />
       )}
     </div>
   );

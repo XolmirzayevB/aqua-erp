@@ -7,6 +7,7 @@ import { PushService } from "../notifications/push.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";
+import { AdjustOrderDto } from "./dto/adjust-order.dto";
 import { AssignDriverDto } from "./dto/assign-driver.dto";
 import { QueryOrdersDto } from "./dto/query-orders.dto";
 import { SettingsService } from "../settings/settings.service";
@@ -285,6 +286,7 @@ export class OrdersService {
         customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true, lat: true, lng: true } },
         driver: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true } },
+        editedBy: { select: { id: true, name: true } },
         location: true,
         transactions: true,
       },
@@ -489,6 +491,160 @@ export class OrdersService {
     this.notifications.emitToAll("order_status_changed", {
       orderId: id, orderNumber: order.orderNumber,
       newStatus: "ASSIGNED", driverName: driver.name,
+    });
+
+    return updated;
+  }
+
+  // ── YOPILGAN ZAKAZNI TAHRIRLASH (2026-07-17, egasi so'rovi) ────────────────
+  // Haydovchi yetkazgach mijoz sonini o'zgartirib qolsa ("4 ta kifoya" /
+  // "yana 1 yangi tara") — operator/admin 24 SOAT ichida tuzatadi.
+  // Ta'siri HAMMA joyga tarqaladi:
+  //   - Zakaz: soni/summasi qayta hisoblanadi (yaratilgandagi NARXLARDA)
+  //   - Mijoz: bottlesOwned (yangi tara farqi), bottlesGiven, bottlesReturned
+  //   - Ombor: EMPTY_BOTTLE yangi tara farqiga o'zgaradi (+ tarix yozuvi)
+  //   - Moliya: CASH/CARD kirim summasi yangilanadi; DEBT balans farqi tuzatiladi;
+  //     FREE — moliyaga tegilmaydi
+  //   - Hisobotlar order/transaksiyadan o'qiydi — avtomatik to'g'ri bo'ladi
+  // Zakaz "Tahrirlangan" belgisini oladi (editedAt/editedById + izoh).
+  async adjustDelivered(id: string, dto: AdjustOrderDto, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { customer: { select: { id: true, name: true } } },
+    });
+    if (!order) throw new NotFoundException("Buyurtma topilmadi");
+    if (order.status !== "DELIVERED") {
+      throw new BadRequestException("Faqat YETKAZILGAN zakaz tahrirlanadi (ochiqlarini bekor qilib qayta yozing)");
+    }
+    // 24 soat qoidasi
+    const deliveredAt = order.deliveredAt ?? order.updatedAt;
+    if (Date.now() - deliveredAt.getTime() > 24 * 3600 * 1000) {
+      throw new BadRequestException("Yetkazilganiga 24 soatdan oshgan — endi tahrirlab bo'lmaydi");
+    }
+
+    const newRefill = dto.refillCount;
+    const newNew = dto.newBottles;
+    if (newRefill + newNew <= 0) {
+      throw new BadRequestException("Kamida 1 ta tara bo'lishi kerak");
+    }
+    if (newRefill === order.refillCount && newNew === order.newBottles) {
+      throw new BadRequestException("Hech narsa o'zgarmadi");
+    }
+
+    // Farqlar (delta) — hamma ta'sir shulardan hisoblanadi
+    const dRefill = newRefill - order.refillCount;
+    const dNew = newNew - order.newBottles;
+    const dQty = dRefill + dNew;
+
+    // Summa — zakaz YARATILGANDAGI narxlarda (narx keyin o'zgargan bo'lsa ham
+    // shu zakazga eski narx qo'llanadi, adolatli)
+    const newTotal =
+      newRefill * Number(order.refillPrice) + newNew * Number(order.newBottlePrice);
+    const oldTotal = Number(order.totalAmount);
+
+    const editNote = `Tahrirlandi: ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)${dto.reason ? ` — ${dto.reason}` : ""}`;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 1) Zakaz
+      const result = await tx.order.update({
+        where: { id },
+        data: {
+          refillCount: newRefill,
+          newBottles: newNew,
+          quantity: newRefill + newNew,
+          totalAmount: newTotal,
+          // Qaytgan bo'sh tara odatda to'ldirishga teng — farq bilan suriladi
+          bottlesReturned: Math.max(0, order.bottlesReturned + dRefill),
+          editedAt: new Date(),
+          editedById: userId,
+          notes: [order.notes, editNote].filter(Boolean).join(" · "),
+        },
+        include: {
+          customer: { select: { id: true, name: true } },
+          driver: { select: { id: true, name: true } },
+        },
+      });
+
+      // 2) Mijoz tarasi: yangi tara farqi mijoz hisobiga qo'shiladi/ayiriladi
+      await tx.customer.update({
+        where: { id: order.customerId },
+        data: {
+          bottlesOwned: { increment: dNew },
+          bottlesGiven: { increment: dQty },
+          bottlesReturned: { increment: dRefill },
+        },
+      });
+
+      // 3) Ombor: yangi tara farqi (sotilgani ko'paysa ombordan chiqadi, kamaysa qaytadi)
+      if (dNew !== 0) {
+        const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
+        if (emptyInv) {
+          await tx.inventory.update({
+            where: { type: "EMPTY_BOTTLE" },
+            data: { quantity: { increment: -dNew } },
+          });
+          await tx.inventoryAction.create({
+            data: {
+              inventoryId: emptyInv.id,
+              actionType: "ADJUSTMENT",
+              quantity: -dNew,
+              description: `Buyurtma #${order.seq} tahrirlandi — yangi tara ${order.newBottles} → ${newNew} (${order.customer.name})`,
+            },
+          });
+        }
+      }
+
+      // 4) Moliya — to'lov turiga qarab
+      if (order.paymentType === "CASH" || order.paymentType === "CARD") {
+        // Kirim summasi yangi haqiqatga tenglashtiriladi
+        const inc = await tx.transaction.findFirst({
+          where: { orderId: id, type: "INCOME" },
+        });
+        if (inc) {
+          await tx.transaction.update({
+            where: { id: inc.id },
+            data: {
+              amount: newTotal,
+              description: `${inc.description ?? ""} (tahrirlangan)`.trim(),
+            },
+          });
+        } else {
+          // Ehtiyot: kirim topilmasa yangisini yozamiz
+          await tx.transaction.create({
+            data: {
+              type: "INCOME",
+              amount: newTotal,
+              paymentMethod: order.paymentType === "CASH" ? "CASH" : "CARD",
+              category: "Suv sotuvi",
+              description: `${order.customer.name} — buyurtma #${order.seq} (tahrirlangan)`,
+              orderId: id,
+              customerId: order.customerId,
+              createdById: userId,
+            },
+          });
+        }
+      } else if (order.paymentType === "DEBT") {
+        // Nasiya: qarz farq qadar tuzatiladi (summa kamaysa qarz kamayadi)
+        const diff = newTotal - oldTotal;
+        if (diff !== 0) {
+          await tx.customer.update({
+            where: { id: order.customerId },
+            data: { balance: { decrement: diff } },
+          });
+        }
+      }
+      // FREE — moliyaga tegilmaydi (pul yo'q edi, yo'q bo'lib qoladi)
+
+      return result;
+    });
+
+    // Real-time: ro'yxatlar/panellar yangilansin
+    this.notifications.emitToAll("order_status_changed", {
+      orderId: id,
+      orderNumber: order.orderNumber,
+      newStatus: "DELIVERED",
+      customerName: updated.customer.name,
+      edited: true,
     });
 
     return updated;

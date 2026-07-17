@@ -37,6 +37,9 @@ export interface Order {
   createdAt: string;
   locationId?: string | null;
   location?: OrderLocation | null;
+  // Yopilgandan keyin tahrirlangan zakazlar (belgisi bilan ko'rinadi)
+  editedAt?: string | null;
+  editedBy?: { id: string; name: string } | null;
   customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
@@ -140,6 +143,30 @@ export function useUpdateOrderStatus() {
       toast.success("Status yangilandi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+  });
+}
+
+// Yopilgan (yetkazilgan) zakazni 24 soat ichida tuzatish — operator/admin.
+// Ta'siri hamma joyga: ombor, moliya, mijoz tarasi, hisobotlar.
+export function useAdjustOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, refillCount, newBottles, reason }: { id: string; refillCount: number; newBottles: number; reason?: string }) =>
+      api.patch(`/orders/${id}/adjust`, { refillCount, newBottles, reason }).then((r) => r.data.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["orders", id] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["finance-summary"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["debts"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["free-orders"] });
+      toast.success("Zakaz tahrirlandi — hamma hisoblar yangilandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || e?.response?.data?.message || "Xatolik yuz berdi"),
   });
 }
 

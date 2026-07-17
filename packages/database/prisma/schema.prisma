@@ -87,6 +87,7 @@ model User {
 
   orders         Order[]        @relation("DriverOrders")
   createdOrders  Order[]        @relation("CreatedOrders")
+  editedOrders   Order[]        @relation("EditedOrders")
   driverSessions DriverSession[]
   transactions   Transaction[]
   auditLogs      AuditLog[]
@@ -182,12 +183,17 @@ model Order {
   status           OrderStatus @default(NEW)
   notes            String?     @db.Text
   deliveredAt      DateTime?   @map("delivered_at") @db.Timestamptz
+  // Yopilgandan keyin TAHRIRLANGAN zakazlar (24h ichida, operator/admin) —
+  // ro'yxatda "Tahrirlangan" belgisi bilan ko'rinadi
+  editedAt         DateTime?   @map("edited_at") @db.Timestamptz
+  editedById       String?     @map("edited_by_id")
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   customer     Customer      @relation(fields: [customerId], references: [id])
   driver       User?         @relation("DriverOrders", fields: [driverId], references: [id])
   createdBy    User          @relation("CreatedOrders", fields: [createdById], references: [id])
+  editedBy     User?         @relation("EditedOrders", fields: [editedById], references: [id])
   location     CustomerLocation? @relation(fields: [locationId], references: [id])
   transactions Transaction[]
 
