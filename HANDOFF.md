@@ -201,6 +201,22 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
 
+✅ **YOPILGAN ZAKAZNI TAHRIRLASH + BEPUL HISOBOT (2026-07-17 kech, DEPLOY QILINDI):**
+1. **Yetkazilgan zakazni 24 SOAT ichida tahrirlash** (egasi: mijoz "4 ta kifoya" desa):
+   `PATCH /orders/:id/adjust` (ADMIN+OPERATOR; DTO: refillCount/newBottles/reason).
+   Delta asosida HAMMASI tuzatiladi: order (soni/summa — yaratilgandagi NARXLARDA),
+   mijoz (bottlesOwned +dNew / Given / Returned), ombor (EMPTY_BOTTLE -dNew + action),
+   moliya (CASH/CARD → INCOME summasi yangilanadi "(tahrirlangan)"; DEBT → balans farqi;
+   FREE → tegilmaydi). Order.editedAt/editedById + izohga "Tahrirlandi: 2+1 → 1+2".
+   UI: adjust-order-modal.tsx; order-detail sariq banner + "Tahrirlash" tugma (24h ichida);
+   orders-table'da "Tahrirlangan" belgisi + menyuda Tahrirlash. Haydovchi qila OLMAYDI (403).
+   Sinovlar: CASH kirim 71000→103000, DEBT balans −13000 farq, 25h→400, driver→403, UI OK.
+2. **Bepul hisobot** (avvalgi bo'limda) Moliya sahifasida JONLI.
+3. **PROD TOZALANDI (2026-07-17):** egasi sinov zakazlari (#20-22, Dilorom Opa/Jamshid Artel
+   taralari, ombor -4) zaxira olinib o'chirildi; zakaz raqami 1 dan boshlanadi.
+   ⚠️ Egasi 17.07 kunduzi haydovchini O'RGATISH uchun yana sinov zakazlar yozadi —
+   KECHQURUN AYTGANDA faqat o'sha kungi zakazlarni tozalash kerak (backup bilan).
+
 ✅ **TARA ANIQLASHTIRISH + BEPUL ZAKAZLAR (2026-07-17, DEPLOY QILINDI):**
 1. **Zakazda uyidagi tara aniqlashtirish** (egasi: daftar noaniq edi): order-form'da
    "Uyida nechta tara bor?" paneli (amber, mijoz tanlangach) — operator telefonda
