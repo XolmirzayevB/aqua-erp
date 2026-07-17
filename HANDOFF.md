@@ -201,6 +201,18 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
 
+✅ **TARA ANIQLASHTIRISH + BEPUL ZAKAZLAR (2026-07-17, DEPLOY QILINDI):**
+1. **Zakazda uyidagi tara aniqlashtirish** (egasi: daftar noaniq edi): order-form'da
+   "Uyida nechta tara bor?" paneli (amber, mijoz tanlangach) — operator telefonda
+   so'rab tuzatadi. Backend: CreateOrderDto.actualBottlesOwned — mijoz bottlesOwned
+   SHU songa o'rnatiladi (tranzaksiyada, validatsiya ham shunga), zakaz izohiga
+   "Tara aniqlashtirildi: X → Y (mijozdan so'raldi)" yoziladi. bottlesOwned = actual+newBottles.
+2. **PaymentType.FREE (imtiyozli/bepul, prokuratura kabi):** DeliverModal'da 4-variant
+   "Bepul (imtiyoz)" (Gift, binafsha). INCOME ham, qarz ham YOZILMAYDI. Enum migratsiya
+   `payment_type_free`. Excel/labels/pill (violet) yangilangan.
+   Sinovlar: lokal API (6→2 aniqlashtirish + izoh, refill>actual 400, FREE moliyasiz)
+   + UI to'liq oqim (panel 3→5, zakaz #36 FREE yopildi).
+
 ✅ **ZAKAZ: TO'LDIRISH va YANGI TARA ALOHIDA (2026-07-16 kech, DEPLOY QILINDI):**
 - Muammo (egasi): mijozda 3 tara bo'lsa "1 to'ldirish + 3 yangi" zakaz yozib bo'lmasdi
   (avtomatik ajratish to'ldirishni MAKSIMAL olardi). Yechim: order-form.tsx da bitta
