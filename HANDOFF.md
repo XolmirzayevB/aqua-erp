@@ -1,4 +1,4 @@
-# 🤝 AquaERP — HANDOFF (yangi Claude Code sessiyasi uchun to'liq qo'llanma)
+# 🤝 Gissar Water19l (kodda: aqua-erp) — HANDOFF (yangi Claude Code sessiyasi uchun to'liq qo'llanma)
 
 > Bu hujjat butun loyihaning holatini, kirish ma'lumotlarini, arxitekturani va
 > davom ettirish yo'llarini o'z ichiga oladi. Yangi sessiya shu fayldan boshlansa
@@ -11,10 +11,16 @@
 
 ## 1. Loyiha nima?
 
-**AquaERP** — 19 litrlik suv yetkazib berish biznesi uchun to'liq ERP/CRM tizimi.
-Biznesni foydalanuvchining dadasi va do'stlari yuritadi. Kichik shahar, suv yetkazib berish.
+**Gissar Water19l** (zavod nomi: Gissar; kod/repo/paketlarda eski "aqua-erp" nomi
+QOLDIRILGAN — texnik nomlarni o'zgartirmang!) — 19 litrlik suv yetkazib berish
+biznesi uchun to'liq ERP/CRM tizimi. Biznesni foydalanuvchining dadasi va
+do'stlari yuritadi. Kichik shahar (Surxondaryo, Qumqo'rg'on atrofi).
 
-Tizim JONLI ishlab turibdi va real ishlatilmoqda.
+Tizim JONLI va 2026-07-18 dan REAL ISHLATILMOQDA.
+⚠️ REBREND (2026-07-17): barcha KO'RINADIGAN joylarda "Gissar Water19l"
+(login, header/sidebar, PWA manifest, sahifa titullari, PDF/Excel, push, Swagger).
+Android APK ish stoli nomi hali eski — APK qayta build qilinmagan (bubblewrap,
+HANDOFF Push/APK bo'limiga qarang); ichi sayt bo'lgani uchun kontent yangi nomda.
 
 **Asosiy biznes qoidasi (ENG MUHIM — buni yaxshi tushun):**
 - Mijoz tarani (bo'sh idish) **sotib oladi**: yangi tara narxi (default **45 000**, sozlamada o'zgaradi).
@@ -200,6 +206,23 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+
+🚀 **REAL START HOLATI (2026-07-18 tun, egasi "boshlaymiz" dedi):**
+- **Ombor: 300 ta bo'sh tara** (set-warehouse orqali kiritildi). Mijozlar: 392 ta,
+  hammasining bottlesOwned=0 — uyidagi taralar ISH DAVOMIDA zakaz formasidagi
+  "Uyida nechta tara bor?" paneli orqali kiritiladi (egasi shunday xohladi).
+- O'rgatish zakazlari (17.07: Xamro Artist #1, Jamshid Artel #2) zaxira bilan
+  O'CHIRILDI (backups: before_launch_*), ular taralari ham 0 ga qaytdi.
+  Birinchi REAL zakaz #1 bo'ladi. Tranzaksiyalar 0.
+- **Operator ham xarajat kirita oladi (2026-07-17):** POST /finance/expenses va
+  GET /finance/expenses/my endi ADMIN+OPERATOR+DRIVER; izohda "(operator)" belgisi.
+  UI: Buyurtmalar sahifasi header'ida "Xarajat" tugmasi (operator/admin,
+  DriverExpenseModal qayta ishlatilgan).
+- Backuplar: har kecha 02:00 avtomatik (volume'da saqlanadi); qo'lda nusxalar
+  ~/aqua-erp-backups (lokal Mac) va /opt/aqua-erp/backups da.
+- OCHIQ ishlar: 6 telefonsiz mijoz (+998000000001..06, izohlangan — egasi keyin
+  to'g'irlaydi); Excel "qarz" varag'i importi KEYINGA (chalkashlik bor dedi);
+  "Kuler" varag'i; APK qayta build (yangi nom uchun); offsite backup.
 
 ✅ **YOPILGAN ZAKAZNI TAHRIRLASH + BEPUL HISOBOT (2026-07-17 kech, DEPLOY QILINDI):**
 1. **Yetkazilgan zakazni 24 SOAT ichida tahrirlash** (egasi: mijoz "4 ta kifoya" desa):
