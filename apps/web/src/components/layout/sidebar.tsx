@@ -85,7 +85,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             <Droplet className="w-[19px] h-[19px] text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-[15px] font-bold text-gray-900 dark:text-white tracking-tight leading-none">AquaERP</p>
+            <p className="text-[15px] font-bold text-gray-900 dark:text-white tracking-tight leading-none">Gissar Water19l</p>
             <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">19L yetkazib berish</p>
           </div>
         </div>

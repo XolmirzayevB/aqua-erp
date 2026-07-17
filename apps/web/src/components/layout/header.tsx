@@ -43,7 +43,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-rose-400 flex items-center justify-center">
             <Droplet className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-gray-900 dark:text-white text-sm tracking-tight">AquaERP</span>
+          <span className="font-bold text-gray-900 dark:text-white text-sm tracking-tight">Gissar Water19l</span>
         </div>
         {/* Sana chipi — faqat katta ekranda */}
         <div className="hidden md:flex items-center gap-2 h-10 px-3 rounded-[11px] bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">

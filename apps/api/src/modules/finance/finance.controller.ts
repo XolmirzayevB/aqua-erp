@@ -53,11 +53,11 @@ export class FinanceController {
     return this.financeService.getFreeOrders(period);
   }
 
-  // Haydovchi o'z xarajatini O'ZI kiritadi (benzin, ovqat, remont...).
-  // Oddiy EXPENSE tranzaksiya sifatida yoziladi — moliya xulosasi/foyda
-  // hisobiga avtomatik ta'sir qiladi.
+  // Xarajat kiritish: haydovchi O'ZI yoki OPERATOR (haydovchi aytib turadi,
+  // operator kiritadi — egasi so'rovi 2026-07-17). Oddiy EXPENSE tranzaksiya —
+  // moliya xulosasi/foyda hisobiga avtomatik ta'sir qiladi.
   @Post("expenses")
-  @Roles(Role.ADMIN, Role.DRIVER)
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.DRIVER)
   @ApiOperation({ summary: "Xarajat kiritish (haydovchi o'ziniki)" })
   createExpense(@Body() dto: CreateExpenseDto, @CurrentUser() user: { sub: string; role: string }) {
     return this.financeService.createExpense(dto, user);
@@ -65,7 +65,7 @@ export class FinanceController {
 
   // Haydovchining BUGUNGI o'z xarajatlari (tekshirib turishi uchun)
   @Get("expenses/my")
-  @Roles(Role.ADMIN, Role.DRIVER)
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.DRIVER)
   @ApiOperation({ summary: "Mening bugungi xarajatlarim" })
   getMyExpenses(@CurrentUser("sub") userId: string) {
     return this.financeService.getMyTodayExpenses(userId);

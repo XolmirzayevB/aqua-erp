@@ -34,9 +34,10 @@ export class FinanceService {
   // izohda "(haydovchi)" belgisi bilan ajralib turadi.
   async createExpense(dto: CreateExpenseDto, user: { sub: string; role: string }) {
     const isDriver = user.role === "DRIVER";
+    const isOperator = user.role === "OPERATOR";
     const description = [
       dto.description?.trim() || null,
-      isDriver ? "(haydovchi)" : null,
+      isDriver ? "(haydovchi)" : isOperator ? "(operator)" : null,
     ].filter(Boolean).join(" ") || null;
 
     return this.prisma.transaction.create({

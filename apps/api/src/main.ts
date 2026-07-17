@@ -35,7 +35,7 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("AquaERP API")
+    .setTitle("Gissar Water19l API")
     .setDescription("19L Suv Yetkazib Berish ERP tizimi API")
     .setVersion("1.0")
     .addBearerAuth()

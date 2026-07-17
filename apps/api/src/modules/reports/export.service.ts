@@ -22,7 +22,7 @@ export class ExportService {
     const overview = await this.reportsService.getOverview(query);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = "AquaERP";
+    wb.creator = "Gissar Water19l";
     wb.created = new Date();
 
     // Summary sheet
@@ -99,7 +99,7 @@ export class ExportService {
       doc.on("error", reject);
 
       // Header
-      doc.fontSize(20).fillColor("#2563eb").text("AquaERP Hisoboti", { align: "center" });
+      doc.fontSize(20).fillColor("#2563eb").text("Gissar Water19l Hisoboti", { align: "center" });
       doc.moveDown(0.3);
       doc.fontSize(10).fillColor("#666").text(
         `Davr: ${format(period.from, "dd.MM.yyyy")} — ${format(period.to, "dd.MM.yyyy")}`,

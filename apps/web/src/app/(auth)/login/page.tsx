@@ -75,7 +75,7 @@ export default function LoginPage() {
             <Droplet className="w-8 h-8" />
           </div>
           <h1 className="text-[30px] font-bold text-gray-900 dark:text-white tracking-tight">
-            AquaERP
+            Gissar Water19l
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             19L yetkazib berish boshqaruv tizimi

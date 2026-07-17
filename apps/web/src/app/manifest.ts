@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "AquaERP — Suv Yetkazib Berish",
-    short_name: "AquaERP",
+    name: "Gissar Water19l — Suv Yetkazib Berish",
+    short_name: "Gissar Water",
     description: "19L suv yetkazib berish boshqaruv tizimi",
     start_url: "/",
     display: "standalone",

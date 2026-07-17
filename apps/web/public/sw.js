@@ -1,12 +1,12 @@
 // AquaERP minimal service worker — PWA o'rnatish, offline va push xabarnoma
-const CACHE = "aqua-erp-v2";
+const CACHE = "aqua-erp-v3";
 const OFFLINE_URLS = ["/login"];
 
 // ─── Push xabarnoma (yangi buyurtma va h.k.) ───
 self.addEventListener("push", (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { title: "AquaERP", body: event.data?.text() || "" }; }
-  const title = data.title || "AquaERP";
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: "Gissar Water19l", body: event.data?.text() || "" }; }
+  const title = data.title || "Gissar Water19l";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",

@@ -6,13 +6,13 @@ import { ServiceWorkerRegister } from "@/components/shared/sw-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "AquaERP", template: "%s | AquaERP" },
+  title: { default: "Gissar Water19l", template: "%s | Gissar Water19l" },
   description: "19L Suv Yetkazib Berish Boshqaruv Tizimi",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "AquaERP",
+    title: "Gissar Water19l",
   },
   icons: {
     icon: "/icons/icon-192.png",

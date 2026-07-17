@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
-  CalendarDays, X, MapPin, Clock, PencilLine,
+  CalendarDays, X, MapPin, Clock, PencilLine, Wallet,
 } from "lucide-react";
 import { useOrders, useCancelOrder, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
@@ -13,6 +13,7 @@ import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { DeliverModal } from "./deliver-modal";
 import { AdjustOrderModal } from "./adjust-order-modal";
+import { DriverExpenseModal } from "@/components/finance/driver-expense-modal";
 import { StatusBadge } from "./status-badge";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
@@ -88,6 +89,8 @@ export function OrdersTable() {
   const [deliverOrder, setDeliverOrder] = useState<Order | null>(null);
   // Yopilgan zakazni tahrirlash (24h ichida, operator/admin)
   const [adjustOrder, setAdjustOrder] = useState<Order | null>(null);
+  // Xarajat kiritish — operator ham (haydovchi aytib turadi, operator yozadi)
+  const [showExpense, setShowExpense] = useState(false);
 
   const { data: settings } = useSettings();
   const zones = settings?.zones || [];
@@ -184,6 +187,14 @@ export function OrdersTable() {
         title="Buyurtmalar"
         subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${isOverdueView ? "Qolib ketgan" : filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
       >
+        {/* Xarajat — operator/admin (haydovchi o'z panelida kiritadi) */}
+        {canCreateOrder && (
+          <button onClick={() => setShowExpense(true)}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-[11px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[13.5px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+            <Wallet className="w-4 h-4 flex-none" />
+            Xarajat
+          </button>
+        )}
         {/* Zakazni faqat operator (yoki admin) yozadi */}
         {canCreateOrder && (
           <button onClick={() => setShowForm(true)} className={btnPrimary}>
@@ -703,6 +714,8 @@ export function OrdersTable() {
       {adjustOrder && (
         <AdjustOrderModal order={adjustOrder} onClose={() => setAdjustOrder(null)} />
       )}
+      {/* Xarajat kiritish (operator/admin) */}
+      {showExpense && <DriverExpenseModal onClose={() => setShowExpense(false)} />}
     </div>
   );
 }
