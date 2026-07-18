@@ -206,6 +206,36 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **KLIK (KARTA) TASDIQLASH OQIMI (2026-07-18 kunduz, DEPLOY QILINDI) — MUHIM:**
+- **Yangi qoida (egasi):** haydovchi "Karta/Click" bilan yopganda pul moliyaga
+  DARROV TUSHMAYDI. Operator Click hisobida pulni KO'RIB "Klik tasdiqlash"ni
+  bosadi — INCOME (CARD) FAQAT SHUNDA yoziladi (moliya/dashboard/hisobotlar).
+  **48 soatda tasdiqlanmasa zakaz AVTO-NASIYAGA o'tadi**: paymentType=DEBT,
+  mijoz balansi -summa, izohga "⏰ Klik 2 kun ichida tasdiqlanmadi — nasiyaga
+  o'tkazildi (avto)". Pul keyin kelsa "Qarz to'lovi" (karta) orqali qabul qilinadi.
+- **Backend:** Order.cardConfirmedAt/cardConfirmedById (migratsiya
+  `20260718080000_card_confirmation`, eski CARD zakazlar deliveredAt bilan
+  backfill — aks holda avto-nasiyaga tushib ketardi!). `PATCH /orders/:id/confirm-card`
+  (ADMIN+OPERATOR; idempotent, DEBT ga o'tganidan keyin 400 + tushunarli xabar).
+  `GET /orders?cardPending=true` — tasdiqlanmaganlar (deliveredAt asc).
+  Avto-nasiya: onModuleInit interval (15s dan keyin bir marta + har 30 daq)
+  + cardPending ro'yxati so'ralganda ham DARROV tekshiriladi (lazy himoya).
+  CARD_CONFIRM_HOURS=48 konstanta (orders.service tepasida).
+  updateStatus(DELIVERED): INCOME endi FAQAT CASH uchun; adjust: tasdiqlanmagan
+  CARD'da INCOME yaratmaydi (tasdiqlaganda YANGI summa bilan yoziladi).
+- **Frontend:** Buyurtmalar sahifasida sky-ko'k banner ("N ta zakazning Klik
+  to'lovi tasdiqlanmagan") + "💳 Klik tasdiqlash" tab (soni bilan, bo'lsa
+  ko'rinadi) + kartada/jadvalda "Klik tasdiqlash" tugmasi (operator/admin,
+  confirm dialogi bilan) va "💳 X kun Y soat qoldi" muddat. Order-detail:
+  sky banner (kutilmoqda + muddat + tugma) / yashil banner (TASDIQLANGAN + vaqt).
+  To'lov ustunida "Klik kutilmoqda"/"✓ Klik tasdiqlangan" belgilari.
+  DeliverModal CARD desc: "Operator tasdiqlagach hisobga tushadi".
+  Helperlar use-orders.ts da: isCardPending(), cardTimeLeftLabel().
+- **Sinovlar:** lokal API 23 stsenariy (CARD INCOME yo'q, confirm 1 marta,
+  cardPending ro'yxat, adjust+confirm yangi summa, CASH/DEBT/FREE buzilmagan,
+  avto-nasiya to'liq: DEBT+balans+izoh+INCOME yo'q+keyin confirm 400) + UI
+  to'liq oqim (banner→tab→tasdiqlash→yashil banner, konsol toza). Buildlar o'tdi.
+
 ✅ **YANGI MIJOZ TARASI + XATO XABARLARI (2026-07-18 kunduz, DEPLOY QILINDI):**
 1. **Zakaz formasida YANGI mijozga ham "Uyida nechta tara bor?" paneli** (egasi:
    tezkor qo'shishda ham uyida tara bo'lishi mumkin): order-form.tsx `newOwned`
