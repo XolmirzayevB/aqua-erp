@@ -206,6 +206,28 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **YANGI MIJOZ TARASI + XATO XABARLARI (2026-07-18 kunduz, DEPLOY QILINDI):**
+1. **Zakaz formasida YANGI mijozga ham "Uyida nechta tara bor?" paneli** (egasi:
+   tezkor qo'shishda ham uyida tara bo'lishi mumkin): order-form.tsx `newOwned`
+   state — mijoz shu son bilan yaratiladi (createCustomer'ga bottlesOwned),
+   son > 0 bo'lsa "To'ldirish" stepperi ochiladi (narx to'ldirish narxida).
+   Retry xavfsizligi: mijoz yaratilib zakaz yiqilsa forma EXISTING rejimga
+   o'tadi (selected=yaratilgan mijoz, keepCountsRef sonlarni saqlaydi) —
+   qayta bosilganda mijoz QAYTA yaratilmaydi.
+2. **Xato xabarlari endi TO'LIQ ko'rinadi** (operator: "nega xato — ko'rinmayapti"):
+   - SABAB: hooklarda `e?.response?.data?.message?.[0]` — backend xabari STRING
+     bo'lsa bu birinchi HARFNI olardi ("B"). Yangi `apiErrorMessage()` (lib/utils.ts)
+     string/massiv ikkalasini to'g'ri oladi; 7 ta hook fayli shu helperga o'tdi.
+     YANGI onError yozsangiz ham SHU helperdan foydalaning.
+   - Backend takror raqam xabari endi ANIQ: create → `Bu raqam allaqachon "Ism"
+     mijoziga yozilgan (X hudud) — "Mavjud mijoz"dan qidiring` (arxivlangan bo'lsa
+     alohida matn); update → boshqa mijoz ismi bilan.
+   - **Inline xato paneli**: order-form va customer-form'da "Saqlab bo'lmadi" qizil
+     panel (sababi bilan, toast yo'qolsa ham turadi); telefon o'zgartirilsa tozalanadi.
+   - Sinovlar: lokal API (409 create/update ism bilan, bottlesOwned=3 + 2refill+1yangi
+     → owned=4, tarasiz refill 400) + UI (panel 0→2, refill stepper, jami 58,000,
+     zakaz #40; takror raqam inline panel ikkala formada). Ikkala prod build o'tdi.
+   - `.claude/launch.json`ga `api` konfiguratsiyasi qo'shildi (lokal API preview).
 
 🚀 **REAL START HOLATI (2026-07-18 tun, egasi "boshlaymiz" dedi):**
 - **Ombor: 300 ta bo'sh tara** (set-warehouse orqali kiritildi). Mijozlar: 392 ta,
