@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 export interface Transaction {
   id: string;
@@ -101,7 +102,7 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Tranzaksiya qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -137,7 +138,7 @@ export function useAddExpense() {
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Xarajat qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 

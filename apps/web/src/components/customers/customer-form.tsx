@@ -5,14 +5,15 @@
 // - "Daftardan ko'chirish" (mijozdagi tara) — alohida ajralib turadigan panel, stepper bilan.
 // - Katta maydonlar, qizil (brend) primary tugma.
 
+import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, X, MapPin, UserPlus, ChevronDown, Minus, Plus, NotebookPen, Check } from "lucide-react";
+import { Loader2, X, MapPin, UserPlus, ChevronDown, Minus, Plus, NotebookPen, Check, AlertCircle } from "lucide-react";
 import { Customer } from "@/hooks/use-customers";
 import { useSettings } from "@/hooks/use-settings";
 import { PhoneInput } from "@/components/shared/phone-input";
-import { cn } from "@/lib/utils";
+import { cn, apiErrorMessage } from "@/lib/utils";
 
 const schema = z.object({
   name: z.string().min(2, "Kamida 2 ta belgi"),
@@ -66,6 +67,10 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
   const { data: settings } = useSettings();
   const zones = settings?.zones || ["A", "B", "C", "D", "G"];
 
+  // Server xatosi (masalan "bu raqam boshqa mijozda bor") — formaning ichida
+  // SABABI bilan ko'rsatiladi; avval faqat tepadagi toast chiqib yo'qolardi.
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -99,7 +104,14 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
         </div>
 
         <form
-          onSubmit={handleSubmit((data) => onSubmit({ ...data, phone2: data.phone2 && /^\+998\d{9}$/.test(data.phone2) ? data.phone2 : "" }))}
+          onSubmit={handleSubmit(async (data) => {
+            setServerError(null);
+            try {
+              await onSubmit({ ...data, phone2: data.phone2 && /^\+998\d{9}$/.test(data.phone2) ? data.phone2 : "" });
+            } catch (e) {
+              setServerError(apiErrorMessage(e));
+            }
+          })}
           className="px-6 md:px-7 py-6 space-y-5"
         >
           <Field label="Ism familiya" error={errors.name?.message}>
@@ -109,7 +121,7 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Telefon" error={errors.phone?.message}>
               <Controller name="phone" control={control} render={({ field }) => (
-                <PhoneInput value={field.value} onChange={field.onChange} className={bigInput} />
+                <PhoneInput value={field.value} onChange={(v) => { field.onChange(v); setServerError(null); }} className={bigInput} />
               )} />
             </Field>
             <Field label="Qo'shimcha telefon" optional error={errors.phone2?.message}>
@@ -223,6 +235,17 @@ export function CustomerForm({ defaultValues, onSubmit, onClose, isLoading, titl
             <textarea {...register("notes")} placeholder="Qo'shimcha ma'lumot..." rows={2}
               className="w-full px-4 py-3.5 rounded-[14px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-[15px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:bg-white dark:focus:bg-gray-900 transition-all resize-none" />
           </Field>
+
+          {/* Server xatosi — sababi bilan (toast tez yo'qoladi, bu turadi) */}
+          {serverError && (
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-[14px] border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-none mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold text-red-700 dark:text-red-400">Saqlab bo'lmadi</p>
+                <p className="text-[13px] text-red-600/90 dark:text-red-300/90 mt-0.5 leading-snug">{serverError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Tugmalar — o'ngda */}
           <div className="flex items-center justify-end gap-3 pt-1">

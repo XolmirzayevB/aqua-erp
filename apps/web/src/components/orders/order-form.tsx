@@ -11,17 +11,17 @@
 // - Jami to'lov: katta panel, taqsimot (almashtirish/yangi tara) bilan.
 // - Yangi mijoz rejimi: ism, telefon, "Hudud" dropdown (faqat hudud nomi).
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X, Loader2, Search, User, UserPlus, Package, ShoppingBag,
-  Minus, Plus, Check, ChevronDown, MapPin, Home, RefreshCw,
+  Minus, Plus, Check, ChevronDown, MapPin, Home, RefreshCw, AlertCircle,
 } from "lucide-react";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useCustomers, useCreateCustomer, useAddLocation, Customer } from "@/hooks/use-customers";
 import { useSettings } from "@/hooks/use-settings";
 import { PhoneInput } from "@/components/shared/phone-input";
-import { formatCurrency, formatPhone, cn } from "@/lib/utils";
+import { formatCurrency, formatPhone, cn, apiErrorMessage } from "@/lib/utils";
 import { Avatar } from "@/components/shared/page-ui";
 
 interface Props { onClose: () => void; defaultCustomer?: Customer | null }
@@ -95,6 +95,15 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const [newPhone, setNewPhone] = useState("");
   const [newZone, setNewZone] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  // Yangi mijozning UYIDA oldindan bor taralari (2026-07-18, egasi so'rovi):
+  // tezkor qo'shishda ham daftardagi kabi kiritiladi — mijoz shu son bilan
+  // yaratiladi va o'sha taralar TO'LDIRISH narxida to'ldirilishi mumkin.
+  const [newOwned, setNewOwned] = useState(0);
+
+  // Saqlashda chiqqan xato — formaning ichida SABABI bilan ko'rsatiladi
+  // (faqat tepadagi qizil toast yetarli emas edi — operator nega xato
+  // bo'lganini ko'ra olmasdi).
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Buyurtma — TO'LDIRISH va YANGI TARA alohida boshqariladi (2026-07-16).
   // Sabab: avval bitta "nechta tara" kiritilib avtomatik ajratilardi (to'ldirish
@@ -132,16 +141,28 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
   const savedOwned = selected?.bottlesOwned ?? 0; // tizimda (daftardan) yozilgani
   const ownedCorrected = mode === "existing" && !!selected && ownedInput !== savedOwned;
 
-  const owned = mode === "existing" ? ownedInput : 0;
+  // Yangi mijoz rejimida ham uyidagi taralar hisobga olinadi (newOwned)
+  const owned = mode === "existing" ? ownedInput : newOwned;
   // To'ldirish mijozdagi taradan oshmasin (son pasaytirilganda ham xavfsiz)
   const refillCapped = Math.min(refillCount, owned);
   const total = refillCapped * refillPrice + newBottles * newBottlePrice;
+
+  // Mijoz yaratilib zakaz yiqilganda existing rejimga o'tamiz — shunda
+  // operator kiritgan tara sonlari SAQLANIB qolishi kerak (reset bo'lmasin)
+  const keepCountsRef = useRef(false);
 
   // Mijoz tanlanganda: uyidagi son tizimdagidan boshlanadi; tarasi bor bo'lsa
   // "1 to'ldirish", aks holda "1 yangi tara". Operator keyin o'zgartiradi.
   useEffect(() => {
     const base = selected?.bottlesOwned ?? 0;
     setOwnedInput(base);
+    // Zakaz yiqilib existing'ga o'tganda: sonlar va XATO XABARI saqlanadi
+    if (keepCountsRef.current) {
+      keepCountsRef.current = false;
+      return;
+    }
+    setSubmitError(null);
+    if (mode === "new") setNewOwned(0);
     if (mode === "existing" && base > 0) {
       setRefillCount(1);
       setNewBottles(0);
@@ -163,31 +184,52 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || isPending) return;
+    setSubmitError(null);
 
     let customerId = selected?.id;
-    if (mode === "new") {
-      const created = await createCustomer.mutateAsync({
-        name: newName.trim(),
-        phone: newPhone,
-        zone: newZone || undefined,
-        address: newAddress.trim(),
-      } as any);
-      customerId = created.id;
-    }
-    if (!customerId) return;
+    let createdCustomer: Customer | null = null;
+    try {
+      if (mode === "new") {
+        createdCustomer = await createCustomer.mutateAsync({
+          name: newName.trim(),
+          phone: newPhone,
+          zone: newZone || undefined,
+          address: newAddress.trim(),
+          // Uyida oldindan bor taralar — mijoz shu son bilan yaratiladi
+          // (omborga tegmaydi: ular tizimdan oldin sotilgan)
+          bottlesOwned: newOwned > 0 ? newOwned : undefined,
+        } as any);
+        customerId = createdCustomer.id;
+      }
+      if (!customerId) return;
 
-    await createOrder.mutateAsync({
-      customerId,
-      refillCount: refillCapped,
-      newBottles,
-      // Operator sonni tuzatgan bo'lsa — mijoz kartasi ham yangilanadi (backend)
-      actualBottlesOwned: ownedCorrected ? ownedInput : undefined,
-      locationId: locationId || undefined,
-      driverId: driverId || undefined,
-      notes: notes || undefined,
-    });
-    onClose();
+      await createOrder.mutateAsync({
+        customerId,
+        refillCount: refillCapped,
+        newBottles,
+        // Operator sonni tuzatgan bo'lsa — mijoz kartasi ham yangilanadi (backend)
+        actualBottlesOwned: mode === "existing" && ownedCorrected ? ownedInput : undefined,
+        locationId: locationId || undefined,
+        driverId: driverId || undefined,
+        notes: notes || undefined,
+      });
+      onClose();
+    } catch (err: any) {
+      // MUHIM: mijoz yaratilib zakaz yiqilgan bo'lsa — existing rejimga
+      // o'tamiz, aks holda qayta bosilganda mijoz QAYTA yaratilishga urinib
+      // "raqam allaqachon mavjud" xatosi chiqadi.
+      if (createdCustomer) {
+        keepCountsRef.current = true;
+        setSelected(createdCustomer);
+        setMode("existing");
+        setSubmitError(
+          `Mijoz "${createdCustomer.name}" qo'shildi, lekin zakaz yaratilmadi: ${apiErrorMessage(err)}. Qayta urinib ko'ring.`,
+        );
+      } else {
+        setSubmitError(apiErrorMessage(err));
+      }
+    }
   };
 
   // "+ Yangi joy" — mijozga qo'shimcha manzil qo'shib, darrov tanlaymiz
@@ -333,7 +375,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={label15}>Telefon</label>
-                  <PhoneInput value={newPhone} onChange={setNewPhone} className={bigInput} />
+                  <PhoneInput value={newPhone} onChange={(v) => { setNewPhone(v); setSubmitError(null); }} className={bigInput} />
                 </div>
                 <div>
                   <label className={label15}>Hudud</label>
@@ -351,17 +393,24 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                 <label className={label15}>Manzil</label>
                 <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="5-kvartal, 23-uy" className={bigInput} />
               </div>
-              <p className="text-[12.5px] text-gray-400">Yangi mijozga barcha taralar "yangi tara" narxida sotiladi. Lokatsiya havolasini keyin mijoz sahifasida qo'shish mumkin.</p>
+              <p className="text-[12.5px] text-gray-400">Mijozning uyida oldindan tara bo'lsa — pastdagi panelda kiriting, ular to'ldirish narxida to'ldiriladi. Lokatsiya havolasini keyin mijoz sahifasida qo'shish mumkin.</p>
             </div>
           )}
 
           {/* ── UYIDA NECHTA TARA BOR? — telefonda so'rab aniqlashtirish ──
-              Daftar noaniq: operator mijozdan so'rab shu yerda tuzatadi.
-              O'zgartirilsa mijoz kartasi ham yangilanadi (zakaz bilan birga). */}
-          {mode === "existing" && selected && (
+              Mavjud mijoz: daftar noaniq — operator so'rab shu yerda tuzatadi
+              (o'zgartirilsa mijoz kartasi ham yangilanadi, zakaz bilan birga).
+              Yangi mijoz (2026-07-18): uyida oldindan tara bo'lsa shu yerda
+              kiritiladi — mijoz shu son bilan yaratiladi va to'ldirish ochiladi. */}
+          {((mode === "existing" && selected) || mode === "new") && (() => {
+            const isNew = mode === "new";
+            const val = isNew ? newOwned : ownedInput;
+            const setVal = isNew ? setNewOwned : setOwnedInput;
+            const highlighted = isNew ? newOwned > 0 : ownedCorrected;
+            return (
             <div className={cn(
               "rounded-[16px] border p-3.5 transition-colors",
-              ownedCorrected
+              highlighted
                 ? "border-amber-300 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-500/10"
                 : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40"
             )}>
@@ -374,31 +423,39 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                     Uyida nechta tara bor?
                   </p>
                   <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">
-                    {ownedCorrected
-                      ? `Tizimda ${savedOwned} ta edi — saqlashda ${ownedInput} taga tuzatiladi`
-                      : "Mijozdan so'rang — noto'g'ri bo'lsa shu yerda tuzating"}
+                    {isNew
+                      ? (newOwned > 0
+                          ? `Mijoz ${newOwned} ta tara bilan yaratiladi — ularni to'ldirish mumkin`
+                          : "Oldindan tarasi bo'lsa kiriting — to'ldirish narxida beriladi")
+                      : ownedCorrected
+                        ? `Tizimda ${savedOwned} ta edi — saqlashda ${ownedInput} taga tuzatiladi`
+                        : "Mijozdan so'rang — noto'g'ri bo'lsa shu yerda tuzating"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-none">
-                  <button type="button" onClick={() => setOwnedInput((c) => Math.max(0, c - 1))}
-                    disabled={ownedInput <= 0}
+                  <button type="button" onClick={() => setVal((c) => Math.max(0, c - 1))}
+                    disabled={val <= 0}
                     className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 flex-none">
                     <Minus className="w-[18px] h-[18px]" />
                   </button>
                   <input
                     inputMode="numeric"
-                    value={ownedInput}
-                    onChange={(e) => setOwnedInput(Math.max(0, parseInt(e.target.value.replace(/\D/g, "")) || 0))}
+                    value={val}
+                    onChange={(e) => {
+                      const n = Math.max(0, parseInt(e.target.value.replace(/\D/g, "")) || 0);
+                      setVal(() => n);
+                    }}
                     className="w-[58px] h-[46px] text-center rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-[22px] font-bold tabular-nums focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
-                  <button type="button" onClick={() => setOwnedInput((c) => c + 1)}
+                  <button type="button" onClick={() => setVal((c) => c + 1)}
                     className="w-[46px] h-[46px] rounded-[13px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all flex-none">
                     <Plus className="w-[18px] h-[18px]" />
                   </button>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ── TARA SONI — TO'LDIRISH + YANGI TARA alohida ──
               Mijozda tara bo'lsa ikkalasi ko'rinadi (operator aniq belgilaydi:
@@ -528,6 +585,19 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
               {formatCurrency(total)}
             </p>
           </div>
+
+          {/* ── XATO PANELI — nima uchun saqlanmagani SABABI bilan ──
+              (toast tez yo'qoladi va sababi ko'rinmasdi — endi formaning
+              o'zida to'liq izoh turadi) */}
+          {submitError && (
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-[14px] border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-none mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold text-red-700 dark:text-red-400">Saqlab bo'lmadi</p>
+                <p className="text-[13px] text-red-600/90 dark:text-red-300/90 mt-0.5 leading-snug">{submitError}</p>
+              </div>
+            </div>
+          )}
 
           {/* ── Tugmalar — mockup'dagidek o'ngда ── */}
           <div className="flex items-center justify-end gap-3 pt-1">

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 // Mijozning qo'shimcha manzili (Uy, Apteka...) — buyurtmaga biriktiriladi
 export interface OrderLocation {
@@ -121,7 +122,7 @@ export function useCreateOrder() {
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Buyurtma yaratildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -142,7 +143,7 @@ export function useUpdateOrderStatus() {
       qc.invalidateQueries({ queryKey: ["finance-summary"] });
       toast.success("Status yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -166,7 +167,7 @@ export function useAdjustOrder() {
       qc.invalidateQueries({ queryKey: ["free-orders"] });
       toast.success("Zakaz tahrirlandi — hamma hisoblar yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || e?.response?.data?.message || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -181,7 +182,7 @@ export function useAssignDriver() {
       qc.invalidateQueries({ queryKey: ["orders", id] });
       toast.success("Haydovchi biriktirildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -196,7 +197,7 @@ export function useUpdateOrder() {
       qc.invalidateQueries({ queryKey: ["orders", id] });
       toast.success("Buyurtma yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -210,6 +211,6 @@ export function useCancelOrder() {
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Buyurtma bekor qilindi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }

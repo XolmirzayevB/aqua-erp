@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 export interface InventoryItem {
   id: string;
@@ -59,7 +60,7 @@ export function useInventoryIntake() {
       qc.invalidateQueries({ queryKey: ["inventory-history"] });
       toast.success("Qabul qilindi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -73,7 +74,7 @@ export function useInventorySetWarehouse() {
       qc.invalidateQueries({ queryKey: ["inventory-history"] });
       toast.success("Ombor soni belgilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -87,7 +88,7 @@ export function useInventoryAdjust() {
       qc.invalidateQueries({ queryKey: ["inventory-history"] });
       toast.success("Tuzatildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -101,6 +102,6 @@ export function useInventoryMove() {
       qc.invalidateQueries({ queryKey: ["inventory-history"] });
       toast.success("O'tkazildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }

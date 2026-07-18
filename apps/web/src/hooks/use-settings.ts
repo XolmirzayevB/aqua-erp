@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 export interface Settings {
   newBottlePrice: number;
@@ -26,6 +27,6 @@ export function useUpdateSettings() {
       qc.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Sozlamalar saqlandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }

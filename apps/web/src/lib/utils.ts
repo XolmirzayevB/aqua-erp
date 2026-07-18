@@ -46,3 +46,16 @@ export function getInitials(name: string) {
     .toUpperCase()
     .slice(0, 2);
 }
+
+// API xatosidan ODAM O'QIYDIGAN xabar ajratish.
+// MUHIM: backend xabari ba'zan matn (string), ba'zan massiv (class-validator).
+// Avval `message?.[0]` ishlatilardi — matnda bu FAQAT BIRINCHI HARFNI olardi
+// ("Bu telefon..." → "B"), shuning uchun operator sababni ko'ra olmasdi.
+export function apiErrorMessage(e: any, fallback = "Xatolik yuz berdi"): string {
+  const m = e?.response?.data?.message;
+  if (Array.isArray(m) && m.length > 0) return String(m[0]);
+  if (typeof m === "string" && m.trim()) return m;
+  if (e?.code === "ERR_NETWORK" || e?.message === "Network Error")
+    return "Internet aloqasi yo'q — qayta urinib ko'ring";
+  return fallback;
+}

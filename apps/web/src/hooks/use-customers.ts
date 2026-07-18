@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 // Mijozning QO'SHIMCHA manzili (Uy, Apteka, Do'kon...) —
 // zakaz yozilganda operator shulardan birini tanlaydi
@@ -118,7 +119,7 @@ export function useCreateCustomer() {
       qc.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Mijoz muvaffaqiyatli qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -132,7 +133,7 @@ export function useUpdateCustomer() {
       qc.invalidateQueries({ queryKey: ["customers", id] });
       toast.success("Mijoz yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -144,7 +145,7 @@ export function useDeleteCustomer() {
       qc.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Mijoz o'chirildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -166,7 +167,7 @@ export function useAddLocation() {
       qc.invalidateQueries({ queryKey: ["customers", customerId] });
       toast.success("Manzil qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -180,7 +181,7 @@ export function useUpdateLocation() {
       qc.invalidateQueries({ queryKey: ["customers", customerId] });
       toast.success("Manzil yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -194,7 +195,7 @@ export function useDeleteLocation() {
       qc.invalidateQueries({ queryKey: ["customers", customerId] });
       toast.success("Manzil o'chirildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -216,6 +217,6 @@ export function useAddPayment() {
       qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       toast.success("To'lov qabul qilindi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 export interface DriverSession {
   id: string;
@@ -74,7 +75,7 @@ export function useCreateDriver() {
       qc.invalidateQueries({ queryKey: ["drivers"] });
       toast.success("Haydovchi qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -86,7 +87,7 @@ export function useToggleDriverActive() {
       qc.invalidateQueries({ queryKey: ["drivers-list"] });
       toast.success("Holat yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -119,7 +120,7 @@ export function useOpenSession(driverId: string) {
       qc.invalidateQueries({ queryKey: ["driver-sessions", driverId] });
       toast.success("Sessiya ochildi — Yaxshi kun!");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -136,7 +137,7 @@ export function useCloseSession(driverId: string) {
       qc.invalidateQueries({ queryKey: ["driver-report"] });
       toast.success("Kun yopildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 

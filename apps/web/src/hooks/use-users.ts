@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/utils";
 
 export interface User {
   id: string;
@@ -38,7 +39,7 @@ export function useCreateUser() {
       qc.invalidateQueries({ queryKey: ["user-stats"] });
       toast.success("Foydalanuvchi qo'shildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -52,7 +53,7 @@ export function useUpdateUser() {
       qc.invalidateQueries({ queryKey: ["user-stats"] });
       toast.success("Yangilandi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -64,7 +65,7 @@ export function useDeleteUser() {
       qc.invalidateQueries({ queryKey: ["users"] });
       toast.success("O'chirildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik yuz berdi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -95,7 +96,7 @@ export function useCreateBackup() {
       qc.invalidateQueries({ queryKey: ["backups"] });
       toast.success("Backup yaratildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Backup xatosi"),
+    onError: (e: any) => toast.error(apiErrorMessage(e, "Backup xatosi")),
   });
 }
 
@@ -103,7 +104,7 @@ export function useRestoreBackup() {
   return useMutation({
     mutationFn: (filename: string) => api.post(`/backup/restore/${filename}`).then((r) => r.data.data),
     onSuccess: () => toast.success("Backup tiklandi"),
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Tiklashda xatolik"),
+    onError: (e: any) => toast.error(apiErrorMessage(e, "Tiklashda xatolik")),
   });
 }
 
@@ -115,6 +116,6 @@ export function useDeleteBackup() {
       qc.invalidateQueries({ queryKey: ["backups"] });
       toast.success("Backup o'chirildi");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message?.[0] || "Xatolik"),
+    onError: (e: any) => toast.error(apiErrorMessage(e, "Xatolik")),
   });
 }

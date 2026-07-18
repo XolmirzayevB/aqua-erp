@@ -53,7 +53,14 @@ export class CustomersService {
     const existing = await this.prisma.customer.findFirst({
       where: { phone: dto.phone },
     });
-    if (existing) throw new ConflictException("Bu telefon raqam allaqachon mavjud");
+    // Kim ekanini aytamiz — operator "Mavjud mijoz"dan qidirib topsin
+    if (existing) {
+      throw new ConflictException(
+        existing.isActive
+          ? `Bu raqam allaqachon "${existing.name}" mijoziga yozilgan${existing.zone ? ` (${existing.zone} hudud)` : ""} — yangi mijoz yaratish shart emas, "Mavjud mijoz"dan qidiring`
+          : `Bu raqam arxivlangan (o'chirilgan) mijoz "${existing.name}"da yozilgan — boshqa raqam kiriting yoki adminga ayting`,
+      );
+    }
 
     const geo = dto.lat == null ? await this.geoFromLink(dto.locationLink) : {};
 
@@ -271,7 +278,11 @@ export class CustomersService {
       const conflict = await this.prisma.customer.findFirst({
         where: { phone: dto.phone, NOT: { id } },
       });
-      if (conflict) throw new ConflictException("Bu telefon raqam boshqa mijozda mavjud");
+      if (conflict) {
+        throw new ConflictException(
+          `Bu raqam boshqa mijozga — "${conflict.name}"${conflict.zone ? ` (${conflict.zone} hudud)` : ""} — yozilgan, shu raqamda ikkita mijoz bo'lmaydi`,
+        );
+      }
     }
     // Lokatsiya linki o'zgargan bo'lsa — koordinatani qayta ajratamiz
     const geo = dto.locationLink && dto.lat == null ? await this.geoFromLink(dto.locationLink) : {};
