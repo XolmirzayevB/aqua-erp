@@ -59,6 +59,18 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto, user.sub, user.role);
   }
 
+  // Klik (karta) to'lovini tasdiqlash — operator Click hisobida pulni ko'rib
+  // bosadi; INCOME (moliya kirimi) shu yerda yoziladi. FAQAT operator va admin.
+  @Patch(":id/confirm-card")
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Klik (karta) to'lovini tasdiqlash" })
+  confirmCardPayment(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("sub") userId: string,
+  ) {
+    return this.ordersService.confirmCardPayment(id, userId);
+  }
+
   // Yopilgan zakazni 24 soat ichida tuzatish — FAQAT operator va admin
   @Patch(":id/adjust")
   @Roles(Role.ADMIN, Role.OPERATOR)

@@ -21,7 +21,8 @@ interface Props {
 
 const OPTIONS = [
   { value: "CASH", label: "Naqd", desc: "Pul qo'lda olindi", icon: Banknote, active: "border-green-500 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" },
-  { value: "CARD", label: "Karta / Click", desc: "Kartaga o'tkazildi", icon: CreditCard, active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+  // Klik: pul moliyaga OPERATOR TASDIQLAGACH tushadi (2 kunda tasdiqlanmasa nasiya)
+  { value: "CARD", label: "Karta / Click", desc: "Operator tasdiqlagach hisobga tushadi", icon: CreditCard, active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
   { value: "DEBT", label: "Nasiya", desc: "Qarzga yozildi", icon: NotebookPen, active: "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" },
   // Imtiyozli zakaz (prokuratura kabi) — pul olinmaydi, moliyaga hech narsa yozilmaydi
   { value: "FREE", label: "Bepul (imtiyoz)", desc: "Pul olinmaydi", icon: Gift, active: "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400" },

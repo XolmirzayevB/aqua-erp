@@ -41,6 +41,13 @@ export class QueryOrdersDto {
   @IsBoolean()
   overdue?: boolean;
 
+  // Klik tasdiqlash ro'yxati: yetkazilgan + Karta (Click) + tasdiqlanmagan
+  @ApiPropertyOptional({ description: "Faqat Klik to'lovi tasdiqlanmagan zakazlar" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  cardPending?: boolean;
+
   @ApiPropertyOptional({ example: "2025-01-01" })
   @IsOptional()
   @IsDateString()

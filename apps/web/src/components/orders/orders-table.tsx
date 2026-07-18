@@ -5,9 +5,9 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
-  CalendarDays, X, MapPin, Clock, PencilLine, Wallet,
+  CalendarDays, X, MapPin, Clock, PencilLine, Wallet, CreditCard,
 } from "lucide-react";
-import { useOrders, useCancelOrder, Order } from "@/hooks/use-orders";
+import { useOrders, useCancelOrder, useConfirmCardPayment, isCardPending, cardTimeLeftLabel, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
 import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
@@ -98,14 +98,19 @@ export function OrdersTable() {
   // "QOLIB KETGAN" — maxsus rejim: avvalgi kunlardan ochiq qolgan zakazlar,
   // eng ko'p kechikkani birinchi (backend overdue filtri)
   const isOverdueView = status === "OVERDUE";
+  // "KLIK TASDIQLASH" — maxsus rejim: yetkazilgan, Karta (Click), tasdiqlanmagan.
+  // Muddati (48h) tugashiga oz qolgani birinchi turadi.
+  const isCardPendingView = status === "CARD_PENDING";
+  const specialView = isOverdueView || isCardPendingView;
 
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
-    status: isOverdueView ? undefined : status || undefined,
+    status: specialView ? undefined : status || undefined,
     overdue: isOverdueView || undefined,
+    cardPending: isCardPendingView || undefined,
     zone: zone || undefined,
-    dateFrom: !isOverdueView && day ? day : undefined,
-    dateTo: !isOverdueView && day ? day : undefined,
+    dateFrom: !specialView && day ? day : undefined,
+    dateTo: !specialView && day ? day : undefined,
     page,
     limit: 20,
   });
@@ -113,8 +118,21 @@ export function OrdersTable() {
   // Banner/tab uchun doimiy hisob — nechta zakaz qolib ketgan
   const { data: overdueMeta } = useOrders({ overdue: true, limit: 1 });
   const overdueCount = overdueMeta?.meta?.total ?? 0;
+  // Klik tasdiqlanmaganlar soni — tab/banner uchun (haydovchiga kerak emas)
+  const { data: cardPendingMeta } = useOrders({ cardPending: true, limit: 1 });
+  const cardPendingCount = cardPendingMeta?.meta?.total ?? 0;
 
   const cancelOrder = useCancelOrder();
+  const confirmCard = useConfirmCardPayment();
+
+  // Klik tasdiqlash — pul Click hisobiga kelganini operator KO'RIB bosadi
+  const handleConfirmCard = async (order: Order) => {
+    if (!confirm(
+      `#${order.seq} — ${order.customer.name}\n${formatCurrency(order.totalAmount)} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
+    )) return;
+    await confirmCard.mutateAsync(order.id);
+    setOpenMenu(null);
+  };
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -185,7 +203,7 @@ export function OrdersTable() {
     <div>
       <PageHeader
         title="Buyurtmalar"
-        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${isOverdueView ? "Qolib ketgan" : filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
+        subtitle={meta ? `${meta.total} ta buyurtma${status ? ` · ${isOverdueView ? "Qolib ketgan" : isCardPendingView ? "Klik tasdiqlash kutilmoqda" : filters.find((f) => f.value === status)?.label}` : ""}` : "Yuklanmoqda..."}
       >
         {/* Xarajat — operator/admin (haydovchi o'z panelida kiritadi) */}
         {canCreateOrder && (
@@ -222,6 +240,28 @@ export function OrdersTable() {
             </span>
           </span>
           <ChevronRight className="w-4 h-4 text-red-400 flex-none" />
+        </button>
+      )}
+
+      {/* 💳 KLIK TASDIQLASH banneri — tasdiqlanmagan Klik zakazlari bor bo'lsa.
+          2 kun ichida tasdiqlanmasa avto-nasiyaga o'tadi — operator unutmasin. */}
+      {!isDriver && cardPendingCount > 0 && !isCardPendingView && (
+        <button
+          onClick={() => { setStatus("CARD_PENDING"); setDay(""); setPage(1); }}
+          className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-2xl border-2 border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/30 text-left hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
+        >
+          <span className="w-9 h-9 rounded-[11px] bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center flex-none">
+            <CreditCard className="w-[18px] h-[18px] text-sky-600 dark:text-sky-400" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-bold text-sky-700 dark:text-sky-400">
+              {cardPendingCount} ta zakazning Klik to'lovi tasdiqlanmagan
+            </span>
+            <span className="block text-[12.5px] text-sky-600/80 dark:text-sky-400/70 mt-0.5">
+              Click hisobida pulni ko'rib tasdiqlang — 2 kunda tasdiqlanmasa nasiyaga o'tadi
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-sky-400 flex-none" />
         </button>
       )}
 
@@ -275,6 +315,10 @@ export function OrdersTable() {
             // Qolib ketganlar tabi — faqat bor bo'lsa ko'rinadi
             ...(!isDriver && (overdueCount > 0 || isOverdueView)
               ? [{ value: "OVERDUE", label: "⏰ Qolib ketgan", count: overdueCount }]
+              : []),
+            // Klik tasdiqlash tabi — tasdiqlanmagan Klik zakazlari bor bo'lsa
+            ...(!isDriver && (cardPendingCount > 0 || isCardPendingView)
+              ? [{ value: "CARD_PENDING", label: "💳 Klik tasdiqlash", count: cardPendingCount }]
               : []),
           ]}
           value={status}
@@ -345,6 +389,12 @@ export function OrdersTable() {
                         <PencilLine className="w-3 h-3" /> Tahrirlangan
                       </span>
                     )}
+                    {isCardPending(order) && (
+                      <span title="Klik to'lovi hali tasdiqlanmagan"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 dark:bg-sky-500/10 text-[11px] font-semibold text-sky-700 dark:text-sky-400">
+                        <CreditCard className="w-3 h-3" /> Klik kutilmoqda
+                      </span>
+                    )}
                     <StatusBadge status={order.status} />
                   </span>
                 </div>
@@ -385,6 +435,12 @@ export function OrdersTable() {
                         ⏰ {lateLabel(order.createdAt)} kechikdi
                       </span>
                     )}
+                  {/* Klik tasdiqlanmagan — nasiyaga o'tishga qancha qoldi */}
+                  {isCardPending(order) && (
+                    <span className="block mt-1 text-[11.5px] font-bold text-sky-600 dark:text-sky-400">
+                      💳 Klik: {cardTimeLeftLabel(order.deliveredAt)}
+                    </span>
+                  )}
                 </Link>
 
                 {/* 3-qator: tara/summa + asosiy tugma */}
@@ -412,6 +468,17 @@ export function OrdersTable() {
                       >
                         <CheckCircle className="w-4 h-4" />
                         Yetkazildi
+                      </button>
+                    )}
+                    {/* Klik tasdiqlash — operator Click hisobida pulni ko'rib bosadi */}
+                    {isCardPending(order) && canManageOrders && (
+                      <button
+                        onClick={() => handleConfirmCard(order)}
+                        disabled={confirmCard.isPending}
+                        className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[9px] bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-[13px] font-semibold transition-colors"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        Klik tasdiqlash
                       </button>
                     )}
                     {/* Haydovchi tayinlash/ALMASHTIRISH — yetkazilmagan har qanday zakazda */}
@@ -562,9 +629,22 @@ export function OrdersTable() {
                     {/* To'lov — ochiq zakazda hali tanlanmagan (haydovchi yetkazganda belgilaydi) */}
                     <td className="px-4 py-3">
                       {order.paymentType ? (
-                        <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
-                          {PAYMENT_TYPE_LABELS[order.paymentType]}
-                        </Pill>
+                        <>
+                          <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
+                            {PAYMENT_TYPE_LABELS[order.paymentType]}
+                          </Pill>
+                          {/* Klik holati: kutilmoqda (muddat bilan) yoki tasdiqlangan */}
+                          {isCardPending(order) && (
+                            <span className="block mt-1 text-[10.5px] font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                              💳 {cardTimeLeftLabel(order.deliveredAt)}
+                            </span>
+                          )}
+                          {order.paymentType === "CARD" && order.cardConfirmedAt && (
+                            <span className="block mt-1 text-[10.5px] font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
+                              ✓ Klik tasdiqlangan
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}
@@ -627,6 +707,17 @@ export function OrdersTable() {
                             Yetkazildi
                           </button>
                         )}
+                        {/* Klik tasdiqlash — operator Click hisobida pulni ko'rib bosadi */}
+                        {isCardPending(order) && canManageOrders && (
+                          <button
+                            onClick={() => handleConfirmCard(order)}
+                            disabled={confirmCard.isPending}
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-[9px] bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            Klik tasdiqlash
+                          </button>
+                        )}
                         <div className="relative">
                           <button
                             onClick={() => setOpenMenu(openMenu === order.id ? null : order.id)}
@@ -652,6 +743,16 @@ export function OrdersTable() {
                                 >
                                   <CheckCircle className="w-3.5 h-3.5" />
                                   Yetkazildi
+                                </button>
+                              )}
+                              {/* Klik tasdiqlash — menyudan ham */}
+                              {isCardPending(order) && canManageOrders && (
+                                <button
+                                  onClick={() => handleConfirmCard(order)}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  Klik tasdiqlash
                                 </button>
                               )}
                               {/* Yopilgan zakazni tuzatish — mijoz sonini o'zgartirsa (24h) */}

@@ -8,7 +8,7 @@ import {
   Truck, CheckCircle, XCircle, Clock, User,
   ChevronRight, Banknote, CreditCard, FileText, Navigation, PencilLine,
 } from "lucide-react";
-import { useOrder, useUpdateOrderStatus, useAssignDriver } from "@/hooks/use-orders";
+import { useOrder, useUpdateOrderStatus, useAssignDriver, useConfirmCardPayment, isCardPending, cardTimeLeftLabel } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { DeliverModal } from "./deliver-modal";
 import { AdjustOrderModal } from "./adjust-order-modal";
@@ -43,6 +43,7 @@ export function OrderDetail({ id }: Props) {
   const { canManageOrders, canDeliver, canCollectDebt, isDriver } = usePermissions();
   const { data: order, isLoading } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
+  const confirmCard = useConfirmCardPayment();
   const router = useRouter();
 
   // Qayerdan kelgan bo'lsa — orqaga o'sha yerga qaytamiz (?from=route → marshrut)
@@ -100,6 +101,14 @@ export function OrderDetail({ id }: Props) {
   const handleCancel = async () => {
     if (!confirm("Buyurtmani bekor qilmoqchimisiz?")) return;
     await updateStatus.mutateAsync({ id, status: "CANCELLED" });
+  };
+
+  // Klik tasdiqlash — operator Click hisobida pulni KO'RIB bosadi
+  const handleConfirmCard = async () => {
+    if (!confirm(
+      `#${order.seq} — ${order.customer.name}\n${formatCurrency(order.totalAmount)} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
+    )) return;
+    await confirmCard.mutateAsync(id);
   };
 
   return (
@@ -167,6 +176,41 @@ export function OrderDetail({ id }: Props) {
           )}
         </div>
       </div>
+
+      {/* 💳 KLIK TASDIQLANMAGAN — muddat bilan ogohlantirish + tasdiqlash tugmasi */}
+      {isCardPending(order) && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 border-2 border-sky-200 dark:border-sky-500/30">
+          <CreditCard className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-none" />
+          <div className="flex-1 min-w-[180px]">
+            <p className="text-[13.5px] font-bold text-sky-700 dark:text-sky-400">
+              Klik to'lovi hali tasdiqlanmagan · {cardTimeLeftLabel(order.deliveredAt)}
+            </p>
+            <p className="text-[12.5px] text-sky-600/80 dark:text-sky-400/70 mt-0.5">
+              Click hisobida {formatCurrency(order.totalAmount)} kelganini ko'rib tasdiqlang — 2 kunda tasdiqlanmasa zakaz nasiyaga o'tadi
+            </p>
+          </div>
+          {canManageOrders && (
+            <button
+              onClick={handleConfirmCard}
+              disabled={confirmCard.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+            >
+              <CreditCard className="w-4 h-4" />
+              Klik tasdiqlash
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ✓ Klik tasdiqlangan belgisi */}
+      {order.paymentType === "CARD" && order.cardConfirmedAt && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30">
+          <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400 flex-none" />
+          <p className="text-[13px] font-medium text-green-700 dark:text-green-400">
+            Klik to'lovi TASDIQLANGAN · {formatDate(order.cardConfirmedAt, "dd.MM HH:mm")} — kirim moliyaga yozilgan
+          </p>
+        </div>
+      )}
 
       {/* Tahrirlangan belgisi — kim va qachon tuzatgani ko'rinib turadi */}
       {order.editedAt && (

@@ -187,6 +187,12 @@ model Order {
   // ro'yxatda "Tahrirlangan" belgisi bilan ko'rinadi
   editedAt         DateTime?   @map("edited_at") @db.Timestamptz
   editedById       String?     @map("edited_by_id")
+  // KLIK (karta) TASDIQLASH (2026-07-18, egasi so'rovi): haydovchi "Karta (Click)"
+  // bilan yopganda pul DARROV moliyaga tushmaydi — operator Click hisobida pulni
+  // ko'rib "Klik tasdiqlash"ni bosadi, INCOME shunda yoziladi. 2 kun (48 soat)
+  // ichida tasdiqlanmasa zakaz avtomatik NASIYAGA o'tadi (mijoz qarzdor bo'ladi).
+  cardConfirmedAt   DateTime?  @map("card_confirmed_at") @db.Timestamptz
+  cardConfirmedById String?    @map("card_confirmed_by_id")
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 

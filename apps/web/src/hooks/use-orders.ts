@@ -41,9 +41,28 @@ export interface Order {
   // Yopilgandan keyin tahrirlangan zakazlar (belgisi bilan ko'rinadi)
   editedAt?: string | null;
   editedBy?: { id: string; name: string } | null;
+  // Klik (karta) tasdiqlash: null = tasdiqlanmagan (operator kutilyapti).
+  // Yetkazilgan CARD zakaz 48 soatda tasdiqlanmasa avto-nasiyaga o'tadi.
+  cardConfirmedAt?: string | null;
   customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
+}
+
+// KLIK TASDIQLASH (2026-07-18): yetkazilgan + Karta (Click) + hali tasdiqlanmagan
+export function isCardPending(o: Order): boolean {
+  return o.status === "DELIVERED" && o.paymentType === "CARD" && !o.cardConfirmedAt;
+}
+
+// Nasiyaga o'tishga qancha qoldi (yetkazilgandan 48 soat): "1 kun 3 soat qoldi"
+export function cardTimeLeftLabel(deliveredAt?: string): string {
+  if (!deliveredAt) return "";
+  const left = new Date(deliveredAt).getTime() + 48 * 3600000 - Date.now();
+  if (left <= 0) return "muddat tugadi — nasiyaga o'tadi";
+  const days = Math.floor(left / 86400000);
+  const hours = Math.floor((left % 86400000) / 3600000);
+  if (days > 0) return `${days} kun${hours > 0 ? ` ${hours} soat` : ""} qoldi`;
+  return `${Math.max(1, hours)} soat qoldi`;
 }
 
 // Haydovchining kunlik buyurtmalari (marshrut xaritasi uchun, lat/lng bilan)
@@ -72,6 +91,8 @@ export interface OrderQueryParams {
   dateTo?: string;
   // Qolib ketgan (kechikkan) ochiq zakazlar — eng eskisi birinchi
   overdue?: boolean;
+  // Klik to'lovi tasdiqlanmagan yetkazilgan zakazlar — eng eskisi birinchi
+  cardPending?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -166,6 +187,26 @@ export function useAdjustOrder() {
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["free-orders"] });
       toast.success("Zakaz tahrirlandi — hamma hisoblar yangilandi");
+    },
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
+  });
+}
+
+// Klik (karta) to'lovini tasdiqlash — operator Click hisobida pulni ko'rib
+// bosadi. INCOME shu paytda yoziladi — moliya/dashboard/hisobotlar yangilanadi.
+export function useConfirmCardPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.patch(`/orders/${id}/confirm-card`).then((r) => r.data.data),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["orders", id] });
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["finance-summary"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success("Klik to'lovi tasdiqlandi — kirim moliyaga yozildi");
     },
     onError: (e: any) => toast.error(apiErrorMessage(e)),
   });

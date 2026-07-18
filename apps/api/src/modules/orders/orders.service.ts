@@ -1,5 +1,6 @@
 import {
   Injectable, NotFoundException, BadRequestException, ForbiddenException,
+  Logger, OnModuleInit,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsGateway } from "../notifications/notifications.gateway";
@@ -24,14 +25,29 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   CANCELLED:  [],
 };
 
+// Klik (karta) to'lovi shu muddat ichida tasdiqlanmasa zakaz NASIYAGA o'tadi
+const CARD_CONFIRM_HOURS = 48;
+
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsGateway,
     private push: PushService,
     private settings: SettingsService,
   ) {}
+
+  // Muddati o'tgan Klik zakazlarini muntazam tekshirib nasiyaga o'tkazamiz:
+  // ishga tushganda bir marta + har 30 daqiqada (server bitta nusxada ishlaydi,
+  // @nestjs/schedule keraksiz — oddiy interval yetarli va qo'shimcha paketsiz).
+  onModuleInit() {
+    setTimeout(() => this.convertExpiredCardOrders().catch((e) =>
+      this.logger.error(`Klik avto-nasiya (boshlang'ich) xatosi: ${e?.message}`)), 15_000);
+    setInterval(() => this.convertExpiredCardOrders().catch((e) =>
+      this.logger.error(`Klik avto-nasiya xatosi: ${e?.message}`)), 30 * 60 * 1000);
+  }
 
   async create(dto: CreateOrderDto, userId: string) {
     // Verify customer exists
@@ -206,7 +222,7 @@ export class OrdersService {
   async findAll(query: QueryOrdersDto) {
     const {
       search, status, driverId, customerId, paymentType, zone,
-      dateFrom, dateTo, page = 1, limit = 20, overdue,
+      dateFrom, dateTo, page = 1, limit = 20, overdue, cardPending,
     } = query;
     let { sortBy = "createdAt", sortOrder = "desc" } = query;
 
@@ -217,6 +233,17 @@ export class OrdersService {
       sortBy = "createdAt";
       sortOrder = "asc";
     }
+    // KLIK TASDIQLASH ro'yxati: yetkazilgan, Karta (Click), hali tasdiqlanmagan.
+    // Eng eskisi birinchi — muddati (48h) tugashiga oz qolganlar tepada.
+    if (cardPending) {
+      sortBy = "deliveredAt";
+      sortOrder = "asc";
+      // Qo'shimcha himoya: ro'yxat ochilganda muddati o'tganlar DARROV
+      // nasiyaga o'tkaziladi (intervalga qaramasdan) — operator har doim
+      // to'g'ri holatni ko'radi.
+      await this.convertExpiredCardOrders().catch((e) =>
+        this.logger.error(`Klik avto-nasiya (ro'yxat) xatosi: ${e?.message}`));
+    }
 
     const where: Prisma.OrderWhereInput = {
       ...(overdue
@@ -225,7 +252,14 @@ export class OrdersService {
             createdAt: { lt: todayStart },
           }
         : {}),
-      ...(status && !overdue ? { status: status as OrderStatus } : {}),
+      ...(cardPending
+        ? {
+            status: "DELIVERED" as OrderStatus,
+            paymentType: "CARD" as any,
+            cardConfirmedAt: null,
+          }
+        : {}),
+      ...(status && !overdue && !cardPending ? { status: status as OrderStatus } : {}),
       ...(driverId ? { driverId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(paymentType ? { paymentType: paymentType as any } : {}),
@@ -360,16 +394,16 @@ export class OrdersService {
       });
 
       // TUSHUM YETKAZILGANDA yoziladi (2026-07-14): haydovchi yetkazib,
-      // naqd/karta pulini olganда moliyaga kirim tushadi. Yaratilganda EMAS.
+      // NAQD pulini olganда moliyaga kirim tushadi. Yaratilganda EMAS.
+      // - CARD (Klik, 2026-07-18): INCOME BU YERDA YOZILMAYDI — operator Click
+      //   hisobida pulni ko'rib TASDIQLAGANDA yoziladi (confirmCardPayment).
+      //   48 soatda tasdiqlanmasa avto-NASIYA (convertExpiredCardOrders).
       // - DEBT: INCOME yozilMAYDI — pul mijoz qarzini to'laganda keladi
       //   (customers.addPayment "Qarz to'lovi"). Ikki marta hisoblanmasin.
       // - FREE (imtiyozli/bepul): INCOME ham, qarz ham YOZILMAYDI — pul yo'q.
       // - Idempotent: eski (o'tish davri) buyurtmalarda kirim yaratishда
       //   yozilgan bo'lishi mumkin — bor bo'lsa qayta yozilmaydi.
-      if (
-        dto.status === "DELIVERED" &&
-        effectivePayment && effectivePayment !== "DEBT" && effectivePayment !== "FREE"
-      ) {
+      if (dto.status === "DELIVERED" && effectivePayment === "CASH") {
         const existing = await tx.transaction.findFirst({
           where: { orderId: id, type: "INCOME" },
           select: { id: true },
@@ -379,7 +413,7 @@ export class OrdersService {
             data: {
               type: "INCOME",
               amount: order.totalAmount,
-              paymentMethod: effectivePayment === "CASH" ? "CASH" : "CARD",
+              paymentMethod: "CASH",
               category: "Suv sotuvi",
               description: `${result.customer.name} — buyurtma #${result.seq} yetkazildi`,
               orderId: id,
@@ -423,6 +457,125 @@ export class OrdersService {
     }
 
     return updated;
+  }
+
+  // ── KLIK (KARTA) TASDIQLASH (2026-07-18, egasi so'rovi) ────────────────────
+  // Haydovchi "Karta (Click)" bilan yopadi, lekin pul kelgan-kelmagani noma'lum.
+  // Operator Click hisobida pulni KO'RIB shu metod bilan tasdiqlaydi — INCOME
+  // (moliya kirimi) FAQAT SHU YERDA yoziladi, shunda barcha hisobotlarga tushadi.
+  async confirmCardPayment(id: string, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { customer: { select: { id: true, name: true } } },
+    });
+    if (!order) throw new NotFoundException("Buyurtma topilmadi");
+    if (order.status !== "DELIVERED") {
+      throw new BadRequestException("Faqat yetkazilgan zakaz tasdiqlanadi");
+    }
+    if (order.paymentType !== "CARD") {
+      throw new BadRequestException(
+        order.paymentType === "DEBT"
+          ? "Bu zakaz nasiyaga o'tgan — pul kelgan bo'lsa \"Qarz to'lovi\" (karta) orqali qabul qiling"
+          : "Bu zakaz Klik (karta) bilan yopilmagan",
+      );
+    }
+    if (order.cardConfirmedAt) {
+      throw new BadRequestException("Bu zakazning Klik to'lovi allaqachon tasdiqlangan");
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.update({
+        where: { id },
+        data: { cardConfirmedAt: new Date(), cardConfirmedById: userId },
+        include: {
+          customer: { select: { id: true, name: true } },
+          driver: { select: { id: true, name: true } },
+        },
+      });
+      // Idempotent: shu zakazga kirim allaqachon bo'lsa qayta yozilmaydi
+      // (masalan eski oqim zakazi yoki ikki marta bosilgan holat)
+      const existing = await tx.transaction.findFirst({
+        where: { orderId: id, type: "INCOME" },
+        select: { id: true },
+      });
+      if (!existing) {
+        await tx.transaction.create({
+          data: {
+            type: "INCOME",
+            amount: order.totalAmount,
+            paymentMethod: "CARD",
+            category: "Suv sotuvi",
+            description: `${order.customer.name} — buyurtma #${order.seq} (Klik tasdiqlandi)`,
+            orderId: id,
+            customerId: order.customerId,
+            createdById: userId,
+          },
+        });
+      }
+      return result;
+    });
+
+    // Ochiq sahifalar (moliya/dashboard) real vaqtda yangilansin
+    this.notifications.emitToAll("order_status_changed", {
+      orderId: id,
+      orderNumber: order.orderNumber,
+      newStatus: "DELIVERED",
+      customerName: updated.customer.name,
+    });
+
+    return updated;
+  }
+
+  // 48 soat ichida tasdiqlanmagan Klik zakazlari avtomatik NASIYAGA o'tadi:
+  // zakaz paymentType=DEBT bo'ladi, summa mijoz qarziga yoziladi (balance -),
+  // izohga belgi qo'shiladi. Pul keyin kelsa — "Qarz to'lovi" orqali qabul
+  // qilinadi (INCOME o'shanda yoziladi). Interval onModuleInit'da.
+  async convertExpiredCardOrders() {
+    const cutoff = new Date(Date.now() - CARD_CONFIRM_HOURS * 3600 * 1000);
+    const expired = await this.prisma.order.findMany({
+      where: {
+        paymentType: "CARD",
+        status: "DELIVERED",
+        cardConfirmedAt: null,
+        deliveredAt: { lt: cutoff },
+      },
+      include: { customer: { select: { id: true, name: true } } },
+    });
+
+    for (const order of expired) {
+      await this.prisma.$transaction(async (tx) => {
+        // Poyga himoyasi: shu orada tasdiqlangan bo'lsa — tegmaymiz
+        const fresh = await tx.order.findUnique({
+          where: { id: order.id },
+          select: { paymentType: true, cardConfirmedAt: true },
+        });
+        if (!fresh || fresh.paymentType !== "CARD" || fresh.cardConfirmedAt) return;
+
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            paymentType: "DEBT",
+            notes: [order.notes, `⏰ Klik ${CARD_CONFIRM_HOURS / 24} kun ichida tasdiqlanmadi — nasiyaga o'tkazildi (avto)`]
+              .filter(Boolean).join(" · "),
+          },
+        });
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: { balance: { decrement: order.totalAmount } },
+        });
+      });
+      this.logger.warn(
+        `Buyurtma #${order.seq} (${order.customer.name}): Klik tasdiqlanmadi — nasiyaga o'tkazildi (${order.totalAmount} so'm)`,
+      );
+      // Operatorlarga real-time xabar — ro'yxatlar yangilanadi
+      this.notifications.emitToAll("order_status_changed", {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        newStatus: "DELIVERED",
+        customerName: order.customer.name,
+      });
+    }
+    return { converted: expired.length };
   }
 
   async assignDriver(id: string, dto: AssignDriverDto) {
@@ -595,7 +748,10 @@ export class OrdersService {
       }
 
       // 4) Moliya — to'lov turiga qarab
-      if (order.paymentType === "CASH" || order.paymentType === "CARD") {
+      // CARD hali TASDIQLANMAGAN bo'lsa: kirim YO'Q va yozilmaydi ham —
+      // tasdiqlanganda (confirmCardPayment) YANGI summa bilan yoziladi.
+      const cardUnconfirmed = order.paymentType === "CARD" && !order.cardConfirmedAt;
+      if ((order.paymentType === "CASH" || order.paymentType === "CARD") && !cardUnconfirmed) {
         // Kirim summasi yangi haqiqatga tenglashtiriladi
         const inc = await tx.transaction.findFirst({
           where: { orderId: id, type: "INCOME" },
