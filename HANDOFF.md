@@ -171,6 +171,7 @@ COPYFILE_DISABLE=1 tar --no-mac-metadata -C /Users/behruz/aqua-erp -czf - \
   --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.turbo' \
   --exclude='.git' --exclude='backups' --exclude='.DS_Store' \
   --exclude='packages/database/src/generated' \
+  --exclude='android' --exclude='graphify-out' \
   --exclude='.env' --exclude='.env.production' \
   . | ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 root@116.203.220.83 "tar xzf - -C /opt/aqua-erp && echo OK && du -sh /opt/aqua-erp"
 # du ~3-4M chiqishi kerak. Agar yuzlab MB/GB bo'lsa — uy papkasi ketgan, TO'XTATING.
@@ -205,7 +206,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
-⏳ **APK QAYTA BUILD — YANGI NOM (2026-07-19 kech, DEPLOY KUTILMOQDA):**
+✅ **APK QAYTA BUILD — YANGI NOM (2026-07-19, DEPLOY QILINDI va TASDIQLANDI):**
 - **Nima qilindi:** APK "Gissar Water19l" nomi bilan qayta qurildi (rebrend qoldig'i):
   twa-manifest.json → name "Gissar Water19l", launcherName "Gissar Water" (PWA
   short_name bilan bir xil), themeColor #B93B3B (brend qizil), v1.1.0 / versionCode 2.
@@ -217,12 +218,15 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   `versionName ""` qilib qo'yadi (bo'sh!) — update'dan keyin HAR SAFAR tekshiring:
   `sed -i '' 's/versionName ""/versionName "1.1.0"/' app/build.gradle` keyin build.
   (android/app/ git'da YO'Q — faqat twa-manifest.json + keystore commit qilinadi.)
-- ⚠️ **DEPLOY QILINMAGAN:** bu sessiyada ruxsat klassifikatori ssh/scp orqali fayl
-  yuborishni bloklagan. Serverga chiqarish uchun ODDIY DEPLOY yetarli (HANDOFF §5
-  tar buyrug'i + rebuild) — o'zgargan fayllar: apps/web/public/aquaerp.apk va
-  apps/web/src/app/manifest.ts. Lokal web build TEKSHIRILGAN (o'tdi). Deploy'dan
-  keyin tekshirish: `curl -sI https://116-203-220-83.nip.io/aquaerp.apk | grep -i
-  content-length` (~1.0M bo'lishi kerak) va manifest.webmanifest'da #B93B3B.
+- ✅ **DEPLOY QILINDI (2026-07-19):** HANDOFF §5 tar + rebuild bilan chiqarildi,
+  prod'da tekshirildi: /aquaerp.apk content-length 1053124 (lokal bilan bir xil),
+  manifest.webmanifest'da "Gissar Water19l" + #B93B3B, login 200, API javob beryapti.
+  Egasiga aytish kerak: telefonlardagi eski ilova USTIGA shu APK'ni o'rnatsa
+  yangi nom/ikon chiqadi (o'chirish shart emas, ma'lumot yo'qolmaydi).
+- ℹ️ Serverda /opt/aqua-erp/android (35M) va graphify-out (3.6M) ortiqcha papkalar
+  qolib ketgan (shu deploy tar'ida ketgan; keyingilarга §5 exclude qo'shildi) —
+  imkon bo'lganda serverда `rm -rf /opt/aqua-erp/android /opt/aqua-erp/graphify-out`
+  bilan tozalash mumkin (majburiy emas).
 
 ✅ **GEO: /maps/search/ FORMATI (2026-07-19, DEPLOY QILINDI):** egasi #41 da
 lokatsiya bor-u xaritada chiqmayotganini ko'rdi. Sabab: maps.app.goo.gl qisqa
