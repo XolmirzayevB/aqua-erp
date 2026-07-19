@@ -23,6 +23,7 @@ export class DashboardService {
       deliveredToday,
       cancelledToday,
       pendingAgg,
+      pendingClickAgg,
       debtors,
       totalCustomers,
       emptyBottleInv,
@@ -40,6 +41,13 @@ export class DashboardService {
       // Tushum endi yetkazilganda yoziladi; bu ko'rsatkich "hali kelmagan pul".
       this.prisma.order.aggregate({
         where: { status: { in: OPEN_STATUSES } },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+      // KUTILAYOTGAN KLIK (snapshot): yetkazilgan, Karta (Click), operator hali
+      // tasdiqlamagan — sanasidan qat'i nazar (12 soatda avto-nasiyaga o'tadi)
+      this.prisma.order.aggregate({
+        where: { status: OrderStatus.DELIVERED, paymentType: "CARD" as any, cardConfirmedAt: null },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
@@ -68,6 +76,9 @@ export class DashboardService {
       // Yo'lda (yetkazilmagan) — soni istalgan kundan bo'lishi mumkin
       pendingCount: pendingAgg._count.id,
       pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
+      // Kutilayotgan Klik — tasdiqlanmagan karta to'lovlari (snapshot)
+      pendingClickCount: pendingClickAgg._count.id,
+      pendingClickAmount: Number(pendingClickAgg._sum.totalAmount ?? 0),
       debtorCount: debtors.length,
       // Balanslar manfiy — qarz miqdori musbat ko'rsatiladi
       totalDebt: Math.abs(debtors.reduce((sum, d) => sum + Number(d.balance), 0)),

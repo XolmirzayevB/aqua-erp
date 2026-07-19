@@ -200,6 +200,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
           // (omborga tegmaydi: ular tizimdan oldin sotilgan)
           bottlesOwned: newOwned > 0 ? newOwned : undefined,
         } as any);
+        if (!createdCustomer) return; // server mijozni qaytarmadi — xato toast ko'rsatilgan
         customerId = createdCustomer.id;
       }
       if (!customerId) return;

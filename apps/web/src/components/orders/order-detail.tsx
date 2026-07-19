@@ -82,12 +82,14 @@ export function OrderDetail({ id }: Props) {
   );
   const canCancel = canManageOrders && CANCEL_ALLOWED.includes(order.status);
   const canAssign = canManageOrders && ["NEW", "PROCESSING", "ASSIGNED"].includes(order.status);
-  // Yopilgan zakazni tahrirlash: operator/admin, yetkazilganidan 24 soat ichida
+  // Tahrirlash: operator/admin. OCHIQ zakaz — istalgan payt (yetkazishdan
+  // oldin, 2026-07-20); YOPILGAN — yetkazilganidan 24 soat ichida.
   const canAdjust =
     canManageOrders &&
-    order.status === "DELIVERED" &&
-    !!order.deliveredAt &&
-    Date.now() - new Date(order.deliveredAt).getTime() <= 24 * 3600 * 1000;
+    (["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) ||
+      (order.status === "DELIVERED" &&
+        !!order.deliveredAt &&
+        Date.now() - new Date(order.deliveredAt).getTime() <= 24 * 3600 * 1000));
 
   const handleAction = async (status: string) => {
     // "Yetkazildi" — avval to'lov turi so'raladi (modal)
@@ -186,7 +188,7 @@ export function OrderDetail({ id }: Props) {
               Klik to'lovi hali tasdiqlanmagan · {cardTimeLeftLabel(order.deliveredAt)}
             </p>
             <p className="text-[12.5px] text-sky-600/80 dark:text-sky-400/70 mt-0.5">
-              Click hisobida {formatCurrency(order.totalAmount)} kelganini ko'rib tasdiqlang — 2 kunda tasdiqlanmasa zakaz nasiyaga o'tadi
+              Click hisobida {formatCurrency(order.totalAmount)} kelganini ko'rib tasdiqlang — 12 soatda tasdiqlanmasa zakaz nasiyaga o'tadi
             </p>
           </div>
           {canManageOrders && (
@@ -217,7 +219,8 @@ export function OrderDetail({ id }: Props) {
         <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
           <PencilLine className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-none" />
           <p className="text-[13px] font-medium text-amber-700 dark:text-amber-400">
-            Bu zakaz yopilgandan keyin TAHRIRLANGAN
+            {/* Ochiq zakaz — yetkazishdan oldin; yopilgan — yopilgandan keyin tuzatilgan */}
+            Bu zakaz {order.status === "DELIVERED" ? "yopilgandan keyin" : "yetkazishdan oldin"} TAHRIRLANGAN
             {order.editedBy?.name ? ` — ${order.editedBy.name}` : ""} · {formatDate(order.editedAt, "dd.MM HH:mm")}
           </p>
         </div>

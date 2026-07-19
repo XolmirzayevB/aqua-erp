@@ -29,7 +29,8 @@ const NAV_GROUPS = [
     title: "Ombor & Moliya",
     items: [
       { href: "/inventory", label: "Ombor", icon: Warehouse, roles: [Role.ADMIN, Role.MANAGER] },
-      { href: "/finance", label: "Moliya", icon: Wallet, roles: [Role.ADMIN, Role.MANAGER] },
+      // Moliya: operator ham ko'radi (2026-07-20, egasi so'rovi) — yozish tugmalari faqat admin
+      { href: "/finance", label: "Moliya", icon: Wallet, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
       // Ishchi pul balansi (2026-07-19): kimda qancha naqd/klik, pul o'tkazish
       { href: "/balances", label: "Ishchi balansi", icon: HandCoins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
       { href: "/debts", label: "Qarzdorlik", icon: Coins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
@@ -38,7 +39,8 @@ const NAV_GROUPS = [
   {
     title: "Hisobot",
     items: [
-      { href: "/reports", label: "Hisobotlar", icon: FileText, roles: [Role.ADMIN, Role.MANAGER] },
+      // Hisobotlar: operator ham ko'radi (2026-07-20, egasi so'rovi)
+      { href: "/reports", label: "Hisobotlar", icon: FileText, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
       { href: "/analytics", label: "Tahlil", icon: BarChart3, roles: [Role.ADMIN, Role.MANAGER] },
     ],
   },

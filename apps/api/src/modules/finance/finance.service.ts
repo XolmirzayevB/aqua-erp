@@ -157,7 +157,7 @@ export class FinanceService {
       default:        from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
     }
 
-    const [transactions, pendingAgg, freeAgg] = await Promise.all([
+    const [transactions, pendingAgg, pendingClickAgg, freeAgg] = await Promise.all([
       this.prisma.transaction.findMany({
         where: { createdAt: { gte: from, lte: to } },
       }),
@@ -165,6 +165,13 @@ export class FinanceService {
       // Tushum yetkazilganda yoziladi; bu — hali kelmagani (sanasidan qat'i nazar).
       this.prisma.order.aggregate({
         where: { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as any } },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+      // KUTILAYOTGAN KLIK (snapshot, sanasidan qat'i nazar): yetkazilgan, Karta
+      // (Click), operator hali tasdiqlamagan — Kirimга KIRMAGAN pul.
+      this.prisma.order.aggregate({
+        where: { status: "DELIVERED" as any, paymentType: "CARD" as any, cardConfirmedAt: null },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
@@ -223,6 +230,9 @@ export class FinanceService {
       // Yo'lda (yetkazilmagan zakazlar) — kutilayotgan pul
       pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
       pendingCount: pendingAgg._count.id,
+      // Kutilayotgan Klik — tasdiqlanmagan karta to'lovlari (Kirimga kirmagan)
+      pendingClickAmount: Number(pendingClickAgg._sum.totalAmount ?? 0),
+      pendingClickCount: pendingClickAgg._count.id,
       // Imtiyozli (bepul) berilganlar — shu davrda
       freeAmount: Number(freeAgg._sum.totalAmount ?? 0),
       freeCount: freeAgg._count.id,

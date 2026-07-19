@@ -51,8 +51,10 @@ const PAYMENT_TONES: Record<string, Tone> = {
   FREE: "violet", // imtiyozli/bepul zakaz
 };
 
-// Yopilgan zakazni tahrirlash muddati ichidami (24 soat)
+// Zakazni tahrirlash mumkinmi: OCHIQ zakaz — istalgan payt (yetkazishdan
+// oldin, 2026-07-20); YOPILGAN — yetkazilganidan 24 soat ichida.
 function withinEditWindow(o: Order): boolean {
+  if (["NEW", "PROCESSING", "ASSIGNED"].includes(o.status)) return true;
   return (
     o.status === "DELIVERED" &&
     !!o.deliveredAt &&
@@ -244,7 +246,7 @@ export function OrdersTable() {
       )}
 
       {/* 💳 KLIK TASDIQLASH banneri — tasdiqlanmagan Klik zakazlari bor bo'lsa.
-          2 kun ichida tasdiqlanmasa avto-nasiyaga o'tadi — operator unutmasin. */}
+          12 soat ichida tasdiqlanmasa avto-nasiyaga o'tadi — operator unutmasin. */}
       {!isDriver && cardPendingCount > 0 && !isCardPendingView && (
         <button
           onClick={() => { setStatus("CARD_PENDING"); setDay(""); setPage(1); }}
@@ -258,7 +260,7 @@ export function OrdersTable() {
               {cardPendingCount} ta zakazning Klik to'lovi tasdiqlanmagan
             </span>
             <span className="block text-[12.5px] text-sky-600/80 dark:text-sky-400/70 mt-0.5">
-              Click hisobida pulni ko'rib tasdiqlang — 2 kunda tasdiqlanmasa nasiyaga o'tadi
+              Click hisobida pulni ko'rib tasdiqlang — 12 soatda tasdiqlanmasa nasiyaga o'tadi
             </span>
           </span>
           <ChevronRight className="w-4 h-4 text-sky-400 flex-none" />

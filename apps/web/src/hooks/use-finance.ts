@@ -30,6 +30,9 @@ export interface FinanceSummary {
   // Yo'ldagi (yetkazilmagan) zakazlar — kutilayotgan pul
   pendingAmount: number;
   pendingCount: number;
+  // Tasdiqlanmagan Klik (karta) to'lovlari — Kirimga hali kirmagan
+  pendingClickAmount: number;
+  pendingClickCount: number;
   // Imtiyozli (bepul) berilganlar — shu davrda
   freeAmount: number;
   freeCount: number;

@@ -1,17 +1,19 @@
 "use client";
 
-// YOPILGAN zakazni TAHRIRLASH modali (2026-07-17, egasi so'rovi).
-// Haydovchi yetkazgach mijoz "4 ta kifoya" / "yana 1 yangi tara" desa —
-// operator/admin 24 soat ichida shu yerdan tuzatadi.
-// Ta'siri HAMMA joyga: ombor, moliya (kirim/qarz), mijoz tarasi, hisobotlar.
+// Zakazni TAHRIRLASH modali — IKKI rejim (statusdan avtomatik aniqlanadi):
+// 1) YOPILGAN (DELIVERED, 2026-07-17): 24 soat ichida tuzatish —
+//    ombor, moliya (kirim/qarz), mijoz tarasi, hisobotlar tuzatiladi.
+// 2) OCHIQ (2026-07-20, egasi so'rovi): yetkazishdan OLDIN tuzatish —
+//    mijoz tarasi/ombor/summa qayta hisoblanadi (moliya hali yozilmagan),
+//    haydovchiga xabar boradi.
 
 import { useState } from "react";
 import { X, Loader2, PencilLine, RefreshCw, Package, Minus, Plus, Check } from "lucide-react";
-import { useAdjustOrder, Order } from "@/hooks/use-orders";
+import { useAdjustOrder, useUpdateOrder, Order } from "@/hooks/use-orders";
 import { formatCurrency, cn } from "@/lib/utils";
 
 interface Props {
-  order: Pick<Order, "id" | "seq" | "refillCount" | "newBottles" | "refillPrice" | "newBottlePrice" | "totalAmount" | "paymentType"> & {
+  order: Pick<Order, "id" | "seq" | "status" | "refillCount" | "newBottles" | "refillPrice" | "newBottlePrice" | "totalAmount" | "paymentType"> & {
     customer: { name: string };
   };
   onClose: () => void;
@@ -22,6 +24,11 @@ export function AdjustOrderModal({ order, onClose }: Props) {
   const [newB, setNewB] = useState(order.newBottles);
   const [reason, setReason] = useState("");
   const adjust = useAdjustOrder();
+  const update = useUpdateOrder();
+
+  // Ochiq zakaz — PATCH /orders/:id (yetkazishdan oldin); yopilgan — /adjust
+  const isOpenOrder = order.status !== "DELIVERED";
+  const saving = isOpenOrder ? update.isPending : adjust.isPending;
 
   const refillPrice = Number(order.refillPrice);
   const newBottlePrice = Number(order.newBottlePrice);
@@ -31,12 +38,14 @@ export function AdjustOrderModal({ order, onClose }: Props) {
 
   const handleSave = async () => {
     if (!canSave) return;
-    await adjust.mutateAsync({
+    const payload = {
       id: order.id,
       refillCount: refill,
       newBottles: newB,
       reason: reason.trim() || undefined,
-    });
+    };
+    if (isOpenOrder) await update.mutateAsync(payload);
+    else await adjust.mutateAsync(payload);
     onClose();
   };
 
@@ -119,17 +128,27 @@ export function AdjustOrderModal({ order, onClose }: Props) {
           </div>
 
           <p className="text-[12px] text-gray-400 leading-relaxed">
-            Saqlashda hammasi avtomatik tuzatiladi: ombor, mijozdagi tara soni,{" "}
-            {order.paymentType === "DEBT" ? "mijoz qarzi" : order.paymentType === "FREE" ? "(bepul — moliyaga ta'sir yo'q)" : "moliya kirimlari"} va hisobotlar.
-            Zakaz "Tahrirlangan" belgisini oladi.
+            {isOpenOrder ? (
+              <>
+                Saqlashda mijozdagi tara soni, ombor va summa avtomatik tuzatiladi
+                (pul hisoblari yetkazilganda yoziladi). Haydovchi biriktirilgan
+                bo&apos;lsa unga xabar boradi. Zakaz &quot;Tahrirlangan&quot; belgisini oladi.
+              </>
+            ) : (
+              <>
+                Saqlashda hammasi avtomatik tuzatiladi: ombor, mijozdagi tara soni,{" "}
+                {order.paymentType === "DEBT" ? "mijoz qarzi" : order.paymentType === "FREE" ? "(bepul — moliyaga ta'sir yo'q)" : "moliya kirimlari"} va hisobotlar.
+                Zakaz &quot;Tahrirlangan&quot; belgisini oladi.
+              </>
+            )}
           </p>
 
           <button
             onClick={handleSave}
-            disabled={!canSave || adjust.isPending}
+            disabled={!canSave || saving}
             className="w-full h-[52px] rounded-[14px] bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-[15.5px] font-bold shadow-glow transition-all flex items-center justify-center gap-2"
           >
-            {adjust.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
             Saqlash
           </button>
         </div>

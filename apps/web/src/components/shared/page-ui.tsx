@@ -43,7 +43,7 @@ export const cardClass =
   "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-panel";
 
 /* ---------- Ton ranglari ---------- */
-export type Tone = "primary" | "violet" | "success" | "warning" | "danger" | "muted";
+export type Tone = "primary" | "violet" | "success" | "warning" | "danger" | "muted" | "sky";
 
 export const TONE_CLASSES: Record<Tone, string> = {
   primary: "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300",
@@ -52,6 +52,8 @@ export const TONE_CLASSES: Record<Tone, string> = {
   warning: "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300",
   danger: "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400",
   muted: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
+  // Klik (karta) tasdiqlash oqimi ranggi — buyurtmalar sahifasidagi sky banner bilan mos
+  sky: "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400",
 };
 
 /* ---------- Stat karta (ikonka chapda, label + qiymat + delta pill) ---------- */

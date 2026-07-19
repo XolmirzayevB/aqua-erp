@@ -93,14 +93,16 @@ export class OrdersController {
     return this.ordersService.assignDriver(id, dto);
   }
 
+  // Ochiq (yetkazilmagan) zakazni tahrirlash — sonlar/izoh; FAQAT operator va admin
   @Patch(":id")
-  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
-  @ApiOperation({ summary: "Buyurtmani tahrirlash" })
+  @Roles(Role.ADMIN, Role.OPERATOR)
+  @ApiOperation({ summary: "Ochiq buyurtmani tahrirlash (yetkazishdan oldin)" })
   update(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderDto,
+    @CurrentUser("sub") userId: string,
   ) {
-    return this.ordersService.update(id, dto);
+    return this.ordersService.update(id, dto, userId);
   }
 
   @Delete(":id")

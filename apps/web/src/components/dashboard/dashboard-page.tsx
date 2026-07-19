@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Banknote, Coins, Droplet, Users,
-  Plus, UserPlus, Wallet, Download, ChevronRight,
+  Plus, UserPlus, Wallet, Download, ChevronRight, CreditCard,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -170,6 +170,23 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
+          {/* KUTILAYOTGAN KLIK — tasdiqlanmagan karta to'lovlari (bo'lsa ko'rinadi);
+              bosilsa Buyurtmalar sahifasiga (u yerda "Klik tasdiqlash" tab bor) */}
+          {(data?.pendingClickCount ?? 0) > 0 && (
+            <Link href="/orders" className="flex-1 flex items-center gap-3 px-5 py-4 bg-sky-50/70 dark:bg-sky-500/10 hover:bg-sky-100/70 dark:hover:bg-sky-500/15 transition-colors">
+              <span className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center flex-none">
+                <CreditCard className="w-[18px] h-[18px] text-sky-600 dark:text-sky-400" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-lg font-bold text-sky-600 dark:text-sky-400 tabular-nums tracking-tight leading-none truncate">
+                  {formatCurrency(data?.pendingClickAmount || 0)}
+                </div>
+                <div className="text-[12px] text-sky-700/80 dark:text-sky-400/70 font-medium mt-1">
+                  Kutilayotgan Klik ({data?.pendingClickCount} ta)
+                </div>
+              </div>
+            </Link>
+          )}
           </div>
         </div>
       </div>

@@ -13,7 +13,8 @@ import { usePushSubscription } from "@/hooks/use-push";
 const ROLE_ROUTES: Record<string, { home: string; allowed: string[] }> = {
   ADMIN: { home: "/", allowed: [] }, // bo'sh = hamma sahifa ochiq
   MANAGER: { home: "/", allowed: ["/", "/customers", "/inventory", "/finance", "/balances", "/debts", "/reports", "/analytics", "/inactive"] },
-  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/balances", "/debts", "/inactive"] },
+  // 2026-07-20 (egasi so'rovi): operatorga Moliya va Hisobotlar ham ochildi (ko'rish)
+  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/balances", "/debts", "/inactive", "/finance", "/reports"] },
   DRIVER: { home: "/orders", allowed: ["/orders", "/route", "/balances", "/debts"] },
 };
 

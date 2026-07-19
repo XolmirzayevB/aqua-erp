@@ -17,7 +17,7 @@ import { PaymentModal } from "./payment-modal";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_LABELS, PAYMENT_TYPE_LABELS, OrderStatus } from "@aqua/shared";
-import { Avatar, Pill, thClass, cardClass, btnPrimary, btnSecondary } from "@/components/shared/page-ui";
+import { Avatar, Pill, thClass, cardClass, btnPrimary, btnSecondary, TONE_CLASSES } from "@/components/shared/page-ui";
 import type { Tone } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
 
@@ -528,14 +528,7 @@ function StatMini({
 }: {
   label: string; value: React.ReactNode; icon: any; tone: Tone;
 }) {
-  const toneCls: Record<Tone, string> = {
-    primary: "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300",
-    violet: "bg-violet-50 dark:bg-violet-500/20 text-violet-600 dark:text-violet-300",
-    success: "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400",
-    warning: "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300",
-    danger: "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400",
-    muted: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
-  };
+  const toneCls = TONE_CLASSES;
   return (
     <div className="bg-white dark:bg-gray-900 rounded-[14px] border border-gray-100 dark:border-gray-800 p-3 md:p-4 shadow-card min-w-0">
       <span className={cn("w-8 h-8 md:w-9 md:h-9 rounded-[10px] inline-flex items-center justify-center mb-2", toneCls[tone])}>

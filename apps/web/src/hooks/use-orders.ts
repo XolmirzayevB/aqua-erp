@@ -42,7 +42,7 @@ export interface Order {
   editedAt?: string | null;
   editedBy?: { id: string; name: string } | null;
   // Klik (karta) tasdiqlash: null = tasdiqlanmagan (operator kutilyapti).
-  // Yetkazilgan CARD zakaz 48 soatda tasdiqlanmasa avto-nasiyaga o'tadi.
+  // Yetkazilgan CARD zakaz CARD_CONFIRM_HOURS ichida tasdiqlanmasa avto-nasiyaga o'tadi.
   cardConfirmedAt?: string | null;
   customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
   driver?: { id: string; name: string; phone?: string };
@@ -54,10 +54,14 @@ export function isCardPending(o: Order): boolean {
   return o.status === "DELIVERED" && o.paymentType === "CARD" && !o.cardConfirmedAt;
 }
 
-// Nasiyaga o'tishga qancha qoldi (yetkazilgandan 48 soat): "1 kun 3 soat qoldi"
+// Klik tasdiqlash muddati (soat) — backend orders.service CARD_CONFIRM_HOURS
+// bilan BIR XIL bo'lishi shart (2026-07-20: 48 → 12 soat, egasi so'rovi)
+export const CARD_CONFIRM_HOURS = 12;
+
+// Nasiyaga o'tishga qancha qoldi (yetkazilgandan CARD_CONFIRM_HOURS): "5 soat qoldi"
 export function cardTimeLeftLabel(deliveredAt?: string): string {
   if (!deliveredAt) return "";
-  const left = new Date(deliveredAt).getTime() + 48 * 3600000 - Date.now();
+  const left = new Date(deliveredAt).getTime() + CARD_CONFIRM_HOURS * 3600000 - Date.now();
   if (left <= 0) return "muddat tugadi — nasiyaga o'tadi";
   const days = Math.floor(left / 86400000);
   const hours = Math.floor((left % 86400000) / 3600000);
@@ -227,16 +231,22 @@ export function useAssignDriver() {
   });
 }
 
+// OCHIQ (yetkazilmagan) zakazni tahrirlash — operator/admin, yetkazishdan oldin.
+// Sonlar o'zgarsa mijoz tarasi/ombor/summa qayta hisoblanadi (moliya hali yo'q).
 export function useUpdateOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Order> }) =>
-      api.patch(`/orders/${id}`, data).then((r) => r.data.data),
+    mutationFn: ({ id, refillCount, newBottles, reason, notes }:
+      { id: string; refillCount?: number; newBottles?: number; reason?: string; notes?: string }) =>
+      api.patch(`/orders/${id}`, { refillCount, newBottles, reason, notes }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
-      toast.success("Buyurtma yangilandi");
+      qc.invalidateQueries({ queryKey: ["driver-day-orders"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Zakaz tahrirlandi — tara va ombor hisoblari yangilandi");
     },
     onError: (e: any) => toast.error(apiErrorMessage(e)),
   });

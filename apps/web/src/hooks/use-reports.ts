@@ -9,7 +9,12 @@ type Period = "daily" | "weekly" | "monthly" | "yearly";
 
 export interface ReportOverview {
   orders: { total: number; delivered: number; cancelled: number; revenue: number };
-  finance: { income: number; expense: number; profit: number };
+  finance: {
+    income: number; expense: number; profit: number;
+    // Kutilayotgan Klik (tasdiqlanmagan CARD) va yozilgan qarzlar (DEBT) — davr bo'yicha
+    pendingClick: number; pendingClickCount: number;
+    debtsWritten: number; debtsWrittenCount: number;
+  };
   water: { sold: number; bottlesReturned: number; newBottlesSold: number };
   bottles: {
     deliveredWater: number; newSold: number; emptyBack: number;

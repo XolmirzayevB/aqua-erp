@@ -26,7 +26,8 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 };
 
 // Klik (karta) to'lovi shu muddat ichida tasdiqlanmasa zakaz NASIYAGA o'tadi
-const CARD_CONFIRM_HOURS = 48;
+// (2026-07-20: egasi so'rovi bilan 48 → 12 soat qilindi)
+const CARD_CONFIRM_HOURS = 12;
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -570,7 +571,7 @@ export class OrdersService implements OnModuleInit {
           where: { id: order.id },
           data: {
             paymentType: "DEBT",
-            notes: [order.notes, `⏰ Klik ${CARD_CONFIRM_HOURS / 24} kun ichida tasdiqlanmadi — nasiyaga o'tkazildi (avto)`]
+            notes: [order.notes, `⏰ Klik ${CARD_CONFIRM_HOURS} soat ichida tasdiqlanmadi — nasiyaga o'tkazildi (avto)`]
               .filter(Boolean).join(" · "),
           },
         });
@@ -848,24 +849,184 @@ export class OrdersService implements OnModuleInit {
     return updated;
   }
 
-  async update(id: string, dto: UpdateOrderDto) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
+  // ── OCHIQ ZAKAZNI TAHRIRLASH (2026-07-20, egasi so'rovi) ───────────────────
+  // Operator yozgan zakazni haydovchi YETKAZMASDAN OLDIN tuzatish mumkin
+  // (mijoz qayta qo'ng'iroq qilib "3 ta emas 2 ta" desa). Yopilgan zakaz
+  // uchun alohida adjustDelivered (24 soat) bor.
+  // Ta'siri (create bilan simmetrik — moliya HALI YO'Q, chunki kirim/qarz
+  // faqat yetkazilganda yoziladi):
+  //   - Zakaz: soni/summa qayta hisoblanadi (yaratilgandagi NARXLARDA)
+  //   - Mijoz: bottlesOwned (yangi tara farqi), bottlesGiven, bottlesReturned
+  //   - Ombor: EMPTY_BOTTLE yangi tara farqiga o'zgaradi (+ tarix yozuvi)
+  //   - Eski oqim zakazi (yaratishda DEBT tanlangan) — mijoz balansi farqqa tuzatiladi
+  //   - Haydovchi biriktirilgan bo'lsa — push/socket xabar (soni o'zgardi)
+  async update(id: string, dto: UpdateOrderDto, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { customer: { select: { id: true, name: true, bottlesOwned: true } } },
+    });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
 
-    if (!["NEW", "PROCESSING"].includes(order.status)) {
-      throw new BadRequestException("Faqat yangi yoki jarayondagi buyurtmani tahrirlash mumkin");
+    if (!["NEW", "PROCESSING", "ASSIGNED"].includes(order.status)) {
+      throw new BadRequestException(
+        "Faqat ochiq (yetkazilmagan) buyurtma tahrirlanadi — yetkazilganini zakaz sahifasidagi \"Tahrirlash\" (24 soat ichida) bilan tuzating"
+      );
     }
 
-    // Tara/narx o'zgarishi murakkab — faqat izoh tahrirlanadi.
-    // Boshqa o'zgarish kerak bo'lsa: bekor qilib, qayta yarating.
-    return this.prisma.order.update({
-      where: { id },
-      data: { notes: dto.notes },
-      include: {
-        customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
-        driver: { select: { id: true, name: true } },
-      },
+    const newRefill = dto.refillCount ?? order.refillCount;
+    const newNew = dto.newBottles ?? order.newBottles;
+    const countsChanged = newRefill !== order.refillCount || newNew !== order.newBottles;
+
+    // Faqat izoh o'zgarsa — sonlarga tegmasdan yangilaymiz (eski xatti-harakat)
+    if (!countsChanged) {
+      if (dto.notes == null) throw new BadRequestException("Hech narsa o'zgarmadi");
+      return this.prisma.order.update({
+        where: { id },
+        data: { notes: dto.notes },
+        include: {
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          driver: { select: { id: true, name: true } },
+        },
+      });
+    }
+
+    if (newRefill + newNew <= 0) {
+      throw new BadRequestException("Kamida 1 ta tara to'ldirish yoki yangi tara bo'lishi kerak");
+    }
+
+    // Tara qoidasi: yaratishda mijoz bottlesOwned ga +newBottles qilingan edi —
+    // mijozning ZAKAZGACHA bo'lgan haqiqiy tarasi shu farq bilan topiladi.
+    const ownedBefore = order.customer.bottlesOwned - order.newBottles;
+    if (newRefill > ownedBefore) {
+      throw new BadRequestException(
+        `Mijozda faqat ${ownedBefore} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
+      );
+    }
+
+    // Farqlar (delta) — hamma ta'sir shulardan
+    const dRefill = newRefill - order.refillCount;
+    const dNew = newNew - order.newBottles;
+    const dQty = dRefill + dNew;
+
+    // Summa — zakaz YARATILGANDAGI narxlarda (adjustDelivered bilan izchil)
+    const newTotal =
+      newRefill * Number(order.refillPrice) + newNew * Number(order.newBottlePrice);
+    const oldTotal = Number(order.totalAmount);
+
+    const editNote = `Tahrirlandi (yetkazishdan oldin): ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)${dto.reason ? ` — ${dto.reason}` : ""}`;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // POYGA HIMOYASI: biz o'qigan paytdan beri haydovchi "Yetkazildi" bosgan
+      // bo'lishi mumkin — u holda moliya allaqachon eski summada yozilgan.
+      // Tranzaksiya ichida statusni qayta tekshiramiz.
+      const fresh = await tx.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (!fresh || !["NEW", "PROCESSING", "ASSIGNED"].includes(fresh.status)) {
+        throw new BadRequestException(
+          "Zakaz holati hozirgina o'zgardi (yetkazilgan bo'lishi mumkin) — sahifani yangilab qayta urining"
+        );
+      }
+
+      // 1) Zakaz
+      const result = await tx.order.update({
+        where: { id },
+        data: {
+          refillCount: newRefill,
+          newBottles: newNew,
+          quantity: newRefill + newNew,
+          totalAmount: newTotal,
+          // Qaytariladigan bo'sh tara odatda to'ldirishga teng — farq bilan suriladi
+          bottlesReturned: Math.max(0, order.bottlesReturned + dRefill),
+          editedAt: new Date(),
+          editedById: userId,
+          notes: [dto.notes ?? order.notes, editNote].filter(Boolean).join(" · "),
+        },
+        include: {
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          driver: { select: { id: true, name: true } },
+        },
+      });
+
+      // 2) Mijoz tarasi — create'dagi incrementlarning farqi
+      await tx.customer.update({
+        where: { id: order.customerId },
+        data: {
+          bottlesOwned: { increment: dNew },
+          bottlesGiven: { increment: dQty },
+          bottlesReturned: { increment: dRefill },
+          // ESKI OQIM: yaratishda DEBT tanlangan bo'lsa qarz ham yozilgan edi —
+          // farqqa tuzatamiz. Yangi oqimda paymentType ochiq zakazda null —
+          // qarz yetkazilganda yoziladi, bu yerda tegilmaydi.
+          ...(order.paymentType === "DEBT"
+            ? { balance: { decrement: newTotal - oldTotal } }
+            : {}),
+        },
+      });
+
+      // 3) Ombor: yangi tara farqi (ko'paysa ombordan chiqadi, kamaysa qaytadi)
+      if (dNew !== 0) {
+        const emptyInv = await tx.inventory.findUnique({ where: { type: "EMPTY_BOTTLE" } });
+        if (emptyInv) {
+          await tx.inventory.update({
+            where: { type: "EMPTY_BOTTLE" },
+            data: { quantity: { increment: -dNew } },
+          });
+          await tx.inventoryAction.create({
+            data: {
+              inventoryId: emptyInv.id,
+              actionType: "ADJUSTMENT",
+              quantity: -dNew,
+              description: `Buyurtma #${order.seq} tahrirlandi (ochiq) — yangi tara ${order.newBottles} → ${newNew} (${order.customer.name})`,
+            },
+          });
+        }
+      }
+
+      // 4) Ehtiyot: ochiq zakazda kirim odatda YO'Q (u yetkazilganda yoziladi),
+      // lekin juda eski o'tish davri zakazida bo'lishi mumkin — tenglashtiramiz.
+      const inc = await tx.transaction.findFirst({
+        where: { orderId: id, type: "INCOME" },
+        select: { id: true },
+      });
+      if (inc) {
+        await tx.transaction.update({
+          where: { id: inc.id },
+          data: { amount: newTotal },
+        });
+      }
+
+      return result;
     });
+
+    // Haydovchi biriktirilgan bo'lsa — sonlar o'zgarganini bilib tursin
+    if (order.driverId) {
+      this.notifications.emitToUser(order.driverId, "order_status_changed", {
+        orderId: id,
+        orderNumber: order.orderNumber,
+        newStatus: order.status,
+        customerName: updated.customer.name,
+        edited: true,
+      });
+      this.push.sendToUser(order.driverId, {
+        title: `Buyurtma #${updated.seq} o'zgartirildi`,
+        body: `${updated.customer.name} — endi ${updated.quantity} ta suv (${newRefill} to'ldirish + ${newNew} yangi), ${newTotal.toLocaleString()} so'm`,
+        url: `/orders/${id}`,
+        tag: `order-${id}`,
+      }).catch(() => {});
+    }
+
+    // Ochiq ro'yxatlar/panellar yangilansin
+    this.notifications.emitToAll("order_status_changed", {
+      orderId: id,
+      orderNumber: order.orderNumber,
+      newStatus: order.status,
+      customerName: updated.customer.name,
+      edited: true,
+    });
+
+    return updated;
   }
 
   // Bekor qilishda tara/ombor/pul o'zgarishlarini qaytaradi

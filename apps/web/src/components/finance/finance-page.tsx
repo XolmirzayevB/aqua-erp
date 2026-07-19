@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Plus, TrendingUp, TrendingDown, Wallet, Percent, Truck,
   ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, Gift, Droplets,
+  CreditCard,
 } from "lucide-react";
 import { useFinanceSummary, useTransactions, useFreeOrders } from "@/hooks/use-finance";
 import { Avatar } from "@/components/shared/page-ui";
@@ -41,7 +42,7 @@ export function FinancePage() {
   const [txnPage, setTxnPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
 
-  const { readOnly } = usePermissions();
+  const { isAdmin } = usePermissions();
   const { data: summary, isLoading } = useFinanceSummary(period);
   const { data: txns } = useTransactions({ page: txnPage, limit: 15, type: typeFilter || undefined });
 
@@ -67,7 +68,9 @@ export function FinancePage() {
           value={period}
           onChange={setPeriod}
         />
-        {!readOnly && (
+        {/* Qo'lda tranzaksiya FAQAT admin (operator moliyani faqat ko'radi —
+            uning kirimlari zakaz/qarz oqimidan avtomatik yoziladi) */}
+        {isAdmin && (
           <button onClick={() => setShowModal(true)} className={btnPrimary}>
             <Plus className="w-4 h-4 flex-none" />
             Tranzaksiya
@@ -85,6 +88,15 @@ export function FinancePage() {
           unit={summary?.pendingCount ? `${summary.pendingCount} ta zakaz` : undefined}
           icon={Truck}
           tone="warning"
+          loading={isLoading}
+        />
+        {/* Tasdiqlanmagan Klik — Kirimga hali KIRMAGAN (operator tasdiqlashi kerak) */}
+        <StatCard
+          label="Kutilayotgan Klik"
+          value={formatCurrency(summary?.pendingClickAmount ?? 0)}
+          unit={summary?.pendingClickCount ? `${summary.pendingClickCount} ta zakaz` : undefined}
+          icon={CreditCard}
+          tone="sky"
           loading={isLoading}
         />
         <StatCard label="Xarajat (jami)" value={formatCurrency(totalOut)} icon={TrendingDown} tone="danger" loading={isLoading} />

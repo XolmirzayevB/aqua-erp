@@ -24,21 +24,21 @@ export class FinanceController {
   }
 
   @Get("transactions")
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Tranzaksiyalar ro'yxati" })
   findAll(@Query() query: QueryFinanceDto) {
     return this.financeService.findAll(query);
   }
 
   @Get("summary")
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Moliyaviy xulosa (kunlik/oylik/yillik)" })
   getSummary(@Query() query: SummaryQueryDto) {
     return this.financeService.getSummary(query);
   }
 
   @Get("categories")
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Kategoriyalar bo'yicha xulosa" })
   getCategories() {
     return this.financeService.getCategories();
@@ -46,7 +46,7 @@ export class FinanceController {
 
   // Imtiyozli (bepul) zakazlar: jami + kimga qancha berilgani
   @Get("free-orders")
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Imtiyozli (bepul) zakazlar hisoboti" })
   @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly", "all"] })
   getFreeOrders(@Query("period") period?: string) {

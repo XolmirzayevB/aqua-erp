@@ -51,7 +51,10 @@ export class ReportsService {
       // Shu davrda YETKAZILGAN buyurtmalar (qachon yozilganидан qat'i nazar)
       this.prisma.order.findMany({
         where: { status: "DELIVERED", deliveredAt: { gte: from, lte: to } },
-        select: { quantity: true, totalAmount: true, bottlesReturned: true, newBottles: true },
+        select: {
+          quantity: true, totalAmount: true, bottlesReturned: true, newBottles: true,
+          paymentType: true, cardConfirmedAt: true,
+        },
       }),
       this.prisma.order.count({ where: { status: "CANCELLED", updatedAt: { gte: from, lte: to } } }),
       this.prisma.transaction.findMany({
@@ -67,6 +70,22 @@ export class ReportsService {
 
     const income = transactions.filter(t => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
     const expense = transactions.filter(t => t.type !== "INCOME").reduce((s, t) => s + Number(t.amount), 0);
+
+    // KUTILAYOTGAN KLIK (2026-07-19, egasi so'rovi): davrda yetkazilgan, Karta
+    // (Click) bilan yopilgan, operator HALI TASDIQLAMAGAN zakazlar — pul Click
+    // hisobiga tushishi kutilmoqda, Kirimga KIRMAGAN. Tasdiqlangach INCOME
+    // yoziladi va Kirimda chiqadi; 48 soatda tasdiqlanmasa avto-nasiyaga
+    // o'tadi (paymentType=DEBT) va "Yozilgan qarzlar"ga o'tib qoladi.
+    const pendingClickOrders = deliveredOrders.filter(
+      (o) => o.paymentType === "CARD" && !o.cardConfirmedAt,
+    );
+    const pendingClick = pendingClickOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+
+    // YOZILGAN QARZLAR: davrda yetkazilgan NASIYA zakazlar summasi (mijoz
+    // qarziga yozilgan). To'lovlari alohida — "Qarz to'lovlari" bo'limida
+    // (Payment orqali, to'langan kuni Kirimga tushadi).
+    const debtOrders = deliveredOrders.filter((o) => o.paymentType === "DEBT");
+    const debtsWritten = debtOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
     // Suv/tara — yetkazilganlar asosida (real harakat)
     const waterSold = deliveredOrders.reduce((s, o) => s + o.quantity, 0);
     const bottlesReturned = deliveredOrders.reduce((s, o) => s + o.bottlesReturned, 0);
@@ -84,6 +103,12 @@ export class ReportsService {
         income,
         expense,
         profit: income - expense,
+        // Kutilayotgan Klik — tasdiqlangach Kirimga qo'shiladi (hali kirmagan)
+        pendingClick,
+        pendingClickCount: pendingClickOrders.length,
+        // Yozilgan qarzlar — to'langanda "Qarz to'lovi" orqali Kirimga tushadi
+        debtsWritten,
+        debtsWrittenCount: debtOrders.length,
       },
       water: {
         sold: waterSold,
