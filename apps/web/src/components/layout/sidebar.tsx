@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShoppingBag, Truck, Warehouse,
-  Wallet, Coins, FileText, BarChart3, ScrollText, Settings, Droplet, Map,
+  Wallet, Coins, FileText, BarChart3, ScrollText, Settings, Droplet, Map, HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -30,6 +30,8 @@ const NAV_GROUPS = [
     items: [
       { href: "/inventory", label: "Ombor", icon: Warehouse, roles: [Role.ADMIN, Role.MANAGER] },
       { href: "/finance", label: "Moliya", icon: Wallet, roles: [Role.ADMIN, Role.MANAGER] },
+      // Ishchi pul balansi (2026-07-19): kimda qancha naqd/klik, pul o'tkazish
+      { href: "/balances", label: "Ishchi balansi", icon: HandCoins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
       { href: "/debts", label: "Qarzdorlik", icon: Coins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
     ],
   },

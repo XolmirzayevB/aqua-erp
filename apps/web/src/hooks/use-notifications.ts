@@ -48,6 +48,13 @@ export function useRealtimeNotifications() {
       if (orderId) qc.invalidateQueries({ queryKey: ["orders", orderId] });
     };
 
+    // Pul o'tkazmasi yaratildi/qabul qilindi/qaytarildi — balans sahifalari
+    // ochiq turgan bo'lsa darrov yangilanadi (2026-07-19)
+    socket.on("transfer_updated", () => {
+      qc.invalidateQueries({ queryKey: ["balances"] });
+      qc.invalidateQueries({ queryKey: ["transfers"] });
+    });
+
     // New order (for drivers)
     socket.on("new_order", (data: any) => {
       toast.info(`Yangi buyurtma: ${data.orderNumber}`, {

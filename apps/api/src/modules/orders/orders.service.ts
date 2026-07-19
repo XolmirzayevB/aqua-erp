@@ -422,6 +422,14 @@ export class OrdersService implements OnModuleInit {
             },
           });
         }
+        // ISHCHI BALANSI (2026-07-19): naqd pul yetkazgan HAYDOVCHI qo'lida
+        // qoladi — uning naqd balansiga qo'shiladi (haydovchisiz zakazda —
+        // "Yetkazildi"ni bosgan odamga). DELIVERED bir marta bo'ladi
+        // (STATUS_TRANSITIONS), shuning uchun ikki marta qo'shilmaydi.
+        await tx.user.update({
+          where: { id: order.driverId ?? userId },
+          data: { cashBalance: { increment: order.totalAmount } },
+        });
       }
 
       // NASIYA yetkazishda tanlangan bo'lsa — summa mijoz qarziga SHU YERDA
@@ -512,6 +520,13 @@ export class OrdersService implements OnModuleInit {
           },
         });
       }
+      // ISHCHI BALANSI (2026-07-19): Klik puli TASDIQLAGAN operator (yoki
+      // admin) klik balansiga qo'shiladi — Click hisobini u yuritadi.
+      // cardConfirmedAt tekshiruvi yuqorida — ikki marta qo'shilmaydi.
+      await tx.user.update({
+        where: { id: userId },
+        data: { clickBalance: { increment: order.totalAmount } },
+      });
       return result;
     });
 
@@ -751,6 +766,33 @@ export class OrdersService implements OnModuleInit {
       // CARD hali TASDIQLANMAGAN bo'lsa: kirim YO'Q va yozilmaydi ham —
       // tasdiqlanganda (confirmCardPayment) YANGI summa bilan yoziladi.
       const cardUnconfirmed = order.paymentType === "CARD" && !order.cardConfirmedAt;
+
+      // ISHCHI BALANSI: summa o'zgargani pul ushlagan ishchida ham aks etadi
+      // (naqd — haydovchida; tasdiqlangan klik — tasdiqlagan operatorда).
+      // Farq manfiy bo'lishi mumkin (pul qaytarilgan) — increment shuni ham hal qiladi.
+      const moneyDiff = newTotal - oldTotal;
+      if (moneyDiff !== 0 && order.paymentType === "CASH") {
+        await tx.user.update({
+          where: { id: order.driverId ?? order.createdById },
+          data: { cashBalance: { increment: moneyDiff } },
+        });
+      } else if (moneyDiff !== 0 && order.paymentType === "CARD" && order.cardConfirmedAt) {
+        // Eski (backfill) zakazlarda tasdiqlagan yozilmagan — faol operatorga
+        const holderId =
+          order.cardConfirmedById ??
+          (await tx.user.findFirst({
+            where: { role: "OPERATOR", isActive: true },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }))?.id;
+        if (holderId) {
+          await tx.user.update({
+            where: { id: holderId },
+            data: { clickBalance: { increment: moneyDiff } },
+          });
+        }
+      }
+
       if ((order.paymentType === "CASH" || order.paymentType === "CARD") && !cardUnconfirmed) {
         // Kirim summasi yangi haqiqatga tenglashtiriladi
         const inc = await tx.transaction.findFirst({

@@ -12,9 +12,9 @@ import { usePushSubscription } from "@/hooks/use-push";
 // Ilova "/" dan ochilganda (APK/PWA start_url) har rol o'z sahifasiga tushadi.
 const ROLE_ROUTES: Record<string, { home: string; allowed: string[] }> = {
   ADMIN: { home: "/", allowed: [] }, // bo'sh = hamma sahifa ochiq
-  MANAGER: { home: "/", allowed: ["/", "/customers", "/inventory", "/finance", "/debts", "/reports", "/analytics", "/inactive"] },
-  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/debts", "/inactive"] },
-  DRIVER: { home: "/orders", allowed: ["/orders", "/route", "/debts"] },
+  MANAGER: { home: "/", allowed: ["/", "/customers", "/inventory", "/finance", "/balances", "/debts", "/reports", "/analytics", "/inactive"] },
+  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/balances", "/debts", "/inactive"] },
+  DRIVER: { home: "/orders", allowed: ["/orders", "/route", "/balances", "/debts"] },
 };
 
 function isPathAllowed(role: string | undefined, pathname: string): boolean {

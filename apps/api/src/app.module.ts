@@ -19,6 +19,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { SettingsModule } from "./modules/settings/settings.module";
+import { BalancesModule } from "./modules/balances/balances.module";
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SettingsModule } from "./modules/settings/settings.module";
     DashboardModule,
     AuditModule,
     SettingsModule,
+    BalancesModule,
     BackupModule,
   ],
   providers: [

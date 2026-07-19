@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
@@ -32,24 +32,66 @@ export class FinanceService {
   // Xarajat kiritish — haydovchi o'ziniki uchun ham ishlaydi.
   // createdById orqali KIM kiritgani doim ko'rinadi; haydovchi kiritgani
   // izohda "(haydovchi)" belgisi bilan ajralib turadi.
+  //
+  // ISHCHI BALANSI (2026-07-19): xarajat KIMNING PULIDAN qilinganini
+  // operator/admin tanlaydi (dto.sourceUserId — masalan haydovchi puli;
+  // haydovchi "o'zim yozmayman, operatorga aytaman" degan). Tanlanmasa —
+  // kirituvchining o'zi. Pul manba balansidan (naqd/klik) AYIRILADI;
+  // balansda yetarli pul bo'lmasa xarajat qabul qilinmaydi.
   async createExpense(dto: CreateExpenseDto, user: { sub: string; role: string }) {
     const isDriver = user.role === "DRIVER";
     const isOperator = user.role === "OPERATOR";
+    const method = (dto.paymentMethod ?? "CASH") as "CASH" | "CARD";
+    const isCash = method === "CASH";
+
+    // Boshqa ishchi pulini manba qilish — faqat operator/admin huquqi
+    const sourceUserId =
+      dto.sourceUserId && (user.role === "ADMIN" || isOperator)
+        ? dto.sourceUserId
+        : user.sub;
+    const source = await this.prisma.user.findUnique({
+      where: { id: sourceUserId },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (!source || !source.isActive) throw new NotFoundException("Manba ishchi topilmadi");
+
     const description = [
       dto.description?.trim() || null,
       isDriver ? "(haydovchi)" : isOperator ? "(operator)" : null,
+      // Kimning pulidan ketgani doim izohda ko'rinadi
+      sourceUserId !== user.sub ? `— pul: ${source.name} (${isCash ? "naqd" : "klik"})` : null,
     ].filter(Boolean).join(" ") || null;
 
-    return this.prisma.transaction.create({
-      data: {
-        type: "EXPENSE" as TransactionType,
-        amount: dto.amount,
-        paymentMethod: (dto.paymentMethod ?? "CASH") as any,
-        category: dto.category?.trim() || (isDriver ? "Haydovchi xarajati" : "Boshqa"),
-        description,
-        createdById: user.sub,
-      },
-      include: { createdBy: { select: { id: true, name: true } } },
+    return this.prisma.$transaction(async (tx) => {
+      // Atomar ayirish — balans yetarli bo'lsagina (poyga xavfsiz)
+      const res = await tx.user.updateMany({
+        where: {
+          id: sourceUserId,
+          ...(isCash
+            ? { cashBalance: { gte: dto.amount } }
+            : { clickBalance: { gte: dto.amount } }),
+        },
+        data: isCash
+          ? { cashBalance: { decrement: dto.amount } }
+          : { clickBalance: { decrement: dto.amount } },
+      });
+      if (res.count === 0) {
+        throw new BadRequestException(
+          `${sourceUserId === user.sub ? "Balansingizda" : `${source.name} balansida`} yetarli ${isCash ? "naqd" : "klik"} pul yo'q — xarajat balansdagi puldan qilinadi`,
+        );
+      }
+
+      return tx.transaction.create({
+        data: {
+          type: "EXPENSE" as TransactionType,
+          amount: dto.amount,
+          paymentMethod: method as any,
+          category: dto.category?.trim() || (isDriver ? "Haydovchi xarajati" : "Boshqa"),
+          description,
+          createdById: user.sub,
+        },
+        include: { createdBy: { select: { id: true, name: true } } },
+      });
     });
   }
 

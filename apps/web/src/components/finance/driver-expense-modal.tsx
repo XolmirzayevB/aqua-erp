@@ -1,34 +1,68 @@
 "use client";
 
-// Haydovchi uchun SODDA xarajat kiritish oynasi (mobil-birinchi).
-// Kategoriya — tez tanlash chiplari (benzin, ovqat, remont...), summa, izoh.
-// Pastda bugungi kiritilgan xarajatlar ro'yxati — haydovchi tekshirib turadi.
+// Xarajat kiritish oynasi (mobil-birinchi).
+// - Haydovchi: o'z NAQD balansidan (sodda ko'rinish).
+// - Operator/Admin (2026-07-19, egasi so'rovi): xarajat KIMNING PULIDAN
+//   ketishini tanlaydi — o'zining naqd/kliki YOKI haydovchining puli
+//   (haydovchi "o'zim yozmayman, operatorga aytaman" degan).
+// Pul tanlangan balansdan AYIRILADI; balansda yetarli bo'lmasa xato chiqadi.
 // Moliya bo'limiga EXPENSE tranzaksiya bo'lib tushadi (foydaga ta'sir qiladi).
 
 import { useState } from "react";
-import { X, Loader2, Wallet } from "lucide-react";
+import { X, Loader2, Wallet, Banknote, CreditCard, ChevronDown } from "lucide-react";
 import { useAddExpense, useMyTodayExpenses } from "@/hooks/use-finance";
+import { useBalances } from "@/hooks/use-balances";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useAuthStore } from "@/store/auth.store";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 
 const CATEGORIES = ["Yoqilg'i", "Ovqat", "Ta'mirlash", "Boshqa"];
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admin",
+  OPERATOR: "Operator",
+  DRIVER: "Haydovchi",
+};
+
 export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
   const addExpense = useAddExpense();
   const { data: today } = useMyTodayExpenses();
+  const { isDriver, isAdmin } = usePermissions();
+  const me = useAuthStore((s) => s.user);
+  const { data: balances } = useBalances();
 
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [amountStr, setAmountStr] = useState("");
   const [description, setDescription] = useState("");
+  // Pul manbasi: kimning balansidan (default — o'zim) va naqd/klik
+  const [sourceUserId, setSourceUserId] = useState("");
+  const [method, setMethod] = useState<"CASH" | "CARD">("CASH");
 
   const amount = Number(amountStr.replace(/\D/g, ""));
 
+  const workers = balances?.data || [];
+  const mine = workers.find((w) => w.id === me?.id);
+  // Operator: o'zi + haydovchilar; Admin: hamma. Haydovchida tanlov yo'q.
+  const sourceOptions = isDriver
+    ? []
+    : workers.filter((w) => w.id === me?.id || isAdmin || w.role === "DRIVER");
+  const source = sourceUserId
+    ? workers.find((w) => w.id === sourceUserId)
+    : mine;
+  const available = Number(
+    (method === "CASH" ? source?.cashBalance : source?.clickBalance) ?? 0,
+  );
+  const overBudget = !!source && amount > available;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || amount < 1) return;
+    if (!amount || amount < 1 || addExpense.isPending || overBudget) return;
     await addExpense.mutateAsync({
       amount,
       category,
       description: description.trim() || undefined,
+      paymentMethod: method,
+      sourceUserId: sourceUserId || undefined,
     });
     setAmountStr("");
     setDescription("");
@@ -54,6 +88,68 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-4">
+          {/* Kimning pulidan? — operator/admin tanlaydi (haydovchida ko'rinmaydi) */}
+          {!isDriver && sourceOptions.length > 0 && (
+            <div>
+              <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Kimning pulidan?</label>
+              <div className="relative">
+                <select
+                  value={sourceUserId}
+                  onChange={(e) => setSourceUserId(e.target.value)}
+                  className="w-full h-[46px] px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-semibold appearance-none pr-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                >
+                  <option value="">Mening pulimdan</option>
+                  {sourceOptions
+                    .filter((w) => w.id !== me?.id)
+                    .map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({ROLE_LABELS[w.role] || w.role})
+                      </option>
+                    ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          )}
+
+          {/* Naqd yoki Klik — tanlangan odamning ikkala balansi ko'rinib turadi */}
+          {!isDriver && source && (
+            <div>
+              <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Qaysi puldan?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { v: "CASH", label: "Naqd", icon: Banknote, bal: Number(source.cashBalance ?? 0), active: "border-green-500 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" },
+                  { v: "CARD", label: "Klik", icon: CreditCard, bal: Number(source.clickBalance ?? 0), active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+                ] as const).map((o) => (
+                  <button key={o.v} type="button" onClick={() => setMethod(o.v)}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl border-2 text-left transition-all",
+                      method === o.v ? o.active : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"
+                    )}>
+                    <span className="flex items-center gap-1.5 text-[13px] font-bold">
+                      <o.icon className="w-4 h-4" /> {o.label}
+                    </span>
+                    <span className="block text-[11.5px] mt-0.5 tabular-nums opacity-80">
+                      bor: {formatCurrency(o.bal)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Haydovchiga — o'z naqd balansi shunchaki ko'rinib turadi */}
+          {isDriver && mine && (
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-green-50/70 dark:bg-green-500/10 border border-green-100 dark:border-green-500/20">
+              <span className="text-[13px] font-semibold text-green-700 dark:text-green-400 flex items-center gap-1.5">
+                <Banknote className="w-4 h-4" /> Qo'limdagi naqd
+              </span>
+              <span className="text-[14px] font-bold tabular-nums text-gray-900 dark:text-white">
+                {formatCurrency(Number(mine.cashBalance ?? 0))}
+              </span>
+            </div>
+          )}
+
           {/* Kategoriya: tez tanlash chiplari YOKI o'zi qo'lda yozadi
               (masalan "dori" — egasi so'rovi bilan erkin matn qo'shildi) */}
           <div>
@@ -93,6 +189,11 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
               placeholder="50 000"
               className="w-full px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-lg font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
+            {overBudget && !isDriver && (
+              <p className="mt-1.5 text-[12.5px] font-medium text-red-500">
+                {source?.id === me?.id ? "Balansingizda" : `${source?.name} balansida`} buncha {method === "CASH" ? "naqd" : "klik"} pul yo'q (bor: {formatCurrency(available)})
+              </p>
+            )}
           </div>
 
           {/* Izoh */}
@@ -108,7 +209,7 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
 
           <button
             type="submit"
-            disabled={addExpense.isPending || !amount}
+            disabled={addExpense.isPending || !amount || (overBudget && !isDriver)}
             className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           >
             {addExpense.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

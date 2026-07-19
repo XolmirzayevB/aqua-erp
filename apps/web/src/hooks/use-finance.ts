@@ -129,13 +129,21 @@ export function useMyTodayExpenses(enabled = true) {
 export function useAddExpense() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { amount: number; category?: string; description?: string }) =>
-      api.post("/finance/expenses", data).then((r) => r.data.data),
+    // sourceUserId/paymentMethod — xarajat KIMNING qaysi balansidan (2026-07-19)
+    mutationFn: (data: {
+      amount: number;
+      category?: string;
+      description?: string;
+      paymentMethod?: "CASH" | "CARD";
+      sourceUserId?: string;
+    }) => api.post("/finance/expenses", data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-expenses"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["finance-summary"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      // Xarajat ishchi balansidan ayiriladi — balans sahifasi ham yangilansin
+      qc.invalidateQueries({ queryKey: ["balances"] });
       toast.success("Xarajat qo'shildi");
     },
     onError: (e: any) => toast.error(apiErrorMessage(e)),

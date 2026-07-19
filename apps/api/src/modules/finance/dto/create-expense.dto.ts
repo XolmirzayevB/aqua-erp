@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, Min, MaxLength } from "class-validator";
+import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min, MaxLength } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 
@@ -28,4 +28,11 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsEnum(["CASH", "CARD"])
   paymentMethod?: "CASH" | "CARD";
+
+  // Xarajat KIMNING balansidan: operator/admin haydovchi pulini tanlashi
+  // mumkin (haydovchi o'zi yozmaydi — operatorga aytadi). Bo'sh = o'ziniki.
+  @ApiPropertyOptional({ description: "Pul manbasi — ishchi user id (default: kirituvchining o'zi)" })
+  @IsOptional()
+  @IsUUID()
+  sourceUserId?: string;
 }

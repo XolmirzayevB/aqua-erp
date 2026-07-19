@@ -267,6 +267,15 @@ export class CustomersService {
           createdById: user.sub,
         },
       }),
+      // ISHCHI BALANSI (2026-07-19): qarz puli QABUL QILGAN ishchining qo'lida —
+      // naqd bo'lsa naqdiga, karta (Klik) bo'lsa klik balansiga qo'shiladi.
+      this.prisma.user.update({
+        where: { id: user.sub },
+        data:
+          dto.method === "CASH"
+            ? { cashBalance: { increment: dto.amount } }
+            : { clickBalance: { increment: dto.amount } },
+      }),
     ]);
 
     return payment;
