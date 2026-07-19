@@ -206,6 +206,51 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **GEO: /maps/search/ FORMATI (2026-07-19, DEPLOY QILINDI):** egasi #41 da
+lokatsiya bor-u xaritada chiqmayotganini ko'rdi. Sabab: maps.app.goo.gl qisqa
+havolalari endi `google.com/maps/search/LAT,+LNG` ga redirect bo'ladi —
+koordinata URL YO'LIDA ("+" = bo'shliq), eski parser buni tanimasdi.
+geo.util.ts parseLatLngFromUrl'ga path tekshiruvi qo'shildi (dekodlash + "+"
+almashtirish). Eski formatlar (q=, @, !3d!4d) buzilmagan — 6 sinov o'tdi.
+Koordinatasi bo'sh mijozlar haydovchi Marshrutni ochganda LAZY hal bo'lib
+bazaga yoziladi (ensureCustomerCoords) — qo'lda hech narsa kerak emas.
+
+✅ **ISHCHI PUL BALANSI (2026-07-19, DEPLOY QILINDI) — MUHIM:**
+- **G'oya (egasi):** buxgalter yo'q — kimda qancha pul borligi tizimda ko'rinsin.
+  Har ishchida (haydovchi/operator/admin) IKKI balans: **naqd** va **klik**.
+- **Pul balansga QAYERDAN keladi:** naqd zakaz yetkazilganda → HAYDOVCHI naqdiga
+  (orders.updateStatus, driverId ?? bosgan odam); Klik tasdiqlanganda →
+  TASDIQLAGAN operator klikiga (confirmCardPayment); qarz to'lovi → QABUL QILGAN
+  ishchiga (customers.addPayment, metod bo'yicha); adjust farqi ham tarqaladi.
+- **QAYERGA ketadi:** xarajat (manba balansidan) va o'tkazma.
+- **O'tkazma (worker_transfers):** yuborilganda yuboruvchidan DARROV ayiriladi
+  (atomar updateMany, gte tekshiruvi — poyga xavfsiz); qabul qiluvchi "QABUL
+  QILISH"ni bosgandagina unga qo'shiladi; rad/bekor → yuboruvchiga qaytadi.
+  PENDING'lar "yo'ldagi pul" — jamiga qo'shib ko'rsatiladi (aks holda umumiy
+  pul vaqtincha kamayib chalkashtiradi). Push + socket (transfer_updated).
+- **Xarajat manbasi:** CreateExpenseDto.sourceUserId + paymentMethod —
+  operator/admin o'z naqd/kliki YOKI haydovchi pulini tanlaydi (haydovchi
+  "o'zim yozmayman" degan); balans yetarli bo'lmasa 400. Izohga "— pul: Ism
+  (naqd/klik)" qo'shiladi. Haydovchi o'zi yozsa — o'z naqdidan (tanlov yo'q).
+- **Endpointlar:** GET /balances (rolga qarab: DRIVER faqat o'z summasi,
+  boshqalar null; qolganlar to'liq + totals{cash,click,pendingCash,pendingClick});
+  GET/POST /balances/transfers; PATCH .../:id/accept|reject|cancel (faqat
+  tegishli tomon; ikkinchi bosishga 400/403).
+- **UI:** /balances sahifa (sidebar "Ishchi balansi", barcha rollar; ROLE_ROUTES
+  yangilangan). Ishchi: o'z balansi, "Pul o'tkazish" modal (kimga/naqd-klik/
+  summa), kelganlar sariq karta "Qabul qilish/Rad etish", yuborganiga "Bekor",
+  tarix. Admin/menejer: jami kartalar + hamma ishchilar jadvali (menejer
+  faqat ko'radi — tugmalar yo'q). driver-expense-modal: "Kimning pulidan?" +
+  naqd/klik balanslari bilan.
+- **Migratsiya `20260719060000_worker_balances`:** ustunlar + jadval + BACKFILL
+  (naqd DELIVERED zakazlar→haydovchi; tasdiqlangan CARD→tasdiqlagan yoki faol
+  operator; qarz to'lovlari→yozgan odam; "(haydovchi)/(operator)" xarajatlari
+  ayirilgan). Admin qo'lda kiritgan moliya tranzaksiyalari ishchi balansiga
+  TEGMAYDI (ataylab).
+- **Sinovlar:** 35 API stsenariy (hamma pul yo'llari, transfer to'liq oqimi,
+  403/400 himoyalar, ko'rinish qoidalari, adjust farqi) + UI (admin yubordi →
+  operator qabul qildi, balanslar/jami to'g'ri, xarajat manba tanlagichi).
+
 ✅ **KLIK (KARTA) TASDIQLASH OQIMI (2026-07-18 kunduz, DEPLOY QILINDI) — MUHIM:**
 - **Yangi qoida (egasi):** haydovchi "Karta/Click" bilan yopganda pul moliyaga
   DARROV TUSHMAYDI. Operator Click hisobida pulni KO'RIB "Klik tasdiqlash"ni

@@ -43,6 +43,16 @@ export function parseLatLngFromUrl(url: string): LatLng | null {
         }
       }
     }
+    // /maps/search/LAT,+LNG yoki /maps/dir/.../LAT,LNG — koordinata URL
+    // YO'LIDA (2026-07-19 да topildi: maps.app.goo.gl qisqa havolalari endi
+    // shu formatga redirect bo'ladi, "+" esa bo'shliq degani)
+    const path = decodeURIComponent(u.pathname).replace(/\+/g, " ");
+    const pm = path.match(COORD);
+    if (pm) {
+      const lat = parseFloat(pm[1]);
+      const lng = parseFloat(pm[2]);
+      if (valid(lat, lng)) return { lat, lng };
+    }
     // /@lat,lng,zoom formati (xarita markazi — joy bo'lmasligi mumkin, oxirgi chora)
     const at = url.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
     if (at) {
@@ -51,8 +61,8 @@ export function parseLatLngFromUrl(url: string): LatLng | null {
       if (valid(lat, lng)) return { lat, lng };
     }
   } catch {
-    // URL parse xatosi — regex bilan oxirgi urinish
-    const m = url.match(COORD);
+    // URL parse xatosi — regex bilan oxirgi urinish ("+" ni ham hisobga olib)
+    const m = url.replace(/\+/g, " ").match(COORD);
     if (m) {
       const lat = parseFloat(m[1]);
       const lng = parseFloat(m[2]);
