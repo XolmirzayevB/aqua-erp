@@ -206,6 +206,48 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **HISOBOT MOLIYAVIY XULOSA + OCHIQ ZAKAZ TAHRIRI + KLIK 12H + OPERATOR RUXSATLARI (2026-07-20, DEPLOY QILINDI):**
+1. **Moliyaviy xulosa 5 karta** (Hisobotlar sahifasi, egasi so'rovi): Kirim /
+   **Kutilayotgan Klik** / **Yozilgan qarzlar** / Chiqim / Sof foyda + tushuntirish
+   matni. Backend: reports.getOverview → finance.{pendingClick,pendingClickCount,
+   debtsWritten,debtsWrittenCount}. Semantika: davrda YETKAZILGAN (deliveredAt)
+   CARD+tasdiqlanmagan = kutilayotgan klik; DEBT = yozilgan qarz. Excel/PDF
+   eksportda ham. Kunlik/haftalik/oylik/yillik + kun tanlash ishlaydi (sinovda).
+2. **Kutilayotgan Klik hamma joyda izchil:** finance.getSummary →
+   pendingClickAmount/Count (snapshot, davrsiz); dashboard.getStats → xuddi shu.
+   UI: Moliya sahifasida sky StatCard (yangi "sky" tone page-ui'da); dashboardда
+   bosiladigan sky blok (bo'lsa ko'rinadi, /orders ga olib boradi).
+3. **OCHIQ zakazni tahrirlash** (yetkazishdan OLDIN, egasi so'rovi):
+   PATCH /orders/:id (ADMIN+OPERATOR) endi refillCount/newBottles/reason qabul
+   qiladi — deltalar bilan mijoz tarasi/ombor/summa tuzatiladi (yaratilgandagi
+   NARXLARDA), moliyaga tegilmaydi (kirim yetkazilganda yoziladi), eski oqim
+   DEBT bo'lsa balans farqi tuziladi. POYGA HIMOYASI: tranzaksiya ichida status
+   qayta tekshiriladi (haydovchi ayni paytda yetkazsa 400). Haydovchiga push.
+   Tahrir cheklovi: refill ≤ mijozning zakazgacha tarasi (owned - order.newBottles).
+   UI: AdjustOrderModal IKKI rejim (status'dan avtomatik) — ochiq zakazlarda ham
+   jadval menyusida/detailда "Tahrirlash"; banner matni holatga mos.
+4. **KLIK MUDDATI 48 → 12 SOAT** (egasi): CARD_CONFIRM_HOURS=12
+   (orders.service) + frontend use-orders.ts CARD_CONFIRM_HOURS=12 (IKKALASI
+   BIR XIL BO'LISHI SHART). Avto-nasiya izohi endi soatlarda. UI matnlari
+   "12 soatda" ga yangilandi. ⚠️ Deploy bo'lishi bilan 12 soatdan oshgan
+   tasdiqlanmagan kliklar avto-nasiyaga o'tadi (15s keyin interval ishlaydi).
+5. **OPERATORGA MOLIYA + HISOBOTLAR** (egasi): reports.controller hamma GET +
+   finance GET (transactions/summary/categories/free-orders) endi OPERATOR ham.
+   POST transactions faqat ADMIN/MANAGER (operator qo'lda kirim-chiqim yoza
+   olmaydi — faqat xarajat). UI: sidebar + ROLE_ROUTES operatorга /finance,
+   /reports; Moliya sahifasida "Tranzaksiya" tugmasi endi FAQAT isAdmin.
+6. **Sinovlar:** 46 API stsenariy (operator ruxsatlari 403/200, pendingClick/
+   debtsWritten davrlar bilan delta-tekshiruv, confirm keyin ko'chishi, ochiq
+   tahrir to'liq oqim + xato holatlar + INCOME yangi summada, avto-nasiya 12h
+   SQL bilan deliveredAt -13h surib) + UI (hisobot 5 karta, modal ikki rejim,
+   operator sidebar/moliya). Ikkala prod build o'tdi. order-form createdCustomer
+   null-check tuzatildi (eski tsc xato).
+7. **PROD TEKSHIRILDI (2026-07-20 tong):** login 200, overview/summary/dashboard
+   yangi maydonlar bor (oylik: kirim 3,090,000 / qarz 399,000·2). API log error 0.
+   ⚠️ Deploy'dan 15s keyin 12h qoidasi PROD zakaz #2 ни (nodirbek abdusamadov,
+   159,000 Klik) avto-nasiyaga o'tkazdi — EGASIGA AYTILGAN BO'LISHI KERAK: pul
+   Click'da bo'lsa "Qarz to'lovi" (karta) bilan qabul qilinadi.
+
 ✅ **APK QAYTA BUILD — YANGI NOM (2026-07-19, DEPLOY QILINDI va TASDIQLANDI):**
 - **Nima qilindi:** APK "Gissar Water19l" nomi bilan qayta qurildi (rebrend qoldig'i):
   twa-manifest.json → name "Gissar Water19l", launcherName "Gissar Water" (PWA
