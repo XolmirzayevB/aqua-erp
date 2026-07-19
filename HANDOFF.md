@@ -19,8 +19,7 @@ do'stlari yuritadi. Kichik shahar (Surxondaryo, Qumqo'rg'on atrofi).
 Tizim JONLI va 2026-07-18 dan REAL ISHLATILMOQDA.
 ⚠️ REBREND (2026-07-17): barcha KO'RINADIGAN joylarda "Gissar Water19l"
 (login, header/sidebar, PWA manifest, sahifa titullari, PDF/Excel, push, Swagger).
-Android APK ish stoli nomi hali eski — APK qayta build qilinmagan (bubblewrap,
-HANDOFF Push/APK bo'limiga qarang); ichi sayt bo'lgani uchun kontent yangi nomda.
+✅ APK ham yangi nomda qayta qurildi (2026-07-19, v1.1.0 — pastdagi bo'limga qarang).
 
 **Asosiy biznes qoidasi (ENG MUHIM — buni yaxshi tushun):**
 - Mijoz tarani (bo'sh idish) **sotib oladi**: yangi tara narxi (default **45 000**, sozlamada o'zgaradi).
@@ -205,6 +204,25 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ---
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
+
+⏳ **APK QAYTA BUILD — YANGI NOM (2026-07-19 kech, DEPLOY KUTILMOQDA):**
+- **Nima qilindi:** APK "Gissar Water19l" nomi bilan qayta qurildi (rebrend qoldig'i):
+  twa-manifest.json → name "Gissar Water19l", launcherName "Gissar Water" (PWA
+  short_name bilan bir xil), themeColor #B93B3B (brend qizil), v1.1.0 / versionCode 2.
+  Web manifest.ts theme_color ham #2563eb → #B93B3B (rebrendда qolib ketgan edi).
+  packageId/keystore O'ZGARMAGAN — imzo assetlinks.json bilan mos (apksigner bilan
+  tekshirildi: AF:C6:01:43...), eskisining USTIGA yangilanadi (o'chirish shart emas).
+  Yangi APK: apps/web/public/aquaerp.apk (1.0M, commit qilingan).
+- ⚠️ **GOTCHA:** `bubblewrap update --skipVersionUpgrade` build.gradle'da
+  `versionName ""` qilib qo'yadi (bo'sh!) — update'dan keyin HAR SAFAR tekshiring:
+  `sed -i '' 's/versionName ""/versionName "1.1.0"/' app/build.gradle` keyin build.
+  (android/app/ git'da YO'Q — faqat twa-manifest.json + keystore commit qilinadi.)
+- ⚠️ **DEPLOY QILINMAGAN:** bu sessiyada ruxsat klassifikatori ssh/scp orqali fayl
+  yuborishni bloklagan. Serverga chiqarish uchun ODDIY DEPLOY yetarli (HANDOFF §5
+  tar buyrug'i + rebuild) — o'zgargan fayllar: apps/web/public/aquaerp.apk va
+  apps/web/src/app/manifest.ts. Lokal web build TEKSHIRILGAN (o'tdi). Deploy'dan
+  keyin tekshirish: `curl -sI https://116-203-220-83.nip.io/aquaerp.apk | grep -i
+  content-length` (~1.0M bo'lishi kerak) va manifest.webmanifest'da #B93B3B.
 
 ✅ **GEO: /maps/search/ FORMATI (2026-07-19, DEPLOY QILINDI):** egasi #41 da
 lokatsiya bor-u xaritada chiqmayotganini ko'rdi. Sabab: maps.app.goo.gl qisqa
@@ -498,7 +516,7 @@ bazaga yoziladi (ensureCustomerCoords) — qo'lda hech narsa kerak emas.
 - **Android APK (TWA — saytni o'raydi):** `android/` papkasi.
   - Bubblewrap CLI (npx @bubblewrap/cli). Sozlama: `~/.bubblewrap/config.json` (JDK 17: `~/.bubblewrap/jdk-17.0.19+10`, SDK: `~/Library/Android/sdk`, build-tools 34.0.0 o'rnatilgan).
   - **Imzo kaliti:** `android/android.keystore` (alias `aquaerp`), parol `android/keystore-password.txt` da — IKKALASI COMMIT QILINGAN (private repo; kalit yo'qolsa ilova yangilab bo'lmaydi!).
-  - **Qayta build:** `cd android && export BUBBLEWRAP_KEYSTORE_PASSWORD=$(cut -d= -f2 keystore-password.txt) && export BUBBLEWRAP_KEY_PASSWORD=$BUBBLEWRAP_KEYSTORE_PASSWORD && npx -y @bubblewrap/cli update --skipVersionUpgrade && npx -y @bubblewrap/cli build --skipVersionUpgrade`. Versiya oshirish: twa-manifest.json'da appVersionCode/appVersionName.
+  - **Qayta build:** `cd android && export BUBBLEWRAP_KEYSTORE_PASSWORD=$(cut -d= -f2 keystore-password.txt) && export BUBBLEWRAP_KEY_PASSWORD=$BUBBLEWRAP_KEYSTORE_PASSWORD && npx -y @bubblewrap/cli update --skipVersionUpgrade && npx -y @bubblewrap/cli build --skipVersionUpgrade`. Versiya oshirish: twa-manifest.json'da appVersionCode/appVersionName. ⚠️ `update` build.gradle'da `versionName ""` qoldiradi — build'dan OLDIN sed bilan to'g'rilang (§7 APK bo'limiga qarang), keyin aapt bilan tekshiring.
   - **Digital Asset Links:** `apps/web/public/.well-known/assetlinks.json` (packageId `uz.aquaerp.app`, keystore SHA-256). Bu fayl bo'lmasa ilova URL panel bilan ochiladi.
   - **APK tarqatish:** tayyor APK `apps/web/public/aquaerp.apk` ga ko'chiriladi → https://116-203-220-83.nip.io/aquaerp.apk dan yuklab olinadi. Ichi sayt bo'lgani uchun keyingi deploylar APKni qayta qurishni TALAB QILMAYDI (faqat ikonka/nom/domen o'zgarsa kerak).
 
