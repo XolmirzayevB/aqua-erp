@@ -286,10 +286,13 @@ export class OrdersService implements OnModuleInit {
       // Hudud bo'yicha filtr (mijozning hududi)
       ...(zone ? { customer: { zone } } : {}),
       // Sana oralig'i — O'ZBEKISTON kuni bo'yicha (localDayRange), UTC emas
-      // (overdue rejimida ishlatilmaydi — u o'z createdAt filtriga ega)
+      // (overdue rejimida ishlatilmaydi — u o'z createdAt filtriga ega).
+      // "Yetkazildi" tabida sana O'SHA KUNI YETKAZILGANLARNI bildiradi
+      // (qachon yozilgani farqsiz — egasi so'rovi 2026-07-20); boshqa
+      // tablarда avvalgidek yozilgan sana bo'yicha.
       ...((dateFrom || dateTo) && !overdue
         ? {
-            createdAt: {
+            [status === "DELIVERED" ? "deliveredAt" : "createdAt"]: {
               ...(dateFrom ? { gte: localDayRange(new Date(dateFrom)).start } : {}),
               ...(dateTo ? { lte: localDayRange(new Date(dateTo)).end } : {}),
             },

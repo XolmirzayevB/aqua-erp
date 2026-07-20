@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
-  CalendarDays, X, MapPin, Clock, PencilLine, Wallet, CreditCard,
+  CalendarDays, X, MapPin, Clock, PencilLine, Wallet, CreditCard, Phone,
 } from "lucide-react";
 import { useOrders, useCancelOrder, useConfirmCardPayment, isCardPending, cardTimeLeftLabel, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
@@ -382,17 +382,55 @@ export function OrdersTable() {
           <>
             {orders.map((order) => (
               <div key={order.id} className={cn(cardClass, "p-4 border-gray-200 dark:border-gray-700 shadow-card")}>
-                {/* 1-qator: raqam + holat */}
-                <div className="flex items-center justify-between gap-2">
+                {/* 2026-07-20 (egasi so'rovi): mobilda ISM/TELEFON/MANZIL birinchi
+                    ko'zga tashlanadi; zakaz raqami KICHIK bo'lib chekkada; ochiq
+                    zakazlarda status yozuvi ("biriktirilgan") ko'rsatilmaydi. */}
+                {/* 1-qator: ISM (katta) + o'ng chekkada kichik #raqam va sana */}
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`}
+                    className="text-[16.5px] font-bold text-gray-900 dark:text-white leading-snug flex-1 min-w-0 truncate"
+                  >
+                    {order.customer.name}
+                  </Link>
                   <Link
                     href={`/orders/${order.id}`}
-                    className="font-mono text-[15px] font-bold text-blue-600 dark:text-blue-400 tabular-nums"
+                    className="flex-none text-right"
                   >
-                    #{order.seq}
+                    <span className="block font-mono text-[12px] font-bold text-blue-600 dark:text-blue-400 tabular-nums">#{order.seq}</span>
+                    <span className="block text-[10.5px] text-gray-400 dark:text-gray-500 mt-0.5">
+                      {formatDate(order.createdAt, "dd.MM HH:mm")}
+                    </span>
                   </Link>
-                  <span className="flex items-center gap-1.5">
+                </div>
+
+                {/* 2-qator: telefon (katta, o'qiladigan) */}
+                <a href={`tel:${order.customer.phone}`} className="block font-mono text-[14.5px] font-semibold text-gray-700 dark:text-gray-200 mt-1 tabular-nums">
+                  {formatPhone(order.customer.phone)}
+                </a>
+
+                {/* 3-qator: MANZIL — tanlangan yetkazish joyi yoki asosiy manzil */}
+                <span className="flex items-start gap-1.5 mt-1 text-[13px] text-gray-600 dark:text-gray-300 leading-snug">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-none mt-0.5" />
+                  <span className="min-w-0">
+                    {order.location ? (
+                      <>
+                        <b className="text-amber-700 dark:text-amber-400">{order.location.label}</b>
+                        {order.location.address ? ` — ${order.location.address}` : ""}
+                      </>
+                    ) : (
+                      order.customer.address || "Manzil kiritilmagan"
+                    )}
+                    {order.customer.zone ? ` · ${order.customer.zone}` : ""}
+                  </span>
+                </span>
+
+                {/* Belgilar/holat qatorlari — faqat kerakli hollarda */}
+                {(order.editedAt || isCardPending(order) || order.status === "CANCELLED") && (
+                  <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    {order.status === "CANCELLED" && <StatusBadge status={order.status} />}
                     {order.editedAt && (
-                      <span title="Yopilgandan keyin tahrirlangan"
+                      <span title="Tahrirlangan"
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                         <PencilLine className="w-3 h-3" /> Tahrirlangan
                       </span>
@@ -403,59 +441,27 @@ export function OrdersTable() {
                         <CreditCard className="w-3 h-3" /> Klik kutilmoqda
                       </span>
                     )}
-                    <StatusBadge status={order.status} />
                   </span>
-                </div>
-
-                {/* 2-qator: mijoz, telefon + vaqt; hudud pastda (ism yonida EMAS — egasi so'rovi) */}
-                <Link
-                  href={isDriver ? `/orders/${order.id}` : `/customers/${order.customerId}`}
-                  className="block mt-1.5"
-                >
-                  <span className="block text-[14px] font-medium text-gray-900 dark:text-white truncate">
-                    {order.customer.name}
+                )}
+                {/* Yetkazilgan KUN·SOAT — ichiga kirmasdan ko'rinsin (egasi so'rovi) */}
+                {order.status === "DELIVERED" && order.deliveredAt && (
+                  <span className="block mt-1 text-[11.5px] font-semibold text-green-600 dark:text-green-400 tabular-nums">
+                    ✓ Yetkazildi: {formatDate(order.deliveredAt, "dd.MM · HH:mm")}
                   </span>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <span className="font-mono text-xs text-gray-400 dark:text-gray-500">
-                      {formatPhone(order.customer.phone)}
-                    </span>
-                    <span className="text-[11.5px] text-gray-400 dark:text-gray-500">
-                      {formatDate(order.createdAt, "dd.MM HH:mm")}
-                    </span>
-                  </div>
-                  {order.customer.zone && (
-                    <span className="inline-flex items-center gap-1 mt-1 text-[11.5px] font-medium text-gray-500 dark:text-gray-400">
-                      <MapPin className="w-3 h-3 text-gray-400" />
-                      {order.customer.zone} hudud
+                )}
+                {/* Qolib ketgan — qancha kechikkani */}
+                {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
+                  Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
+                    <span className="block mt-1 text-[11.5px] font-bold text-red-500 dark:text-red-400">
+                      ⏰ {lateLabel(order.createdAt)} kechikdi
                     </span>
                   )}
-                  {/* Tanlangan yetkazish joyi (Apteka, Uy...) */}
-                  {order.location && (
-                    <span className="inline-flex items-center gap-1 mt-1 ml-2 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[11.5px] font-semibold text-amber-700 dark:text-amber-400">
-                      <MapPin className="w-3 h-3" />
-                      {order.location.label}
-                    </span>
-                  )}
-                  {/* Yetkazilgan KUN·SOAT — ichiga kirmasdan ko'rinsin (egasi so'rovi) */}
-                  {order.status === "DELIVERED" && order.deliveredAt && (
-                    <span className="block mt-1 text-[11.5px] font-semibold text-green-600 dark:text-green-400 tabular-nums">
-                      ✓ Yetkazildi: {formatDate(order.deliveredAt, "dd.MM · HH:mm")}
-                    </span>
-                  )}
-                  {/* Qolib ketgan — qancha kechikkani */}
-                  {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
-                    Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
-                      <span className="block mt-1 text-[11.5px] font-bold text-red-500 dark:text-red-400">
-                        ⏰ {lateLabel(order.createdAt)} kechikdi
-                      </span>
-                    )}
-                  {/* Klik tasdiqlanmagan — nasiyaga o'tishga qancha qoldi */}
-                  {isCardPending(order) && (
-                    <span className="block mt-1 text-[11.5px] font-bold text-sky-600 dark:text-sky-400">
-                      💳 Klik: {cardTimeLeftLabel(order.deliveredAt)}
-                    </span>
-                  )}
-                </Link>
+                {/* Klik tasdiqlanmagan — nasiyaga o'tishga qancha qoldi */}
+                {isCardPending(order) && (
+                  <span className="block mt-1 text-[11.5px] font-bold text-sky-600 dark:text-sky-400">
+                    💳 Klik: {cardTimeLeftLabel(order.deliveredAt)}
+                  </span>
+                )}
 
                 {/* 3-qator: tara/summa + asosiy tugma */}
                 <div className="flex items-center justify-between gap-2 mt-2.5">
@@ -465,6 +471,16 @@ export function OrdersTable() {
                     <span className="font-bold tabular-nums">{formatCurrency(order.totalAmount)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    {/* 📞 Qo'ng'iroq — faqat OCHIQ zakazlarda (yopilgan/bekorda shart emas) */}
+                    {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
+                      <a
+                        href={`tel:${order.customer.phone}`}
+                        title="Mijozga qo'ng'iroq qilish"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-blue-200 dark:border-blue-500/40 bg-blue-50/60 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                      >
+                        <Phone className="w-4 h-4" />
+                      </a>
+                    )}
                     {order.customer.locationLink && (
                       <a
                         href={order.customer.locationLink}

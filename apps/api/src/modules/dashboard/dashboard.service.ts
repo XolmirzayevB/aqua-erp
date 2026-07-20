@@ -23,6 +23,7 @@ export class DashboardService {
       deliveredToday,
       cancelledToday,
       pendingAgg,
+      todayDeliveredAgg,
       pendingClickAgg,
       debtors,
       totalCustomers,
@@ -37,12 +38,17 @@ export class DashboardService {
       }),
       this.prisma.order.count({ where: { status: OrderStatus.DELIVERED, deliveredAt: { gte: todayStart, lte: todayEnd } } }),
       this.prisma.order.count({ where: { status: OrderStatus.CANCELLED, updatedAt: { gte: todayStart, lte: todayEnd } } }),
-      // YO'LDAGI zakazlar (sanasidan qat'i nazar) — soni va KUTILAYOTGAN pul.
-      // Tushum endi yetkazilganda yoziladi; bu ko'rsatkich "hali kelmagan pul".
+      // YO'LDAGI zakazlar (sanasidan qat'i nazar) — soni, KUTILAYOTGAN pul va
+      // nechta almashtirish/yangi tara kutilayotgani (egasi so'rovi 2026-07-20)
       this.prisma.order.aggregate({
         where: { status: { in: OPEN_STATUSES } },
-        _sum: { totalAmount: true },
+        _sum: { totalAmount: true, refillCount: true, newBottles: true },
         _count: { id: true },
+      }),
+      // BUGUN yetkazilganlarda nechta almashtirish/yangi tara sotilgani
+      this.prisma.order.aggregate({
+        where: { status: OrderStatus.DELIVERED, deliveredAt: { gte: todayStart, lte: todayEnd } },
+        _sum: { refillCount: true, newBottles: true },
       }),
       // KUTILAYOTGAN KLIK (snapshot): yetkazilgan, Karta (Click), operator hali
       // tasdiqlamagan — sanasidan qat'i nazar (12 soatda avto-nasiyaga o'tadi)
@@ -76,6 +82,12 @@ export class DashboardService {
       // Yo'lda (yetkazilmagan) — soni istalgan kundan bo'lishi mumkin
       pendingCount: pendingAgg._count.id,
       pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
+      // Yo'ldagi zakazlarда nechta almashtirish/yangi tara kutilmoqda
+      pendingRefills: pendingAgg._sum.refillCount ?? 0,
+      pendingNewBottles: pendingAgg._sum.newBottles ?? 0,
+      // Bugun yetkazilganlarda nechta almashtirish/yangi tara sotildi
+      todayRefills: todayDeliveredAgg._sum.refillCount ?? 0,
+      todayNewBottles: todayDeliveredAgg._sum.newBottles ?? 0,
       // Kutilayotgan Klik — tasdiqlanmagan karta to'lovlari (snapshot)
       pendingClickCount: pendingClickAgg._count.id,
       pendingClickAmount: Number(pendingClickAgg._sum.totalAmount ?? 0),

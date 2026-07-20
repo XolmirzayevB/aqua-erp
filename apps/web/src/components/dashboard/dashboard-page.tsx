@@ -144,7 +144,8 @@ export function DashboardPage() {
           ))}
           </div>
           <div className="flex-1 flex items-stretch divide-x divide-gray-400/70 dark:divide-gray-600 border-t xl:border-t-0 xl:border-l border-gray-400/70 dark:border-gray-600">
-          {/* KELGAN pul (bugun) — yashil. Tushum endi zakaz YETKAZILGANDA yoziladi */}
+          {/* KELGAN pul (bugun) — yashil. Tushum endi zakaz YETKAZILGANDA yoziladi.
+              Tagida: bugun nechta almashtirish/yangi tara sotilgani (egasi so'rovi) */}
           <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-green-50/60 dark:bg-green-500/10">
             <span className="w-9 h-9 rounded-xl bg-green-100 dark:bg-green-500/20 flex items-center justify-center flex-none">
               <Banknote className="w-[18px] h-[18px] text-green-600 dark:text-green-400" />
@@ -154,9 +155,13 @@ export function DashboardPage() {
                 {data ? formatCurrency(data.todayIncome || 0) : "—"}
               </div>
               <div className="text-[12px] text-green-700/80 dark:text-green-400/70 font-medium mt-1">Bugungi tushum (kelgan pul)</div>
+              <div className="text-[11.5px] font-semibold text-green-700 dark:text-green-400 tabular-nums mt-0.5">
+                {data?.todayRefills ?? 0} almashtirish · {data?.todayNewBottles ?? 0} yangi tara sotildi
+              </div>
             </div>
           </div>
-          {/* KUTILAYOTGAN pul — yo'ldagi (yetkazilmagan) zakazlar summasi */}
+          {/* KUTILAYOTGAN pul — yo'ldagi (yetkazilmagan) zakazlar summasi.
+              Tagida: nechta almashtirish/yangi tara kutilmoqda (egasi so'rovi) */}
           <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-amber-50/70 dark:bg-amber-500/10">
             <span className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-none">
               <Wallet className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
@@ -167,6 +172,9 @@ export function DashboardPage() {
               </div>
               <div className="text-[12px] text-amber-700/80 dark:text-amber-400/70 font-medium mt-1">
                 Kutilmoqda ({data?.pendingCount ?? 0} ta yo'lda)
+              </div>
+              <div className="text-[11.5px] font-semibold text-amber-700 dark:text-amber-400 tabular-nums mt-0.5">
+                {data?.pendingRefills ?? 0} almashtirish · {data?.pendingNewBottles ?? 0} yangi tara kutilmoqda
               </div>
             </div>
           </div>

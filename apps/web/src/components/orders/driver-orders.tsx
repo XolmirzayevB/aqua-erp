@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Droplets, Navigation, CheckCircle, Search, PackagePlus, Wallet, MapPin } from "lucide-react";
+import { Droplets, Navigation, CheckCircle, Search, PackagePlus, Wallet, MapPin, Phone } from "lucide-react";
 import { useDriverDayOrders, Order } from "@/hooks/use-orders";
 import { useMyTodayExpenses } from "@/hooks/use-finance";
 import { DriverExpenseModal } from "@/components/finance/driver-expense-modal";
@@ -175,44 +175,54 @@ export function DriverOrders() {
         ) : (
           list.map((order) => (
             <div key={order.id} className={cn(cardClass, "p-4 border-gray-200 dark:border-gray-700 shadow-card")}>
-              {/* 1-qator: raqam + holat */}
-              <div className="flex items-center justify-between gap-2">
-                <Link href={`/orders/${order.id}`} className="font-mono text-[15px] font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+              {/* 2026-07-20 (egasi so'rovi): ISM/TELEFON/MANZIL birinchi ko'zga
+                  tashlanadi, zakaz raqami kichik chekkada, "biriktirilgan"
+                  yozuvi ko'rsatilmaydi (bekorda badge qoladi). */}
+              {/* 1-qator: ISM (katta) + kichik #raqam chekkada */}
+              <div className="flex items-start justify-between gap-2">
+                <Link href={`/orders/${order.id}`} className="text-[16.5px] font-bold text-gray-900 dark:text-white leading-snug flex-1 min-w-0 truncate">
+                  {order.customer.name}
+                </Link>
+                <Link href={`/orders/${order.id}`} className="flex-none font-mono text-[12px] font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">
                   #{order.seq}
                 </Link>
-                <StatusBadge status={order.status} />
               </div>
 
-              {/* 2-qator: mijoz + hudud, telefon */}
-              <Link href={`/orders/${order.id}`} className="block mt-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-medium text-gray-900 dark:text-white truncate">{order.customer.name}</span>
-                  {order.customer.zone && (
-                    <Pill tone="primary" className="!text-[11px] !py-0.5">{order.customer.zone}</Pill>
+              {/* 2-qator: telefon (bosilsa qo'ng'iroq) */}
+              <a href={`tel:${order.customer.phone}`} className="block font-mono text-[14.5px] font-semibold text-gray-700 dark:text-gray-200 mt-1 tabular-nums">
+                {formatPhone(order.customer.phone)}
+              </a>
+
+              {/* 3-qator: MANZIL — tanlangan lokatsiya (Apteka, Uy...) bo'lsa O'SHA,
+                  haydovchi adashib asosiy manzilga olib bormasin */}
+              <span className="flex items-start gap-1.5 mt-1 text-[13px] text-gray-600 dark:text-gray-300 leading-snug">
+                <MapPin className={cn("w-3.5 h-3.5 flex-none mt-0.5", order.location ? "text-amber-500" : "text-gray-400")} />
+                <span className="min-w-0">
+                  {order.location ? (
+                    <>
+                      <b className="text-amber-700 dark:text-amber-400">{order.location.label}</b>
+                      {order.location.address ? ` — ${order.location.address}` : ""}
+                    </>
+                  ) : (
+                    order.customer.address || "Manzil kiritilmagan"
                   )}
-                </div>
-                <span className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5 block">
-                  {formatPhone(order.customer.phone)}
+                  {order.customer.zone ? ` · ${order.customer.zone}` : ""}
                 </span>
-                {/* QAYSI MANZILGA — tanlangan lokatsiya (Apteka, Uy...) aniq ko'rinsin,
-                    haydovchi adashib asosiy manzilga olib bormasin */}
-                {order.location && (
-                  <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
-                    <MapPin className="w-3 h-3" />
-                    {order.location.label}
-                    {order.location.address ? ` — ${order.location.address}` : ""}
+              </span>
+
+              {/* Bekor qilingan tab'da holat belgisi qoladi */}
+              {order.status === "CANCELLED" && (
+                <span className="block mt-1.5"><StatusBadge status={order.status} /></span>
+              )}
+              {/* Avvalgi kunlardan qolib ketgan zakaz — haydovchi bilib tursin */}
+              {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (() => {
+                const days = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86400000);
+                return days >= 1 ? (
+                  <span className="block mt-1 text-[11.5px] font-semibold text-red-500 dark:text-red-400">
+                    ⏰ {days} kun oldin yozilgan
                   </span>
-                )}
-                {/* Avvalgi kunlardan qolib ketgan zakaz — haydovchi bilib tursin */}
-                {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (() => {
-                  const days = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86400000);
-                  return days >= 1 ? (
-                    <span className="block mt-1 text-[11.5px] font-semibold text-red-500 dark:text-red-400">
-                      ⏰ {days} kun oldin yozilgan
-                    </span>
-                  ) : null;
-                })()}
-              </Link>
+                ) : null;
+              })()}
 
               {/* 3-qator: tara/summa (+ yetkazilgan SOATI — 00:26 dagi tungi yetkazish
                   ham "bugun"ga tushishi chalkashtirmasin) + amallar */}
@@ -228,6 +238,16 @@ export function DriverOrders() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {/* 📞 Qo'ng'iroq — faqat ochiq zakazlarda (yopilgan/bekorda shart emas) */}
+                  {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
+                    <a
+                      href={`tel:${order.customer.phone}`}
+                      title="Mijozga qo'ng'iroq qilish"
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-[9px] border border-blue-200 dark:border-blue-500/40 bg-blue-50/60 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                    >
+                      <Phone className="w-4 h-4" />
+                    </a>
+                  )}
                   {(() => {
                     // Navigatsiya — Google Maps ILOVASIDA (web emas), marshrut tuzadi.
                     // Tanlangan lokatsiya (Apteka...) bo'lsa — O'SHA joyga yo'naltiradi.

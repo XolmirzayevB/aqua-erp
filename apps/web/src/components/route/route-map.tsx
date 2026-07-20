@@ -158,18 +158,19 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
     }
   };
 
-  // Sessiya davomida GPS yoqilgan bo'lsa — remount'da qayta tiklaymiz
-  // (bir sessiyada takror ruxsat so'ralmaydi; yangi ochilishда tozalanadi)
+  // Haydovchi GPS'ni BIR MARTA yoqqan bo'lsa — keyingi ochilishlarda avto
+  // yoqiladi (localStorage — doimiy; iPhone Safari'da ham ishlaydi).
+  // Ruxsat brauzerda saqlangan bo'ladi, shuning uchun prompt chiqmaydi.
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("aqua-geo-on") === "1") setGeoEnabled(true);
-    } catch { /* sessionStorage yo'q — e'tiborsiz */ }
+      if (localStorage.getItem("aqua-geo-on") === "1") setGeoEnabled(true);
+    } catch { /* storage yo'q — e'tiborsiz */ }
   }, []);
 
   // 2026-07-20 (egasi so'rovi): ruxsat allaqachon BERILGAN bo'lsa — tugmani
-  // kutmasdan marshrut ochilishi bilan haydovchi joyi avtomatik belgilanadi
-  // (prompt chiqmaydi, chunki brauzer ruxsatni eslab qolgan). Ruxsat hali
-  // so'ralmagan/rad etilgan bo'lsa — avvalgidek tugma orqali.
+  // kutmasdan marshrut ochilishi bilan haydovchi joyi avtomatik belgilanadi.
+  // Eslatma: iPhone Safari permissions.query'ni qo'llamasligi mumkin — u holda
+  // yuqoridagi localStorage yo'li ishlaydi (bir marta yoqilgan bo'lsa).
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
     navigator.permissions
@@ -177,10 +178,10 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
       .then((st) => {
         if (st.state === "granted") {
           setGeoEnabled(true);
-          try { sessionStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
+          try { localStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
         }
       })
-      .catch(() => { /* permissions API yo'q — tugma orqali ishlayveradi */ });
+      .catch(() => { /* permissions API yo'q — tugma/localStorage orqali ishlayveradi */ });
   }, []);
 
   // GPS kuzatuvi — FAQAT haydovchi tugmani bosib yoqqanda ishga tushadi
@@ -369,7 +370,7 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
                 // Birinchi bosishda GPS yoqiladi (ruxsat SHUNDA so'raladi, ilova ochilganda emas)
                 if (!geoEnabled) {
                   setGeoEnabled(true);
-                  try { sessionStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
+                  try { localStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
                 }
                 followRef.current = true;
                 setFollowing(true);
