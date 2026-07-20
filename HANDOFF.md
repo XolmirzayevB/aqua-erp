@@ -206,6 +206,27 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **MOBIL UX 3-TO'PLAM (2026-07-20 tun, DEPLOY QILINDI):**
+1. **Mobil buyurtma kartalari qayta dizayn** (egasi: "ism/nomer/manzil birinchi
+   ko'rinsin"): IKKALA komponentda — orders-table (mobil kartalar) va
+   driver-orders (haydovchi sahifasi). ISM katta (16.5px bold) birinchi, TELEFON
+   katta (tel: link — bosilsa qo'ng'iroq), MANZIL (tanlangan lokatsiya amber /
+   asosiy manzil + hudud); #raqam KICHIK o'ng chekkada; NEW/ASSIGNED status
+   yozuvi OLIB TASHLANDI (CANCELLED badge qoladi, DELIVERED — ✓ vaqt qatori).
+2. **📞 Qo'ng'iroq tugmasi** — ochiq zakazlarda "Yetkazildi" oldida (yopilgan/
+   bekorlarда yo'q, egasi so'rovi).
+3. **Dashboard tara raqamlari:** "Kutilmoqda" blokida "N almashtirish · M yangi
+   tara kutilmoqda"; "Bugungi tushum" ostida "N almashtirish · M yangi tara
+   sotildi". Backend: dashboard pendingAgg _sum refill/new + todayDeliveredAgg.
+4. **"Yetkazildi" tab + sana = YETKAZILGAN kun bo'yicha** (egasi: 19-da yozilib
+   20-da yetkazilgan zakaz 20-sini tanlaganda chiqsin): findAll'da status=DELIVERED
+   bo'lsa dateFrom/dateTo deliveredAt'ga qo'llanadi; boshqa tablar createdAt.
+5. **iPhone marshrut GPS:** sessionStorage → localStorage (Safari permissions.query
+   yo'q) — haydovchi GPS'ni BIR MARTA yoqsa keyingi ochilishlarda avto-yoqiladi.
+6. **Sinovlar:** 14 API (DELIVERED+sana deliveredAt bo'yicha — kecha yozilgan
+   bugun yetkazilgan stsenariy SQL bilan; dashboard delta) + UI (haydovchi
+   kartalar, yetkazildi tabда qo'ng'iroq yo'qligi, dashboard raqamlari).
+
 ✅ **HAYDOVCHI GPS LOKATSIYA SAQLASH (2026-07-20 kech, DEPLOY QILINDI):**
 - **Muammo:** mijoz lokatsiyalari Telegram orqali qo'lda kiritilardi (haydovchi
   havola tashlaydi, ofis qidirib qo'shadi) — ko'p ish.
