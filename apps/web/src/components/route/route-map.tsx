@@ -166,6 +166,23 @@ export function RouteMap({ driverId, date, sticky = false }: { driverId?: string
     } catch { /* sessionStorage yo'q — e'tiborsiz */ }
   }, []);
 
+  // 2026-07-20 (egasi so'rovi): ruxsat allaqachon BERILGAN bo'lsa — tugmani
+  // kutmasdan marshrut ochilishi bilan haydovchi joyi avtomatik belgilanadi
+  // (prompt chiqmaydi, chunki brauzer ruxsatni eslab qolgan). Ruxsat hali
+  // so'ralmagan/rad etilgan bo'lsa — avvalgidek tugma orqali.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((st) => {
+        if (st.state === "granted") {
+          setGeoEnabled(true);
+          try { sessionStorage.setItem("aqua-geo-on", "1"); } catch { /* e'tiborsiz */ }
+        }
+      })
+      .catch(() => { /* permissions API yo'q — tugma orqali ishlayveradi */ });
+  }, []);
+
   // GPS kuzatuvi — FAQAT haydovchi tugmani bosib yoqqanda ishga tushadi
   useEffect(() => {
     if (!geoEnabled) return;

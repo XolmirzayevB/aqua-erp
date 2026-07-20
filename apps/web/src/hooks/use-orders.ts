@@ -158,9 +158,11 @@ export function useCreateOrder() {
 export function useUpdateOrderStatus() {
   const qc = useQueryClient();
   return useMutation({
-    // paymentType — "Yetkazildi"da haydovchi tanlagan to'lov turi (naqd/karta/nasiya)
-    mutationFn: ({ id, status, notes, paymentType }: { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" | "FREE" }) =>
-      api.patch(`/orders/${id}/status`, { status, notes, paymentType }).then((r) => r.data.data),
+    // paymentType — "Yetkazildi"da haydovchi tanlagan to'lov turi (naqd/karta/nasiya).
+    // driverLat/driverLng — "Lokatsiyani saqlash" yoqilgan bo'lsa haydovchining GPS joyi.
+    mutationFn: ({ id, status, notes, paymentType, driverLat, driverLng, locationAccuracy }:
+      { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" | "FREE"; driverLat?: number; driverLng?: number; locationAccuracy?: number }) =>
+      api.patch(`/orders/${id}/status`, { status, notes, paymentType, driverLat, driverLng, locationAccuracy }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["driver-day-orders"] });

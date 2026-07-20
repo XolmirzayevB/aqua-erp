@@ -412,6 +412,16 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
+    // LOKATSIYA SAQLASH (2026-07-20, egasi so'rovi): haydovchi "Lokatsiyani
+    // saqlash"ni yoqib zakazni yopsa — uning GPS joyi ADASHMASDAN to'g'ri
+    // manzilga yoziladi: zakaz qo'shimcha manzilga (Do'kon, Apteka...) berilgan
+    // bo'lsa O'SHA CustomerLocation'ga, aks holda mijozning asosiy kartasiga.
+    const saveLocation =
+      dto.status === "DELIVERED" && dto.driverLat != null && dto.driverLng != null;
+    const geoNote = saveLocation
+      ? `📍 Lokatsiya haydovchi tomonidan o'rnatildi${dto.locationAccuracy ? ` (aniqlik ~${Math.round(dto.locationAccuracy)} m)` : ""}`
+      : null;
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.order.update({
         where: { id },
@@ -420,13 +430,33 @@ export class OrdersService implements OnModuleInit {
           ...(dto.status === "DELIVERED"
             ? { deliveredAt: new Date(), paymentType: effectivePayment as any }
             : {}),
-          ...(dto.notes ? { notes: dto.notes } : {}),
+          // Yangi izoh kelsa o'sha; lokatsiya saqlansa iz ham qo'shiladi
+          ...(dto.notes || geoNote
+            ? { notes: [dto.notes ?? order.notes, geoNote].filter(Boolean).join(" · ") }
+            : {}),
         },
         include: {
           customer: { select: { id: true, name: true } },
           driver: { select: { id: true, name: true } },
         },
       });
+
+      if (saveLocation) {
+        // Google xarita havolasi ham koordinataga moslab yangilanadi — eski
+        // link qolib ketsa marshrut yangi, link eski joyni ko'rsatib chalkashtirardi
+        const link = `https://maps.google.com/?q=${dto.driverLat},${dto.driverLng}`;
+        if (order.locationId) {
+          await tx.customerLocation.update({
+            where: { id: order.locationId },
+            data: { lat: dto.driverLat, lng: dto.driverLng, locationLink: link },
+          });
+        } else {
+          await tx.customer.update({
+            where: { id: order.customerId },
+            data: { lat: dto.driverLat, lng: dto.driverLng, locationLink: link },
+          });
+        }
+      }
 
       // TUSHUM YETKAZILGANDA yoziladi (2026-07-14): haydovchi yetkazib,
       // NAQD pulini olganда moliyaga kirim tushadi. Yaratilganda EMAS.
