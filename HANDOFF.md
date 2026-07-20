@@ -206,6 +206,32 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **BUYURTMALAR UX 2-TO'PLAM (2026-07-20 kunduz, DEPLOY QILINDI):**
+1. **Status tablari soddalashtirildi** (egasi): Barchasi / **Yo'lda** (barcha
+   ochiqlar, `open=true`) / Yetkazildi / **Haydovchi yuklash** (haydovchisiz
+   NEW+PROCESSING, `unassigned=true`) / Bekor. QueryOrdersDto'da yangi boolean
+   filtrlar; haydovchi tablari o'zgarmagan. Qolib ketgan/Klik tabi avvalgidek.
+2. **Hudud filtri endi DROPDOWN** (chiplar o'rniga): "Barcha hududlar" +
+   ro'yxat, MapPin ikonka, tanlanganда ko'k rang.
+3. **Qidiruv tuzatildi** (egasi shikoyati: raqam bilan topilmasdi): raqamli
+   qidiruvda endi telefon (bo'shliq/+/- olib tashlanadi) + orderNumber + seq
+   (≤6 xona) BIRGA qidiriladi. "#12" — faqat seq. "93 450 26 89" ham topadi.
+4. **TO'KIB OLISH** (operator so'rovi: mijoz 5 tarasiga 6 suv oladi — 1 tasini
+   idishga to'kib, tarani darrov qaytaradi): refill > owned endi RUXSAT —
+   create/update cheklari olib tashlandi, izohga "♻️ N ta suv TO'KIB olinadi"
+   avto yoziladi (haydovchi ko'radi). Mijoz tarasi/ombor o'zgarmaydi (tara
+   hammasi qaytadi — bottlesReturned=refill). order-form'da refillCapped endi
+   cheklanmaydi + sky ogohlantirish paneli; tahrir modalida ham.
+5. **Tahrir modallarida "Uyida nechta tara bor?"** (egasi): AdjustOrderModal
+   uchinchi (amber) qator — actualBottlesOwned. OCHIQ zakazda "bu zakazdan
+   tashqari" son (owned - order.newBottles), saqlashda mijoz = actual + newNew;
+   YOPILGANда hozirgi son, mijoz = actual + dNew. Izohga "Tara aniqlashtirildi:
+   X → Y". orders findAll/findOne customer select'ga bottlesOwned qo'shildi.
+6. **Sinovlar:** 22 API (to'kib olish + izohlar, search seq/telefon/bo'shliqli,
+   open/unassigned, tahrirda actual+to'kib, adjust'da actual) + UI (tablar,
+   dropdown, telefon qidiruv, modal 3 qator + ogohlantirish + saqlash).
+   Ikkala prod build o'tdi.
+
 ✅ **HISOBOT MOLIYAVIY XULOSA + OCHIQ ZAKAZ TAHRIRI + KLIK 12H + OPERATOR RUXSATLARI (2026-07-20, DEPLOY QILINDI):**
 1. **Moliyaviy xulosa 5 karta** (Hisobotlar sahifasi, egasi so'rovi): Kirim /
    **Kutilayotgan Klik** / **Yozilgan qarzlar** / Chiqim / Sof foyda + tushuntirish
