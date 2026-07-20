@@ -206,6 +206,30 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **HAYDOVCHI GPS LOKATSIYA SAQLASH (2026-07-20 kech, DEPLOY QILINDI):**
+- **Muammo:** mijoz lokatsiyalari Telegram orqali qo'lda kiritilardi (haydovchi
+  havola tashlaydi, ofis qidirib qo'shadi) — ko'p ish.
+- **Yechim (egasi g'oyasi):** haydovchi mijoz uyida turib zakazni yopayotganda
+  DeliverModal'da "📍 Lokatsiyani saqlash" tugmasi: bosilganda ANIQ GPS olinadi
+  (lib/geo.ts getPreciseLocation: watchPosition bir necha soniya, eng yaxshi
+  fix, ≤15m yetsa darhol, maximumAge:0), "Yetkazildi"da zakaz bilan BIRGA yuboriladi.
+- **Backend (updateStatus, tranzaksiyada):** dto.driverLat/driverLng/locationAccuracy.
+  ADASHMASLIK: order.locationId bo'lsa → O'SHA CustomerLocation'ga (Do'kon/Apteka),
+  aks holda mijozning asosiy kartasiga. lat/lng + locationLink
+  (maps.google.com/?q=lat,lng — link ham mos yangilanadi). Zakaz izohiga
+  "📍 Lokatsiya haydovchi tomonidan o'rnatildi (aniqlik ~N m)".
+- **UI himoyalar:** modal qayerga yozilishini ko'rsatadi ("Do'kon manziliga" /
+  "mijozning asosiy manziliga"); mavjud lokatsiya bo'lsa oldindan ℹ️ eslatma +
+  yoqilganда "YANGISI bilan almashadi" ogohlantirish; aniqlik >50m bo'lsa ⚠️;
+  ruxsat rad etilsa tushunarli xato + qayta urinish.
+- **Marshrut avto-GPS:** geolocation ruxsati avvaldan berilgan bo'lsa marshrut
+  ochilishi bilan haydovchi joyi AVTOMATIK yoqiladi (permissions.query granted →
+  setGeoEnabled). Ruxsat brauzerda bir marta so'raladi (HTTPS) — keyin so'ralmaydi.
+- **Sinovlar:** 14 API (asosiy manzilga yozish + link + izoh; locationId bilan
+  Do'kon'ga yozilib ASOSIY TEGILMASLIGI; lokatsiyasiz yopish o'zgarmagani;
+  lat=999 → 400) + UI holatlar (tugma, ruxsat-rad xatosi, mavjud-lokatsiya
+  ogohlantirishi). Ikkala prod build o'tdi.
+
 ✅ **BUYURTMALAR UX 2-TO'PLAM (2026-07-20 kunduz, DEPLOY QILINDI):**
 1. **Status tablari soddalashtirildi** (egasi): Barchasi / **Yo'lda** (barcha
    ochiqlar, `open=true`) / Yetkazildi / **Haydovchi yuklash** (haydovchisiz
