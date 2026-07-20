@@ -30,4 +30,13 @@ export class UpdateOrderDto {
   @IsString()
   @MaxLength(300)
   reason?: string;
+
+  // Mijoz uyidagi tara sonini aniqlashtirish (bu zakazdan TASHQARI) —
+  // create'dagi actualBottlesOwned bilan bir xil semantika
+  @ApiPropertyOptional({ description: "Mijoz uyidagi tara soni (zakazdan tashqari, aniqlashtirish)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  actualBottlesOwned?: number;
 }

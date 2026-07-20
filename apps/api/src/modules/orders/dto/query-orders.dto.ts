@@ -48,6 +48,20 @@ export class QueryOrdersDto {
   @IsBoolean()
   cardPending?: boolean;
 
+  // "Yo'lda" tabi (2026-07-20): barcha ochiq zakazlar (yangi/jarayonda/biriktirilgan)
+  @ApiPropertyOptional({ description: "Faqat ochiq (yetkazilmagan) zakazlar" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  open?: boolean;
+
+  // "Haydovchi yuklash" tabi (2026-07-20): haydovchi hali biriktirilmagan ochiq zakazlar
+  @ApiPropertyOptional({ description: "Faqat haydovchisiz ochiq zakazlar" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  unassigned?: boolean;
+
   @ApiPropertyOptional({ example: "2025-01-01" })
   @IsOptional()
   @IsDateString()

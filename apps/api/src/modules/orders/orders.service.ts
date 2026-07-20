@@ -85,13 +85,15 @@ export class OrdersService implements OnModuleInit {
       dto.actualBottlesOwned != null && dto.actualBottlesOwned !== customer.bottlesOwned;
     const ownedNow = ownedCorrected ? dto.actualBottlesOwned! : customer.bottlesOwned;
 
-    // Tara qoidasi: mijoz o'zidagidan ko'p tara to'ldira olmaydi.
-    // Ko'proq kerak bo'lsa — yangi tara sotib olishi shart.
-    if (refillCount > ownedNow) {
-      throw new BadRequestException(
-        `Mijozda faqat ${ownedNow} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
-      );
-    }
+    // TO'KIB OLISH (2026-07-20, operator so'rovi): mijoz uyidagi tarasidan
+    // KO'P suv olishi mumkin — masalan 5 tarasi bor, 6 ta oladi: 5 tasini
+    // almashtiradi, 1 tasining suvini idishiga to'kib, tarani DARROV qaytaradi.
+    // Shuning uchun refill > owned endi XATO EMAS — ortiqchasi "to'kib olish".
+    // Mijoz tarasi o'zgarmaydi (almashtirish ham, to'kib olish ham owned'ga
+    // ta'sir qilmaydi), tara hammasi qaytadi (bottlesReturned = refillCount),
+    // ombor ham o'zgarmaydi (net nol). Faqat izohga belgi yozamiz — haydovchi
+    // nechta tarani joyida bo'shatib qaytarishini bilsin.
+    const pourCount = Math.max(0, refillCount - ownedNow);
 
     // Narxlar — sozlamadan (o'zgaruvchan)
     const refillPrice = await this.settings.getNumber("refillPrice");
@@ -122,14 +124,19 @@ export class OrdersService implements OnModuleInit {
           paymentType: (dto.paymentType as any) ?? null,
           locationId: dto.locationId || null,
           status: dto.driverId ? "ASSIGNED" : "NEW",
-          // Aniqlashtirish izi qoldiriladi — keyin "nega o'zgardi" degan savol chiqmasin
-          notes: ownedCorrected
-            ? [dto.notes, `Tara aniqlashtirildi: ${customer.bottlesOwned} → ${ownedNow} (mijozdan so'raldi)`]
-                .filter(Boolean).join(" · ")
-            : dto.notes,
+          // Aniqlashtirish/to'kib olish izlari — keyin "nega o'zgardi" savoli chiqmasin
+          notes: [
+            dto.notes,
+            ownedCorrected
+              ? `Tara aniqlashtirildi: ${customer.bottlesOwned} → ${ownedNow} (mijozdan so'raldi)`
+              : null,
+            pourCount > 0
+              ? `♻️ ${pourCount} ta suv TO'KIB olinadi (mijoz tarasi ${ownedNow} ta — suvi idishga quyilib, tara darrov qaytadi)`
+              : null,
+          ].filter(Boolean).join(" · ") || null,
         },
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true, bottlesOwned: true } },
           driver: { select: { id: true, name: true, phone: true } },
           createdBy: { select: { id: true, name: true } },
           location: true,
@@ -224,6 +231,7 @@ export class OrdersService implements OnModuleInit {
     const {
       search, status, driverId, customerId, paymentType, zone,
       dateFrom, dateTo, page = 1, limit = 20, overdue, cardPending,
+      open, unassigned,
     } = query;
     let { sortBy = "createdAt", sortOrder = "desc" } = query;
 
@@ -261,6 +269,17 @@ export class OrdersService implements OnModuleInit {
           }
         : {}),
       ...(status && !overdue && !cardPending ? { status: status as OrderStatus } : {}),
+      // "Yo'lda" — barcha ochiq zakazlar (status filtri bilan birga kelmaydi)
+      ...(open && !status
+        ? { status: { in: ["NEW", "PROCESSING", "ASSIGNED"] as OrderStatus[] } }
+        : {}),
+      // "Haydovchi yuklash" — haydovchisiz ochiqlar (ASSIGNED'da haydovchi bor)
+      ...(unassigned
+        ? {
+            status: { in: ["NEW", "PROCESSING"] as OrderStatus[] },
+            driverId: null,
+          }
+        : {}),
       ...(driverId ? { driverId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(paymentType ? { paymentType: paymentType as any } : {}),
@@ -278,16 +297,31 @@ export class OrdersService implements OnModuleInit {
         : {}),
       ...(search
         ? {
-            OR: /^#?\d{1,5}$/.test(search.trim())
-              ? [
-                  // Qisqa raqam ("#12" yoki "12") — FAQAT aniq sanoq raqam
-                  { seq: parseInt(search.trim().replace("#", ""), 10) },
-                ]
-              : [
-                  { orderNumber: { contains: search, mode: "insensitive" as const } },
-                  { customer: { name: { contains: search, mode: "insensitive" as const } } },
-                  { customer: { phone: { contains: search } } },
-                ],
+            OR: (() => {
+              const s = search.trim();
+              // "#12" — aniq zakaz raqami so'ralgan, faqat seq bo'yicha
+              if (/^#\d{1,6}$/.test(s)) {
+                return [{ seq: parseInt(s.slice(1), 10) }];
+              }
+              // Raqamli qidiruv: bo'shliq/+/-/() larni olib tashlaymiz —
+              // operator "91 727 27 72" yoki "917272772" yozsa ham topiladi.
+              // Qisqa raqam ham TELEFON ham SEQ bo'lishi mumkin — ikkalasida qidiramiz
+              // (2026-07-20: avval faqat seq edi, telefon topilmasdi — egasi shikoyati).
+              const digits = s.replace(/[\s\-+()]/g, "");
+              if (/^\d+$/.test(digits)) {
+                const or: Prisma.OrderWhereInput[] = [
+                  { customer: { phone: { contains: digits } } },
+                  { orderNumber: { contains: digits } },
+                ];
+                if (digits.length <= 6) or.push({ seq: parseInt(digits, 10) });
+                return or;
+              }
+              return [
+                { orderNumber: { contains: s, mode: "insensitive" as const } },
+                { customer: { name: { contains: s, mode: "insensitive" as const } } },
+                { customer: { phone: { contains: s } } },
+              ];
+            })(),
           }
         : {}),
     };
@@ -299,7 +333,7 @@ export class OrdersService implements OnModuleInit {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true, bottlesOwned: true } },
           driver: { select: { id: true, name: true } },
           createdBy: { select: { id: true, name: true } },
           location: true,
@@ -318,7 +352,7 @@ export class OrdersService implements OnModuleInit {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true, lat: true, lng: true } },
+        customer: { select: { id: true, name: true, phone: true, phone2: true, address: true, balance: true, zone: true, locationLink: true, lat: true, lng: true, bottlesOwned: true } },
         driver: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true } },
         editedBy: { select: { id: true, name: true } },
@@ -619,7 +653,7 @@ export class OrdersService implements OnModuleInit {
       where: { id },
       data: { driverId: dto.driverId, status: "ASSIGNED" },
       include: {
-        customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+        customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true, bottlesOwned: true } },
         driver: { select: { id: true, name: true } },
         location: true,
       },
@@ -679,7 +713,7 @@ export class OrdersService implements OnModuleInit {
   async adjustDelivered(id: string, dto: AdjustOrderDto, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { customer: { select: { id: true, name: true } } },
+      include: { customer: { select: { id: true, name: true, bottlesOwned: true } } },
     });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
     if (order.status !== "DELIVERED") {
@@ -696,7 +730,11 @@ export class OrdersService implements OnModuleInit {
     if (newRefill + newNew <= 0) {
       throw new BadRequestException("Kamida 1 ta tara bo'lishi kerak");
     }
-    if (newRefill === order.refillCount && newNew === order.newBottles) {
+    // 2026-07-20: mijoz uyidagi tara sonini ham shu yerda aniqlashtirish mumkin
+    const ownedCorrected =
+      dto.actualBottlesOwned != null &&
+      dto.actualBottlesOwned !== order.customer.bottlesOwned;
+    if (newRefill === order.refillCount && newNew === order.newBottles && !ownedCorrected) {
       throw new BadRequestException("Hech narsa o'zgarmadi");
     }
 
@@ -711,7 +749,15 @@ export class OrdersService implements OnModuleInit {
       newRefill * Number(order.refillPrice) + newNew * Number(order.newBottlePrice);
     const oldTotal = Number(order.totalAmount);
 
-    const editNote = `Tahrirlandi: ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)${dto.reason ? ` — ${dto.reason}` : ""}`;
+    const editNote = [
+      newRefill !== order.refillCount || newNew !== order.newBottles
+        ? `Tahrirlandi: ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)`
+        : null,
+      ownedCorrected
+        ? `Tara aniqlashtirildi: ${order.customer.bottlesOwned} → ${dto.actualBottlesOwned} (mijozdan so'raldi)`
+        : null,
+      dto.reason || null,
+    ].filter(Boolean).join(" · ");
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // 1) Zakaz
@@ -734,11 +780,15 @@ export class OrdersService implements OnModuleInit {
         },
       });
 
-      // 2) Mijoz tarasi: yangi tara farqi mijoz hisobiga qo'shiladi/ayiriladi
+      // 2) Mijoz tarasi: yangi tara farqi mijoz hisobiga qo'shiladi/ayiriladi.
+      // Aniqlashtirilgan bo'lsa — operator aytgan HOZIRGI son + yangi tara farqi
+      // qilib O'RNATILADI (operator modal ochilgandagi holatni aytadi).
       await tx.customer.update({
         where: { id: order.customerId },
         data: {
-          bottlesOwned: { increment: dNew },
+          ...(ownedCorrected
+            ? { bottlesOwned: dto.actualBottlesOwned! + dNew }
+            : { bottlesOwned: { increment: dNew } }),
           bottlesGiven: { increment: dQty },
           bottlesReturned: { increment: dRefill },
         },
@@ -875,7 +925,16 @@ export class OrdersService implements OnModuleInit {
 
     const newRefill = dto.refillCount ?? order.refillCount;
     const newNew = dto.newBottles ?? order.newBottles;
-    const countsChanged = newRefill !== order.refillCount || newNew !== order.newBottles;
+
+    // Mijozning ZAKAZGACHA bo'lgan tarasi (yaratishda +newBottles qilingan edi).
+    // Operator "uyida X ta bor" deb ANIQLASHTIRSA (actualBottlesOwned) — shu olinadi.
+    const ownedBeforeCurrent = order.customer.bottlesOwned - order.newBottles;
+    const ownedCorrected =
+      dto.actualBottlesOwned != null && dto.actualBottlesOwned !== ownedBeforeCurrent;
+    const ownedBefore = ownedCorrected ? dto.actualBottlesOwned! : ownedBeforeCurrent;
+
+    const countsChanged =
+      newRefill !== order.refillCount || newNew !== order.newBottles || ownedCorrected;
 
     // Faqat izoh o'zgarsa — sonlarga tegmasdan yangilaymiz (eski xatti-harakat)
     if (!countsChanged) {
@@ -884,7 +943,7 @@ export class OrdersService implements OnModuleInit {
         where: { id },
         data: { notes: dto.notes },
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true, bottlesOwned: true } },
           driver: { select: { id: true, name: true } },
         },
       });
@@ -894,14 +953,9 @@ export class OrdersService implements OnModuleInit {
       throw new BadRequestException("Kamida 1 ta tara to'ldirish yoki yangi tara bo'lishi kerak");
     }
 
-    // Tara qoidasi: yaratishda mijoz bottlesOwned ga +newBottles qilingan edi —
-    // mijozning ZAKAZGACHA bo'lgan haqiqiy tarasi shu farq bilan topiladi.
-    const ownedBefore = order.customer.bottlesOwned - order.newBottles;
-    if (newRefill > ownedBefore) {
-      throw new BadRequestException(
-        `Mijozda faqat ${ownedBefore} ta tara bor. Ko'proq uchun yangi tara qo'shing (sotib olish).`
-      );
-    }
+    // TO'KIB OLISH (2026-07-20): refill > owned endi xato emas — ortiqcha suv
+    // idishga quyilib tara darrov qaytadi (create bilan bir xil qoida)
+    const pourCount = Math.max(0, newRefill - ownedBefore);
 
     // Farqlar (delta) — hamma ta'sir shulardan
     const dRefill = newRefill - order.refillCount;
@@ -913,7 +967,18 @@ export class OrdersService implements OnModuleInit {
       newRefill * Number(order.refillPrice) + newNew * Number(order.newBottlePrice);
     const oldTotal = Number(order.totalAmount);
 
-    const editNote = `Tahrirlandi (yetkazishdan oldin): ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)${dto.reason ? ` — ${dto.reason}` : ""}`;
+    const editNote = [
+      newRefill !== order.refillCount || newNew !== order.newBottles
+        ? `Tahrirlandi (yetkazishdan oldin): ${order.refillCount}+${order.newBottles} → ${newRefill}+${newNew} (to'ldirish+yangi)`
+        : null,
+      ownedCorrected
+        ? `Tara aniqlashtirildi: ${ownedBeforeCurrent} → ${ownedBefore} (mijozdan so'raldi)`
+        : null,
+      pourCount > 0
+        ? `♻️ ${pourCount} ta suv TO'KIB olinadi (mijoz tarasi ${ownedBefore} ta — suvi idishga quyilib, tara darrov qaytadi)`
+        : null,
+      dto.reason || null,
+    ].filter(Boolean).join(" · ");
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // POYGA HIMOYASI: biz o'qigan paytdan beri haydovchi "Yetkazildi" bosgan
@@ -944,16 +1009,20 @@ export class OrdersService implements OnModuleInit {
           notes: [dto.notes ?? order.notes, editNote].filter(Boolean).join(" · "),
         },
         include: {
-          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true } },
+          customer: { select: { id: true, name: true, phone: true, address: true, zone: true, locationLink: true, bottlesOwned: true } },
           driver: { select: { id: true, name: true } },
         },
       });
 
-      // 2) Mijoz tarasi — create'dagi incrementlarning farqi
+      // 2) Mijoz tarasi — create'dagi incrementlarning farqi.
+      // Aniqlashtirilgan bo'lsa — increment EMAS, "haqiqiy son + yangi tara"
+      // qilib O'RNATILADI (create'dagi bilan bir xil mantiq).
       await tx.customer.update({
         where: { id: order.customerId },
         data: {
-          bottlesOwned: { increment: dNew },
+          ...(ownedCorrected
+            ? { bottlesOwned: ownedBefore + newNew }
+            : { bottlesOwned: { increment: dNew } }),
           bottlesGiven: { increment: dQty },
           bottlesReturned: { increment: dRefill },
           // ESKI OQIM: yaratishda DEBT tanlangan bo'lsa qarz ham yozilgan edi —

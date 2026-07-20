@@ -8,13 +8,13 @@
 //    haydovchiga xabar boradi.
 
 import { useState } from "react";
-import { X, Loader2, PencilLine, RefreshCw, Package, Minus, Plus, Check } from "lucide-react";
+import { X, Loader2, PencilLine, RefreshCw, Package, Minus, Plus, Check, Home } from "lucide-react";
 import { useAdjustOrder, useUpdateOrder, Order } from "@/hooks/use-orders";
 import { formatCurrency, cn } from "@/lib/utils";
 
 interface Props {
   order: Pick<Order, "id" | "seq" | "status" | "refillCount" | "newBottles" | "refillPrice" | "newBottlePrice" | "totalAmount" | "paymentType"> & {
-    customer: { name: string };
+    customer: { name: string; bottlesOwned?: number };
   };
   onClose: () => void;
 }
@@ -30,11 +30,25 @@ export function AdjustOrderModal({ order, onClose }: Props) {
   const isOpenOrder = order.status !== "DELIVERED";
   const saving = isOpenOrder ? update.isPending : adjust.isPending;
 
+  // "Uyida nechta tara bor?" (2026-07-20, egasi so'rovi) — mijoz tarasini ham
+  // shu yerda aniqlashtirish mumkin. Ochiq zakazda BU ZAKAZDAN TASHQARI son
+  // ko'rsatiladi (yaratishda owned ga +newBottles qilingan — ayirib qaytaramiz);
+  // yopilganда — hozirgi (zakaz qo'shilgan) son.
+  const knownOwned = order.customer.bottlesOwned;
+  const ownedDefault =
+    knownOwned == null ? null : isOpenOrder ? Math.max(0, knownOwned - order.newBottles) : knownOwned;
+  const [owned, setOwned] = useState<number>(ownedDefault ?? 0);
+  const ownedChanged = ownedDefault != null && owned !== ownedDefault;
+
   const refillPrice = Number(order.refillPrice);
   const newBottlePrice = Number(order.newBottlePrice);
   const newTotal = refill * refillPrice + newB * newBottlePrice;
-  const changed = refill !== order.refillCount || newB !== order.newBottles;
+  const changed = refill !== order.refillCount || newB !== order.newBottles || ownedChanged;
   const canSave = changed && refill + newB > 0;
+
+  // TO'KIB OLISH: mijoz tarasidan ko'p to'ldirish — ortiqcha suv idishga
+  // quyilib, tara darrov qaytadi (faqat ochiq zakazda ko'rsatamiz)
+  const pourCount = isOpenOrder && ownedDefault != null ? Math.max(0, refill - owned) : 0;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -43,6 +57,7 @@ export function AdjustOrderModal({ order, onClose }: Props) {
       refillCount: refill,
       newBottles: newB,
       reason: reason.trim() || undefined,
+      actualBottlesOwned: ownedChanged ? owned : undefined,
     };
     if (isOpenOrder) await update.mutateAsync(payload);
     else await adjust.mutateAsync(payload);
@@ -103,6 +118,43 @@ export function AdjustOrderModal({ order, onClose }: Props) {
             "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400")}
           {row("Yangi tara", Package, newB, setNewB, newBottlePrice,
             "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400")}
+
+          {/* Uyida nechta tara — mijoz kartasi ham shu yerdan tuzatiladi */}
+          {ownedDefault != null && (
+            <div className="flex items-center gap-3 rounded-[14px] border border-amber-200/70 dark:border-amber-500/25 bg-amber-50/50 dark:bg-amber-500/[0.07] p-3">
+              <span className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-none bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <Home className="w-4 h-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13.5px] font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                  Uyida nechta tara bor?
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {isOpenOrder ? "bu zakazdan tashqari" : "hozirgi holati"}
+                  {ownedChanged ? ` · ${ownedDefault} → ${owned}` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-none">
+                <button type="button" onClick={() => setOwned((c) => Math.max(0, c - 1))} disabled={owned <= 0}
+                  className="w-10 h-10 rounded-[11px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center active:scale-95 transition-all disabled:opacity-40">
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="w-10 text-center text-[19px] font-bold tabular-nums text-gray-900 dark:text-white">{owned}</span>
+                <button type="button" onClick={() => setOwned((c) => c + 1)}
+                  className="w-10 h-10 rounded-[11px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 flex items-center justify-center active:scale-95 transition-all">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TO'KIB OLISH belgisi — tara yetmasa ham zakaz bo'laveradi */}
+          {pourCount > 0 && (
+            <p className="text-[12.5px] leading-relaxed px-3.5 py-2.5 rounded-[12px] bg-sky-50 dark:bg-sky-500/10 border border-sky-200/70 dark:border-sky-500/25 text-sky-700 dark:text-sky-300">
+              ♻️ <b>{pourCount} ta suv to&apos;kib olinadi</b> — mijoz tarasi {owned} ta,
+              ortiqcha suv idishiga quyilib, tara darrov qaytariladi (izohga yoziladi).
+            </p>
+          )}
 
           <input
             value={reason}

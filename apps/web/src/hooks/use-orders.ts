@@ -44,7 +44,7 @@ export interface Order {
   // Klik (karta) tasdiqlash: null = tasdiqlanmagan (operator kutilyapti).
   // Yetkazilgan CARD zakaz CARD_CONFIRM_HOURS ichida tasdiqlanmasa avto-nasiyaga o'tadi.
   cardConfirmedAt?: string | null;
-  customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null };
+  customer: { id: string; name: string; phone: string; address: string; balance?: number; zone?: string; locationLink?: string; lat?: number | string | null; lng?: number | string | null; bottlesOwned?: number };
   driver?: { id: string; name: string; phone?: string };
   createdBy: { id: string; name: string };
 }
@@ -97,6 +97,10 @@ export interface OrderQueryParams {
   overdue?: boolean;
   // Klik to'lovi tasdiqlanmagan yetkazilgan zakazlar — eng eskisi birinchi
   cardPending?: boolean;
+  // "Yo'lda" — barcha ochiq (yetkazilmagan) zakazlar
+  open?: boolean;
+  // "Haydovchi yuklash" — haydovchi biriktirilmagan ochiq zakazlar
+  unassigned?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -177,8 +181,8 @@ export function useUpdateOrderStatus() {
 export function useAdjustOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, refillCount, newBottles, reason }: { id: string; refillCount: number; newBottles: number; reason?: string }) =>
-      api.patch(`/orders/${id}/adjust`, { refillCount, newBottles, reason }).then((r) => r.data.data),
+    mutationFn: ({ id, refillCount, newBottles, reason, actualBottlesOwned }: { id: string; refillCount: number; newBottles: number; reason?: string; actualBottlesOwned?: number }) =>
+      api.patch(`/orders/${id}/adjust`, { refillCount, newBottles, reason, actualBottlesOwned }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });
@@ -236,9 +240,9 @@ export function useAssignDriver() {
 export function useUpdateOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, refillCount, newBottles, reason, notes }:
-      { id: string; refillCount?: number; newBottles?: number; reason?: string; notes?: string }) =>
-      api.patch(`/orders/${id}`, { refillCount, newBottles, reason, notes }).then((r) => r.data.data),
+    mutationFn: ({ id, refillCount, newBottles, reason, notes, actualBottlesOwned }:
+      { id: string; refillCount?: number; newBottles?: number; reason?: string; notes?: string; actualBottlesOwned?: number }) =>
+      api.patch(`/orders/${id}`, { refillCount, newBottles, reason, notes, actualBottlesOwned }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["orders", id] });

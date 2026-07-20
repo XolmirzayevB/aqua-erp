@@ -143,8 +143,11 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
 
   // Yangi mijoz rejimida ham uyidagi taralar hisobga olinadi (newOwned)
   const owned = mode === "existing" ? ownedInput : newOwned;
-  // To'ldirish mijozdagi taradan oshmasin (son pasaytirilganda ham xavfsiz)
-  const refillCapped = Math.min(refillCount, owned);
+  // TO'KIB OLISH (2026-07-20, operator so'rovi): mijoz tarasidan KO'P suv olishi
+  // mumkin — ortiqcha suv idishiga quyilib tara darrov qaytadi. Shuning uchun
+  // to'ldirish endi owned bilan CHEKLANMAYDI, faqat ortiqchasi belgilanadi.
+  const refillCapped = refillCount;
+  const pourCount = Math.max(0, refillCount - owned);
   const total = refillCapped * refillPrice + newBottles * newBottlePrice;
 
   // Mijoz yaratilib zakaz yiqilganda existing rejimga o'tamiz — shunda
@@ -459,21 +462,18 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
           })()}
 
           {/* ── TARA SONI — TO'LDIRISH + YANGI TARA alohida ──
-              Mijozda tara bo'lsa ikkalasi ko'rinadi (operator aniq belgilaydi:
-              masalan "1 to'ldirish + 3 yangi"). Tarasi yo'q bo'lsa faqat yangi. */}
+              To'ldirish endi mijoz tarasidan OSHISHI ham mumkin (2026-07-20):
+              ortiqcha suv idishga quyilib tara darrov qaytadi ("to'kib olish"). */}
           <div className="space-y-3.5">
-            {owned > 0 && (
-              <QtyStepper
-                label="To'ldirish (almashtirish)"
-                hint={`Mijozdagi bo'sh tarani to'ldirish · ${formatCurrency(refillPrice)} · mijozda ${owned} ta`}
-                icon={RefreshCw}
-                value={refillCapped}
-                min={0}
-                max={owned}
-                onChange={setRefillCount}
-                tone="blue"
-              />
-            )}
+            <QtyStepper
+              label="To'ldirish (almashtirish)"
+              hint={`Suvni almashtirib berish · ${formatCurrency(refillPrice)} · mijozda ${owned} ta tara`}
+              icon={RefreshCw}
+              value={refillCapped}
+              min={0}
+              onChange={setRefillCount}
+              tone="blue"
+            />
             <QtyStepper
               label="Yangi tara"
               hint={`Yangi sotib olinadigan tara · ${formatCurrency(newBottlePrice)}`}
@@ -483,6 +483,13 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
               onChange={setNewBottles}
               tone="green"
             />
+            {/* TO'KIB OLISH belgisi — mijoz tarasi yetmasa ham zakaz bo'laveradi */}
+            {pourCount > 0 && (
+              <p className="text-[12.5px] leading-relaxed px-3.5 py-2.5 rounded-[12px] bg-sky-50 dark:bg-sky-500/10 border border-sky-200/70 dark:border-sky-500/25 text-sky-700 dark:text-sky-300">
+                ♻️ <b>{pourCount} ta suv to&apos;kib olinadi</b> — mijozda {owned} ta tara bor,
+                ortiqcha suv idishiga quyilib, tara darrov qaytariladi (haydovchi izohda ko&apos;radi).
+              </p>
+            )}
           </div>
 
           {/* ── QAYERGA YETKAZILADI? — mijoz manzillari (Uy, Apteka...) ──

@@ -24,12 +24,14 @@ import {
 import type { Tone } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
 
+// 2026-07-20 (egasi so'rovi): tablar soddalashtirildi — alohida Yangi/Jarayonda/
+// Biriktirilgan o'rniga bitta "Yo'lda" (barcha ochiqlar) va "Haydovchi yuklash"
+// (haydovchi hali biriktirilmagan ochiqlar — operator kimga berishni ko'radi).
 const STATUS_FILTERS = [
   { value: "", label: "Barchasi" },
-  { value: "NEW", label: "Yangi" },
-  { value: "PROCESSING", label: "Jarayonda" },
-  { value: "ASSIGNED", label: "Biriktirilgan" },
+  { value: "OPEN", label: "Yo'lda" },
   { value: "DELIVERED", label: "Yetkazildi" },
+  { value: "UNASSIGNED", label: "Haydovchi yuklash" },
   { value: "CANCELLED", label: "Bekor" },
 ];
 
@@ -101,15 +103,20 @@ export function OrdersTable() {
   // eng ko'p kechikkani birinchi (backend overdue filtri)
   const isOverdueView = status === "OVERDUE";
   // "KLIK TASDIQLASH" — maxsus rejim: yetkazilgan, Karta (Click), tasdiqlanmagan.
-  // Muddati (48h) tugashiga oz qolgani birinchi turadi.
+  // Muddati (12h) tugashiga oz qolgani birinchi turadi.
   const isCardPendingView = status === "CARD_PENDING";
   const specialView = isOverdueView || isCardPendingView;
+  // "Yo'lda" / "Haydovchi yuklash" — status emas, alohida backend filtrlari
+  const isOpenView = status === "OPEN";
+  const isUnassignedView = status === "UNASSIGNED";
 
   const { data, isLoading } = useOrders({
     search: debouncedSearch,
-    status: specialView ? undefined : status || undefined,
+    status: specialView || isOpenView || isUnassignedView ? undefined : status || undefined,
     overdue: isOverdueView || undefined,
     cardPending: isCardPendingView || undefined,
+    open: isOpenView || undefined,
+    unassigned: isUnassignedView || undefined,
     zone: zone || undefined,
     dateFrom: !specialView && day ? day : undefined,
     dateTo: !specialView && day ? day : undefined,
@@ -328,34 +335,33 @@ export function OrdersTable() {
         />
       </div>
 
-      {/* Hudud filtri — mijozlar sahifasidagidek chiplar */}
+      {/* Hudud filtri — DROPDOWN (2026-07-20, egasi so'rovi: chiplar ko'p joy
+          olardi). "Barcha hududlar" + hududlar ro'yxati; tanlangani ko'k rangda. */}
       {!isDriver && zones.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mb-4">
-          <button
-            onClick={() => { setZone(""); setPage(1); }}
+        <div className="mb-4">
+          <div
             className={cn(
-              "h-9 px-3.5 rounded-[10px] border text-[13px] font-semibold whitespace-nowrap transition-all flex-none",
-              zone === ""
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700"
+              "inline-flex items-center gap-2 h-10 pl-3 pr-2 rounded-[11px] border transition-colors",
+              zone
+                ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
+                : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
             )}
           >
-            Barchasi
-          </button>
-          {zones.map((z) => (
-            <button
-              key={z}
-              onClick={() => { setZone(zone === z ? "" : z); setPage(1); }}
+            <MapPin className={cn("w-4 h-4 flex-none", zone ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
+            <select
+              value={zone}
+              onChange={(e) => { setZone(e.target.value); setPage(1); }}
               className={cn(
-                "h-9 px-3.5 rounded-[10px] border text-[13px] font-semibold whitespace-nowrap transition-all flex-none",
-                zone === z
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700"
+                "bg-transparent text-[13.5px] font-semibold focus:outline-none pr-1 cursor-pointer",
+                zone ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-200"
               )}
             >
-              {z}
-            </button>
-          ))}
+              <option value="">Barcha hududlar</option>
+              {zones.map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 

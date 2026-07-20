@@ -24,4 +24,13 @@ export class AdjustOrderDto {
   @IsString()
   @MaxLength(300)
   reason?: string;
+
+  // 2026-07-20: operator mijozdan "uyingizda HOZIR nechta tara bor?" deb so'rab
+  // tuzatishi mumkin — mijoz bottlesOwned SHU songa o'rnatiladi.
+  @ApiPropertyOptional({ example: 5, description: "Mijoz uyidagi HOZIRGI tara soni (aniqlashtirish)" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  actualBottlesOwned?: number;
 }
