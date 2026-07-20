@@ -436,6 +436,12 @@ export function OrdersTable() {
                       {order.location.label}
                     </span>
                   )}
+                  {/* Yetkazilgan KUN·SOAT — ichiga kirmasdan ko'rinsin (egasi so'rovi) */}
+                  {order.status === "DELIVERED" && order.deliveredAt && (
+                    <span className="block mt-1 text-[11.5px] font-semibold text-green-600 dark:text-green-400 tabular-nums">
+                      ✓ Yetkazildi: {formatDate(order.deliveredAt, "dd.MM · HH:mm")}
+                    </span>
+                  )}
                   {/* Qolib ketgan — qancha kechikkani */}
                   {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
                     Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
@@ -661,6 +667,12 @@ export function OrdersTable() {
                     {/* Holat */}
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
+                      {/* Yetkazilgan KUN·SOAT ro'yxatda ko'rinib tursin (2026-07-20, egasi so'rovi) */}
+                      {order.status === "DELIVERED" && order.deliveredAt && (
+                        <span className="block mt-1 text-[10.5px] font-semibold text-green-600 dark:text-green-400 tabular-nums whitespace-nowrap">
+                          ✓ {formatDate(order.deliveredAt, "dd.MM · HH:mm")}
+                        </span>
+                      )}
                       {order.editedAt && (
                         <span title="Yopilgandan keyin tahrirlangan"
                           className="mt-1 inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-600 dark:text-amber-400">
