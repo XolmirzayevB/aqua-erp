@@ -274,8 +274,38 @@ export function OrdersTable() {
         </button>
       )}
 
-      {/* Qidiruv + kun tanlash + status tablar */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+      {/* Hudud filtri — TEPADA, alohida qatorda (2026-07-20, egasi so'rovi:
+          eng ko'p ishlatiladigan filtr, qulay joyda tursin) */}
+      {!isDriver && zones.length > 0 && (
+        <div className="mb-3">
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 h-10 pl-3 pr-2 rounded-[11px] border transition-colors",
+              zone
+                ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
+                : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+            )}
+          >
+            <MapPin className={cn("w-4 h-4 flex-none", zone ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
+            <select
+              value={zone}
+              onChange={(e) => { setZone(e.target.value); setPage(1); }}
+              className={cn(
+                "bg-transparent text-[13.5px] font-semibold focus:outline-none pr-1 cursor-pointer",
+                zone ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-200"
+              )}
+            >
+              <option value="">Barcha hududlar</option>
+              {zones.map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Qidiruv + kun tanlash + status tablar — hudud ostida */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="flex items-center gap-2.5 h-10 px-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[11px] flex-1 min-w-[200px] max-w-sm focus-within:border-blue-300 dark:focus-within:border-blue-700 transition-colors">
           <Search className="w-4 h-4 text-gray-400 flex-none" />
           <input
@@ -334,36 +364,6 @@ export function OrdersTable() {
           onChange={(v) => { setStatus(v); setPage(1); }}
         />
       </div>
-
-      {/* Hudud filtri — DROPDOWN (2026-07-20, egasi so'rovi: chiplar ko'p joy
-          olardi). "Barcha hududlar" + hududlar ro'yxati; tanlangani ko'k rangda. */}
-      {!isDriver && zones.length > 0 && (
-        <div className="mb-4">
-          <div
-            className={cn(
-              "inline-flex items-center gap-2 h-10 pl-3 pr-2 rounded-[11px] border transition-colors",
-              zone
-                ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
-                : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
-            )}
-          >
-            <MapPin className={cn("w-4 h-4 flex-none", zone ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
-            <select
-              value={zone}
-              onChange={(e) => { setZone(e.target.value); setPage(1); }}
-              className={cn(
-                "bg-transparent text-[13.5px] font-semibold focus:outline-none pr-1 cursor-pointer",
-                zone ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-200"
-              )}
-            >
-              <option value="">Barcha hududlar</option>
-              {zones.map((z) => (
-                <option key={z} value={z}>{z}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
 
       {/* MOBIL: har buyurtma ALOHIDA karta — oralarida bo'shliq, aniq ajralib turadi */}
       <div className="md:hidden space-y-3">
