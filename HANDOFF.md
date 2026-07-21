@@ -206,6 +206,24 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **LOKATSIYA AUDITI (2026-07-21, DEPLOY QILINDI):**
+- **Muammo (egasi):** haydovchi lokatsiya qo'ysa — KIM, KIMGA va QACHON bosgani
+  aniq ma'lum bo'lishi kerak (nazorat uchun).
+- **Backend:** updateStatus saveLocation bo'lganda `audit.log` chaqiriladi —
+  entity="location", action=UPDATE, userId="Yetkazildi" bosgan odam (haydovchi),
+  newData={type:"LOCATION_SET", customerName/Phone, target (asosiy/qo'shimcha
+  manzil nomi), lat/lng, accuracy, orderSeq/Number, mapLink, setAtLocal}.
+  IP+userAgent controller'dan (@Req req.ip / x-forwarded-for). AuditModule global.
+  updateStatus imzosiga `meta?` qo'shildi (controller yuboradi).
+- **Frontend (audit sahifasi):** yangi "📍 Lokatsiya" filtri (entity=location);
+  LOCATION_SET yozuvi maxsus sky karta bo'lib chiqadi — mijoz ismi/telefon/#,
+  target amber pill, aniqlik, koordinata, "Xaritada" tugma (mapLink); pastda
+  haydovchi ismi + IP + aniq vaqt (dd.MM.yyyy HH:mm:ss). FILTERS massivi entity/
+  action ni ajratadi (kind bilan). Audit faqat ADMIN (endpoint 403 boshqalarga).
+- **Sinovlar:** 16 API (audit yozuvi to'liq maydonlar bilan; Do'kon vs asosiy
+  manzil target; lokatsiyasiz yopishда audit YO'Q; operator 403) + UI (Lokatsiya
+  filtri, karta ko'rinishi, Xaritada tugma). Ikkala prod build o'tdi.
+
 ✅ **MOBIL UX 3-TO'PLAM (2026-07-20 tun, DEPLOY QILINDI):**
 1. **Mobil buyurtma kartalari qayta dizayn** (egasi: "ism/nomer/manzil birinchi
    ko'rinsin"): IKKALA komponentda — orders-table (mobil kartalar) va
