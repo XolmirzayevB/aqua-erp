@@ -12,9 +12,11 @@ import { AdjustOrderDto } from "./dto/adjust-order.dto";
 import { AssignDriverDto } from "./dto/assign-driver.dto";
 import { QueryOrdersDto } from "./dto/query-orders.dto";
 import { SettingsService } from "../settings/settings.service";
+import { AuditService } from "../audit/audit.service";
 import { Prisma, OrderStatus, Role } from "@aqua/database";
 import { parseLatLngFromUrl, resolveLatLng } from "../../common/utils/geo.util";
-import { localDayRange } from "../../common/utils/date.util";
+import { localDayRange, toLocal } from "../../common/utils/date.util";
+import { format } from "date-fns";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -38,6 +40,7 @@ export class OrdersService implements OnModuleInit {
     private notifications: NotificationsGateway,
     private push: PushService,
     private settings: SettingsService,
+    private audit: AuditService,
   ) {}
 
   // Muddati o'tgan Klik zakazlarini muntazam tekshirib nasiyaga o'tkazamiz:
@@ -371,7 +374,13 @@ export class OrdersService implements OnModuleInit {
     return order;
   }
 
-  async updateStatus(id: string, dto: UpdateStatusDto, userId: string, userRole: string) {
+  async updateStatus(
+    id: string,
+    dto: UpdateStatusDto,
+    userId: string,
+    userRole: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException("Buyurtma topilmadi");
 
@@ -424,6 +433,8 @@ export class OrdersService implements OnModuleInit {
     const geoNote = saveLocation
       ? `📍 Lokatsiya haydovchi tomonidan o'rnatildi${dto.locationAccuracy ? ` (aniqlik ~${Math.round(dto.locationAccuracy)} m)` : ""}`
       : null;
+    // Qo'shimcha manzilga yozilsa uning nomi (Do'kon...) — audit uchun ichkarida to'ldiriladi
+    let locationTargetLabel: string | null = null;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.order.update({
@@ -439,7 +450,7 @@ export class OrdersService implements OnModuleInit {
             : {}),
         },
         include: {
-          customer: { select: { id: true, name: true } },
+          customer: { select: { id: true, name: true, phone: true } },
           driver: { select: { id: true, name: true } },
         },
       });
@@ -449,10 +460,11 @@ export class OrdersService implements OnModuleInit {
         // link qolib ketsa marshrut yangi, link eski joyni ko'rsatib chalkashtirardi
         const link = `https://maps.google.com/?q=${dto.driverLat},${dto.driverLng}`;
         if (order.locationId) {
-          await tx.customerLocation.update({
+          const loc = await tx.customerLocation.update({
             where: { id: order.locationId },
             data: { lat: dto.driverLat, lng: dto.driverLng, locationLink: link },
           });
+          locationTargetLabel = loc.label; // qo'shimcha manzil nomi (Do'kon, Apteka...)
         } else {
           await tx.customer.update({
             where: { id: order.customerId },
@@ -517,6 +529,38 @@ export class OrdersService implements OnModuleInit {
 
       return result;
     });
+
+    // 📍 LOKATSIYA AUDITI (2026-07-21, egasi so'rovi): haydovchi lokatsiya
+    // qo'shsa — KIM (haydovchi), KIMGA (mijoz), QAYERGA (asosiy/qo'shimcha
+    // manzil), koordinata, aniqlik va QACHON aniq yozib qo'yiladi. Audit
+    // jurnalida "Lokatsiya" filtri orqali ko'rinadi. Talab bo'lganda tekshiriladi.
+    if (saveLocation) {
+      await this.audit.log({
+        userId, // "Yetkazildi" bosgan odam — odatda haydovchi
+        action: "UPDATE",
+        entity: "location",
+        entityId: order.customerId,
+        newData: {
+          type: "LOCATION_SET",
+          orderId: id,
+          orderSeq: updated.seq,
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          customerName: updated.customer.name,
+          customerPhone: updated.customer.phone,
+          // Qayerga yozildi — qo'shimcha manzil nomi yoki asosiy manzil
+          target: locationTargetLabel ? `${locationTargetLabel} (qo'shimcha manzil)` : "Asosiy manzil",
+          lat: dto.driverLat,
+          lng: dto.driverLng,
+          accuracy: dto.locationAccuracy ?? null,
+          mapLink: `https://maps.google.com/?q=${dto.driverLat},${dto.driverLng}`,
+          // Vaqt — O'zbekiston vaqti bilan (audit createdAt UTC bo'ladi, bu qulaylik uchun)
+          setAtLocal: format(toLocal(new Date()), "yyyy-MM-dd HH:mm:ss"),
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
+    }
 
     // Real-time notifications
     this.notifications.emitToAll("order_status_changed", {

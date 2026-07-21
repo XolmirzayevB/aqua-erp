@@ -1,7 +1,8 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Query, ParseUUIDPipe,
+  Body, Param, Query, ParseUUIDPipe, Req,
 } from "@nestjs/common";
+import { Request } from "express";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
@@ -55,8 +56,14 @@ export class OrdersController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateStatusDto,
     @CurrentUser() user: JwtPayload,
+    @Req() req: Request,
   ) {
-    return this.ordersService.updateStatus(id, dto, user.sub, user.role);
+    // Lokatsiya auditida IP va qurilma ham yozilsin (kim/qayerdan bosgani)
+    const meta = {
+      ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip,
+      userAgent: req.headers["user-agent"],
+    };
+    return this.ordersService.updateStatus(id, dto, user.sub, user.role, meta);
   }
 
   // Klik (karta) to'lovini tasdiqlash — operator Click hisobida pulni ko'rib
