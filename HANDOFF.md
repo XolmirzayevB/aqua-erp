@@ -251,10 +251,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   tashlanadi, registr tushiriladi, sof raqamlar (summalar) chiqarib yuboriladi,
   o'zbekcha qo'shimchalar kesiladi (-larga/-lardan/-ning/-dan/-ga/-ka/-qa/-da/-ni),
   murojaat/xizmat so'zlari STOPWORD (aka, uka, opa, uchun, pul, so'm, ming,
-  boshqa, haydovchi, operator...). Guruh KALITI: kategoriya ma'noli bo'lsa
-  undan, aks holda izohdan olingan eng uzun o'zak. Guruh NOMI — o'sha guruhda
-  eng ko'p uchragan yozuv (teng bo'lsa to'liqrog'i). UI'da "+2 xil yozilgan"
-  belgisi variantlar borligini ko'rsatadi.
+  boshqa, haydovchi, operator, naqd, klik...). Yana ikkita qoida REAL prod
+  ma'lumotida sinab qo'shildi:
+  • **x = h** (kalitda): "Bexruzga" va "Behruzga klik" — bitta odam.
+  • **bitta harf xatosi** (Damerau masofa ≤1, 5 harfdan uzun kalitlar):
+    "Mwtan"→"Metan", "Gayrta akaga"→"Gayrat akaga".
+  Guruh KALITI: kategoriya ma'noli bo'lsa undan, aks holda izohdan olingan
+  **BIRINCHI** ma'noli o'zak (o'zbekchada pul oluvchi oldinda yoziladi:
+  "Azizga oylik", "Ishchiga 2 kunlik", "Salyarka divijokka"). Hamma so'z
+  stopword bo'lsa (masalan "Klik") — matnning o'zi kalit bo'ladi.
+  Guruh NOMI — eng ko'p uchragan yozuv, teng bo'lsa eng QISQASI ("Azizga",
+  "Azizga oylikdi qoldigi" emas). UI'da "+N xil yozilgan" belgisi bor.
+  **Prod tekshiruvi (18.07–03.09, 234 yozuv, 91.1 mln):** Ziyov akaga 24.6 mln
+  (8), Gayrat akamga 20.1 mln (25, 11 xil yozilgan), Azizga 9.3 mln (4),
+  Bexruzga 6.1 mln (21), Ishchiga 3.8 mln (29), Metan 2.4 mln (34).
   ⚠️ Yangi stopword/qo'shimcha kerak bo'lsa — SHU fayldan qo'shiladi.
 - **`cleanExpenseNote()`** — izohdagi texnik belgilarni ajratadi: "(haydovchi)",
   "(operator)" olib tashlanadi, "— pul: Ism (naqd/klik)" dan pul MANBASI

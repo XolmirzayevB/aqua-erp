@@ -8,7 +8,7 @@ import {
   eachDayOfInterval, eachMonthOfInterval, format,
 } from "date-fns";
 import { localDayRange, toLocal, periodRange } from "../../common/utils/date.util";
-import { cleanExpenseNote, expenseGroupKey } from "../../common/utils/expense-group.util";
+import { cleanExpenseNote, expenseGroupKey, keysAreTypoVariants } from "../../common/utils/expense-group.util";
 
 @Injectable()
 export class FinanceService {
@@ -331,7 +331,14 @@ export class FinanceService {
     const list = rows.map((t) => {
       const amount = Number(t.amount);
       const { note, sourceName, sourceMethod } = cleanExpenseNote(t.description);
-      const { key } = expenseGroupKey(t.category, note);
+      let { key } = expenseGroupKey(t.category, note);
+      // Kalit mavjud guruhga bitta harf xatosi bilan o'xshasa — yangi guruh
+      // ochilmaydi, o'shanga qo'shiladi ("Mwtan" → "Metan", "Gayrta" → "Gayrat")
+      if (!groups.has(key)) {
+        for (const existing of groups.keys()) {
+          if (keysAreTypoVariants(existing, key)) { key = existing; break; }
+        }
+      }
       // Ko'rinadigan nom: ma'noli kategoriya bo'lsa o'sha, aks holda izoh
       const label = (t.category && t.category.trim()) || note || "Boshqa";
       // Pul kimning balansidan ketgan: izohda ko'rsatilgan bo'lsa o'sha,
@@ -394,9 +401,10 @@ export class FinanceService {
     // Guruh nomi — o'sha guruhda eng ko'p uchragan yozuv matni
     const groupList = [...groups.values()]
       .map((g) => {
-        // Eng ko'p uchragan yozuv; teng bo'lsa — to'liqrog'i (uzunrog'i)
+        // Eng ko'p uchragan yozuv; teng bo'lsa — eng qisqasi (toza nom:
+        // "Azizga", "Azizga oylikdi qoldigi" emas)
         const label = [...g.labelCounts.entries()]
-          .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0][0];
+          .sort((a, b) => b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]))[0][0];
         return {
           key: g.key,
           label,
