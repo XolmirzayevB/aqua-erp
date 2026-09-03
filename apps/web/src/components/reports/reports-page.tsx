@@ -4,36 +4,27 @@ import { useState } from "react";
 import {
   FileSpreadsheet, FileText, ShoppingCart, CheckCircle,
   XCircle, Droplets, Package, TrendingUp, TrendingDown,
-  Wallet, UserPlus, CalendarDays, X, CreditCard, NotebookPen,
+  Wallet, UserPlus, CreditCard, NotebookPen,
 } from "lucide-react";
 import { useReportOverview, useDebtPayments, downloadReport } from "@/hooks/use-reports";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
-  PageHeader, StatCard, SegmentTabs, btnPrimary, btnSecondary, thClass, cardClass,
+  PageHeader, StatCard, btnPrimary, btnSecondary, thClass, cardClass,
 } from "@/components/shared/page-ui";
-
-const PERIODS = [
-  { value: "daily", label: "Kunlik" },
-  { value: "weekly", label: "Haftalik" },
-  { value: "monthly", label: "Oylik" },
-  { value: "yearly", label: "Yillik" },
-] as const;
-
-type Period = (typeof PERIODS)[number]["value"];
+import { RangePicker, defaultRange, rangeText, type RangeValue } from "@/components/shared/range-picker";
 
 export function ReportsPage() {
-  const [period, setPeriod] = useState<Period>("monthly");
-  // Kun tanlab ko'rish: tanlansa davr tablari o'rniga o'sha BITTA kun ko'rsatiladi.
+  // Davr tanlash (2026-09-03): tez tugmalar + o'tgan oylar + ixtiyoriy oraliq.
   // 12-da yozilib 13-da yetkazilgan zakaz — 13-kunning "Yetkazilgan"ida chiqadi.
-  const [day, setDay] = useState<string>("");
+  const [range, setRange] = useState<RangeValue>(defaultRange());
   const [downloading, setDownloading] = useState<"excel" | "pdf" | null>(null);
-  const { data, isLoading } = useReportOverview(period, day || undefined);
-  const { data: debts } = useDebtPayments(period, day || undefined);
+  const { data, isLoading } = useReportOverview(range);
+  const { data: debts } = useDebtPayments(range);
 
   const handleDownload = async (type: "excel" | "pdf") => {
     setDownloading(type);
-    await downloadReport(type, period);
+    await downloadReport(type, range);
     setDownloading(null);
   };
 
@@ -41,48 +32,9 @@ export function ReportsPage() {
     <div>
       <PageHeader
         title="Hisobotlar"
-        subtitle={
-          day
-            ? `${formatDate(day, "d-MMMM yyyy")} — bitta kun`
-            : data
-            ? `${formatDate(data.period.from, "dd.MM.yyyy")} — ${formatDate(data.period.to, "dd.MM.yyyy")}`
-            : "Kunlik, oylik va yillik hisobotlar"
-        }
+        subtitle={rangeText(range)}
       >
-        {/* Kun tanlagich — tanlansa davr tablari o'chadi */}
-        <div
-          className={cn(
-            "flex items-center gap-1.5 h-[42px] pl-3 pr-1.5 rounded-xl border transition-colors",
-            day
-              ? "border-blue-500/60 bg-blue-50/60 dark:bg-blue-500/10"
-              : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
-          )}
-        >
-          <CalendarDays className={cn("w-4 h-4 flex-none", day ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
-          <input
-            type="date"
-            value={day}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setDay(e.target.value)}
-            className="bg-transparent text-[13.5px] font-semibold text-gray-900 dark:text-white focus:outline-none w-[130px]"
-          />
-          {day && (
-            <button
-              onClick={() => setDay("")}
-              title="Kunni bekor qilish"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white dark:hover:bg-gray-800 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        {!day && (
-          <SegmentTabs
-            options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-            value={period}
-            onChange={setPeriod}
-          />
-        )}
+        <RangePicker value={range} onChange={setRange} />
         <button
           onClick={() => handleDownload("pdf")}
           disabled={downloading !== null}

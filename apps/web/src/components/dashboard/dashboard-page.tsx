@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Banknote, Coins, Droplet, Users,
   Plus, UserPlus, Wallet, Download, ChevronRight, CreditCard,
+  ShoppingBag, TrendingDown, FileText, BarChart3,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { useAuthStore } from "@/store/auth.store";
@@ -40,6 +41,15 @@ const quickActions = [
   { label: "Mijoz qo'shish", href: "/customers", icon: UserPlus },
   { label: "To'lov qabul qilish", href: "/debts", icon: Wallet },
   { label: "Hisobot", href: "/reports", icon: Download },
+];
+
+// Menejer FAQAT KO'RADI — unga yaratish tugmalari emas, ko'rish havolalari
+// kerak (2026-09-03, egasi: "menejerga buyurtmalar sahifasini qo'shib qo'y")
+const viewLinks = [
+  { label: "Buyurtmalar", href: "/orders", icon: ShoppingBag, primary: true },
+  { label: "Xarajatlar", href: "/expenses", icon: TrendingDown },
+  { label: "Hisobotlar", href: "/reports", icon: FileText },
+  { label: "Tahlil", href: "/analytics", icon: BarChart3 },
 ];
 
 export function DashboardPage() {
@@ -106,9 +116,9 @@ export function DashboardPage() {
             {formatDate(new Date(), "d-MMMM, EEEE")} — bugun {data?.todayOrders ?? 0} ta buyurtma bor.
           </p>
         </div>
-        {!readOnly && (
+        {(readOnly ? viewLinks : quickActions).length > 0 && (
           <div className="flex gap-2 flex-wrap">
-            {quickActions.map((qa) => (
+            {(readOnly ? viewLinks : quickActions).map((qa: any) => (
               <Link
                 key={qa.label}
                 href={qa.href}
@@ -206,8 +216,13 @@ export function DashboardPage() {
         ))}
       </div>
 
-      {/* So'nggi buyurtmalar */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-panel overflow-hidden">
+      {/* So'nggi buyurtmalar — MENEJERGA KO'RSATILMAYDI (2026-09-03, egasi:
+          "pastda ozroq buyurtma emas, kunlik xarajatlar ko'rinsin"). Menejer
+          to'liq ro'yxatni yuqoridagi "Buyurtmalar" havolasidan ko'radi. */}
+      <div className={cn(
+        "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-panel overflow-hidden",
+        readOnly && "hidden"
+      )}>
         <div className="px-5 py-4 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
             So'nggi buyurtmalar
@@ -285,6 +300,81 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* KUNLIK XARAJATLAR — har bir yozuv + boshida jami (2026-09-03) */}
+      <TodayExpensesCard data={data} isLoading={isLoading} />
+    </div>
+  );
+}
+
+// ── BUGUNGI XARAJATLAR ──────────────────────────────────────────────────────
+// Menejer boshqaruv panelining PASTKI bloki shu (buyurtmalar o'rniga);
+// admin uchun ham buyurtmalar ostida ko'rinadi. Boshida jami, keyin har bir
+// yozuv: nimaga, kimning pulidan, qachon, qancha.
+function TodayExpensesCard({ data, isLoading }: { data: any; isLoading: boolean }) {
+  const exp = data?.todayExpenses;
+  const items: any[] = exp?.items ?? [];
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-panel overflow-hidden mt-5">
+      <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-9 h-9 rounded-[11px] bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400 flex items-center justify-center flex-none">
+            <TrendingDown className="w-[18px] h-[18px]" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
+              Bugungi xarajatlar
+            </h2>
+            <p className="text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {formatDate(new Date(), "d-MMMM, EEEE")} · {exp?.count ?? 0} ta yozuv
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5">
+          {/* JAMI — boshida katta ko'rinadi (egasi so'rovi) */}
+          <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] bg-red-50 dark:bg-red-500/15 text-[15px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+            {isLoading ? "…" : formatCurrency(exp?.total ?? 0)}
+          </span>
+          <Link
+            href="/expenses"
+            className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:gap-2 transition-all"
+          >
+            Batafsil
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="px-5 py-8 text-center text-gray-400 text-sm border-t border-gray-400/70 dark:border-gray-600">
+          {isLoading ? "Yuklanmoqda..." : "Bugun xarajat yozilmagan"}
+        </div>
+      ) : (
+        items.map((x) => (
+          <div
+            key={x.id}
+            className="flex items-center gap-3 px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 even:bg-gray-50 dark:even:bg-gray-800/25"
+          >
+            <span className="text-[11.5px] text-gray-400 tabular-nums w-[42px] flex-none">
+              {formatDate(x.createdAt, "HH:mm")}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate">
+                {x.category || "Xarajat"}
+                {x.note && <span className="font-normal text-gray-400"> · {x.note}</span>}
+              </p>
+              <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                {x.spentBy} puli ({x.paymentMethod === "CASH" ? "naqd" : "klik"})
+                {x.createdByName !== x.spentBy ? ` · yozdi: ${x.createdByName}` : ""}
+              </p>
+            </div>
+            <span className="text-[13.5px] font-bold text-red-600 dark:text-red-400 tabular-nums flex-none">
+              −{formatCurrency(x.amount)}
+            </span>
+          </div>
+        ))
+      )}
     </div>
   );
 }

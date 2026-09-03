@@ -33,7 +33,7 @@ Tizim JONLI va 2026-07-18 dan REAL ISHLATILMOQDA.
 
 **Rollar (RBAC) — 2026-07-04 da qayta belgilangan:**
 - `ADMIN` — hammasi (egasi/superuser).
-- `MANAGER` — **FAQAT KO'RISH** (hech narsa yarata/tahrirlab/o'chira olmaydi). Ko'radigan panellar: Boshqaruv paneli, Mijozlar, Ombor, Moliya, Qarzdorlik, Hisobotlar, Tahlil. Buyurtmalar/Haydovchilar/Tizim menyuda YO'Q. Enforcement: global `ManagerReadOnlyGuard` (apps/api/.../common/guards) barcha POST/PATCH/PUT/DELETE ni bloklaydi (istisno /auth logout); frontend `usePermissions().readOnly` tugmalarni yashiradi.
+- `MANAGER` — **FAQAT KO'RISH** (hech narsa yarata/tahrirlab/o'chira olmaydi). Ko'radigan panellar: Boshqaruv paneli, Mijozlar, **Buyurtmalar** (2026-09-03 dan, faqat ko'rish), Ombor, Moliya, **Xarajatlar**, Ishchi balansi, Qarzdorlik, Hisobotlar, Tahlil. Haydovchilar/Tizim menyuda YO'Q. Enforcement: global `ManagerReadOnlyGuard` (apps/api/.../common/guards) barcha POST/PATCH/PUT/DELETE ni bloklaydi (istisno /auth logout); frontend `usePermissions().readOnly` tugmalarni yashiradi.
 - `OPERATOR` — Mijozlar, Buyurtmalar, Qarzdorlik. **Zakazni FAQAT operator (+admin) yozadi.** "Yetkazildi"ni bosa OLMAYDI. Login → `/customers`.
 - `DRIVER` — faqat Buyurtmalar (o'ziga biriktirilganlar). Zakaz yoza OLMAYDI. **"Yetkazildi"ni FAQAT haydovchi (o'z buyurtmasi) + admin bosadi.** Login → `/orders`. Mijoz ustiga bossa → buyurtma tafsilotiga o'tadi (u yerda mijoz tel/manzil/lokatsiya bor; haydovchi /customers ga kira olmaydi).
 - Frontend ruxsatlar bitta joyda: `apps/web/src/hooks/use-permissions.ts` (readOnly, canCreateOrder, canManageOrders, canDeliver).
@@ -205,6 +205,112 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 ---
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
+
+✅ **DAVR TANLASH + XARAJATLAR BO'LIMI + MENEJER PANELI (2026-09-03, DEPLOY QILINDI):**
+
+**1) O'TGAN OYLARNI KO'RISH — hamma bo'limda bir xil davr tanlagich**
+- **Muammo (egasi):** "hisobotlarda sanani tanlab ko'ramiz, lekin o'tgan oynikini
+  ko'rolmaymiz — masalan avgustda qancha savdo bo'ldi?" Eski UI faqat joriy
+  kun/hafta/oy/yil va BITTA kunni ko'rsatardi.
+- **Yechim:** yangi umumiy komponent `apps/web/src/components/shared/range-picker.tsx`
+  (`RangePicker`, `quickRange`, `defaultRange`, `rangeText`, tip `RangeValue`).
+  Ko'rinishi: tez tugmalar **Bugun / Hafta / Oy / Yil** + **"Davr tanlash"**
+  tugmasi → panel: tez tanlovlar (Kecha, Oxirgi 7/30 kun, O'tgan hafta,
+  "<oy> (o'tgan oy)", Oxirgi 3 oy), **oxirgi 12 oy** tugmalari (Avg 2026,
+  Iyul 2026, ... Okt 2025) va **ixtiyoriy "dan — gacha"** maydonlari.
+  Tanlanganda tugmada davr nomi + tozalash (X) chiqadi.
+- **Qo'llangan sahifalar:** Hisobotlar, Tahlil, Moliya, Xarajatlar — TO'RTALASIDA
+  BIR XIL (egasi shuni so'ragan). Sarlavha ostida davr matni ("1-Avgust —
+  31-Avgust 2026").
+- **Backend:** `date.util.ts` ga umumiy `periodRange(period, dateFrom, dateTo)`
+  qo'shildi (lokal UZ kun chegaralari; teskari oraliq avtomatik almashtiriladi;
+  faqat bittasi berilsa — o'sha kun). Ishlatilgan joylar: reports.getRange
+  (overview/debt-payments/export + top-customers/top-drivers/top-regions —
+  TopQueryDto'ga dateFrom/dateTo qo'shildi), finance.getSummary (SummaryQueryDto),
+  finance.getFreeOrders. Eski `period=` so'rovlari HAM ishlaydi (moslik saqlangan).
+- **Chart granulyarligi avtomatik:** oraliq 62 kundan uzun bo'lsa moliya charti
+  KUN emas, OY bucketlariga o'tadi (6 oylik tanlovda chart siqilib ketmaydi).
+- **Eksport ham oraliq bo'yicha:** PDF/Excel `dateFrom/dateTo` bilan yuklanadi,
+  fayl nomi `gissar-hisobot-2026-08-01_2026-08-31.xlsx`.
+- ⚠️ **Yo'l-yo'lakay tuzatilgan ESKI XATO:** PDF eksport HAR DOIM 500 qaytarardi
+  (`pdfkit_1.default is not a constructor`) — apps/api tsconfig'da
+  `esModuleInterop` yo'q, shuning uchun `import PDFDocument from "pdfkit"`
+  runtime'da undefined edi. `const PDFDocument = require("pdfkit")` ga o'tkazildi
+  (export.service.ts). Endi PDF 200 qaytaradi.
+
+**2) YANGI BO'LIM: XARAJATLAR (/expenses)**
+- **Egasining savoli:** "1 oyda KIMGA qancha, NIMAGA qancha pul ketdi?"
+- **Backend:** `GET /finance/expenses/report?dateFrom&dateTo` (ADMIN/MANAGER/
+  OPERATOR; haydovchiga 403). Xarajat = INCOME BO'LMAGAN tranzaksiyalar
+  (EXPENSE + SALARY + SUPPLIER_PAYMENT). Qaytaradi: summary (jami/soni/naqd/klik/
+  turlari/kunlik o'rtacha/faol kunlar/eng kattasi), daily (kun bo'yicha jami),
+  groups (SMART guruhlar), byWorker (kim yozgan), bySource (kimning pulidan), list.
+- **SMART GURUHLASH** — `apps/api/src/common/utils/expense-group.util.ts`:
+  izoh ERKIN MATN yozilgani uchun "G'ayrat akaga" / "gayratga" / "G'ayrat aka"
+  BITTA guruhga yig'iladi. Qanday: apostrof variantlari (' ʻ ʼ ` ') olib
+  tashlanadi, registr tushiriladi, sof raqamlar (summalar) chiqarib yuboriladi,
+  o'zbekcha qo'shimchalar kesiladi (-larga/-lardan/-ning/-dan/-ga/-ka/-qa/-da/-ni),
+  murojaat/xizmat so'zlari STOPWORD (aka, uka, opa, uchun, pul, so'm, ming,
+  boshqa, haydovchi, operator...). Guruh KALITI: kategoriya ma'noli bo'lsa
+  undan, aks holda izohdan olingan eng uzun o'zak. Guruh NOMI — o'sha guruhda
+  eng ko'p uchragan yozuv (teng bo'lsa to'liqrog'i). UI'da "+2 xil yozilgan"
+  belgisi variantlar borligini ko'rsatadi.
+  ⚠️ Yangi stopword/qo'shimcha kerak bo'lsa — SHU fayldan qo'shiladi.
+- **`cleanExpenseNote()`** — izohdagi texnik belgilarni ajratadi: "(haydovchi)",
+  "(operator)" olib tashlanadi, "— pul: Ism (naqd/klik)" dan pul MANBASI
+  (ism + usul) ajratib olinadi → UI'da "Jasur Haydovchi puli (naqd)".
+- **Frontend:** `/expenses` sahifa (`components/expenses/expenses-page.tsx`),
+  hook `useExpenseReport` (use-finance.ts). Tarkibi: 4 stat karta (jami,
+  kunlik o'rtacha, eng ko'p ketgani, naqd/klik), kunlik ustunli chart va
+  IKKI TAB (egasi so'ragan):
+  • **🔎 Smart tahlil** — "Kimga / nimaga ketdi" ro'yxati (ulush chizig'i,
+    summa, necha marta, foiz; bosilsa ichидаgi har bir yozuv ochiladi) +
+    yon ustunda "Kimning pulidan ketdi", "Kim yozgan", "Turlari bo'yicha".
+  • **📅 Ketma-ketlik** — KUNLAR bo'yicha: har kun sarlavhasida KUNLIK JAMI va
+    yozuvlar soni, ostida har bir xarajat (vaqt, naqd/klik ikonkasi, nomi,
+    izohi, kimning puli, summa). Ustida qidiruv maydoni (nom/izoh/ishchi).
+- **Sidebar:** "Ombor & Moliya" guruhida **Xarajatlar** (ADMIN/MANAGER/OPERATOR);
+  ROLE_ROUTES'ga `/expenses` qo'shildi (menejer + operator).
+- Sahifadagi "Xarajat" tugmasi eski `DriverExpenseModal`ni ochadi (admin/operator).
+
+**3) MENEJER BOSHQARUV PANELI**
+- **Egasi:** "menejer panelining pastida ozroq buyurtma ko'rinishi shart emas —
+  kunlik xarajatlar ko'rinsin, har bir yozilgani va boshida umumiy summasi;
+  menejerga buyurtmalar sahifasini ham qo'shib qo'y."
+- Dashboard'ga **"Bugungi xarajatlar"** kartasi qo'shildi: o'ng tepada JAMI
+  (katta, qizil) + "Batafsil" havolasi (/expenses), ostida har bir yozuv
+  (vaqt, nomi, izohi, kimning puli, kim yozgani, summa).
+  MENEJERGA — "So'nggi buyurtmalar" jadvali YASHIRILADI (readOnly), o'rnida shu
+  karta chiqadi. ADMIN'da ikkalasi ham (jadval + karta).
+- Menejer sarlavhasidagi tugmalar endi KO'RISH havolalari: **Buyurtmalar /
+  Xarajatlar / Hisobotlar / Tahlil** (avval readOnly'da hech narsa yo'q edi).
+- **Menejerga /orders ochildi** (sidebar + ROLE_ROUTES). Faqat KO'RISH:
+  backend `GET /orders` allaqachon MANAGER'ga ruxsat bergan, yozish
+  ManagerReadOnlyGuard bilan 403, tugmalar `usePermissions` bilan yashirin
+  (tekshirildi: menejerda hech qanday amal tugmasi yo'q).
+- **Backend:** dashboard.getStats ga `todayExpenses {total, count, items[]}`
+  qo'shildi (bugungi UZ kuni, INCOME bo'lmagan tranzaksiyalar, cleanExpenseNote
+  bilan tozalangan izoh + spentBy).
+
+**4) MOBIL O'QILISHI (StatCard)**
+- Telefonda 2 ustunli stat kartalarda summa kartadan chiqib ketardi. Endi:
+  ikonka `hidden sm:inline-flex` (telefonda yashirin), matn 17px→21px (sm),
+  padding kichraydi, birlik keyingi qatorga tushadi. Moliya/Hisobot/Xarajat
+  sahifalarining hammasiga tegishli.
+
+**5) SINOVLAR (lokal, 2026-09-03)**
+- API: xarajat hisoboti 4 xil oraliqda (avgust/sentabr/bitta kun/2 oy),
+  teskari oraliq (to<from) avtomatik to'g'rilanishi, smart guruhlash
+  ("G'ayrat aka"+"gayratga"+"G'ayrat akaga" = 1 guruh, 650,000, 3 marta;
+  "Yoqilg'i"+"yoqilgi" = 1 guruh), bySource "— pul: Ism" parsingi,
+  RBAC (menejer GET 200 / POST 403, haydovchi report 403, expenses/my 200),
+  reports.overview + finance.summary oraliq bilan, chart granulyarligi
+  (31 kun → kunlik, 6 oy → oylik), Excel eksport davri, PDF 500→200.
+- UI: Xarajatlar sahifasi (Avgust 2026 tanlash → 2,655,000, guruh ochilishi,
+  ketma-ketlik kun sarlavhalari), menejer paneli (buyurtma jadvali yo'q,
+  xarajat kartasi bor, ko'rish havolalari), menejer /orders (amal tugmalari
+  yo'q), Hisobot/Moliya/Tahlil davr tanlagichi, mobil ko'rinish (375px).
+- Ikkala prod build o'tdi.
 
 ✅ **LOKATSIYA AUDITI (2026-07-21, DEPLOY QILINDI):**
 - **Muammo (egasi):** haydovchi lokatsiya qo'ysa — KIM, KIMGA va QACHON bosgani

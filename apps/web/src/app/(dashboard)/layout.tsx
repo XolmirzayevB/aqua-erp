@@ -12,9 +12,10 @@ import { usePushSubscription } from "@/hooks/use-push";
 // Ilova "/" dan ochilganda (APK/PWA start_url) har rol o'z sahifasiga tushadi.
 const ROLE_ROUTES: Record<string, { home: string; allowed: string[] }> = {
   ADMIN: { home: "/", allowed: [] }, // bo'sh = hamma sahifa ochiq
-  MANAGER: { home: "/", allowed: ["/", "/customers", "/inventory", "/finance", "/balances", "/debts", "/reports", "/analytics", "/inactive"] },
+  // Menejer (2026-09-03): buyurtmalarni ham KO'RADI + yangi Xarajatlar bo'limi
+  MANAGER: { home: "/", allowed: ["/", "/customers", "/orders", "/inventory", "/finance", "/expenses", "/balances", "/debts", "/reports", "/analytics", "/inactive"] },
   // 2026-07-20 (egasi so'rovi): operatorga Moliya va Hisobotlar ham ochildi (ko'rish)
-  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/balances", "/debts", "/inactive", "/finance", "/reports"] },
+  OPERATOR: { home: "/customers", allowed: ["/customers", "/orders", "/balances", "/debts", "/inactive", "/finance", "/expenses", "/reports"] },
   DRIVER: { home: "/orders", allowed: ["/orders", "/route", "/balances", "/debts"] },
 };
 

@@ -2,14 +2,13 @@ import { Injectable, BadRequestException, NotFoundException } from "@nestjs/comm
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
-import { QueryFinanceDto, SummaryQueryDto } from "./dto/query-finance.dto";
+import { QueryFinanceDto, SummaryQueryDto, ExpenseReportQueryDto } from "./dto/query-finance.dto";
 import { Prisma, TransactionType } from "@aqua/database";
 import {
-  startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth, startOfYear, endOfYear,
   eachDayOfInterval, eachMonthOfInterval, format,
 } from "date-fns";
-import { localDayRange, toLocal, fromLocal } from "../../common/utils/date.util";
+import { localDayRange, toLocal, periodRange } from "../../common/utils/date.util";
+import { cleanExpenseNote, expenseGroupKey } from "../../common/utils/expense-group.util";
 
 @Injectable()
 export class FinanceService {
@@ -146,16 +145,9 @@ export class FinanceService {
   }
 
   async getSummary(query: SummaryQueryDto) {
-    // Oraliqlar O'zbekiston kuni bo'yicha (date.util.ts)
-    const localNow = toLocal(new Date());
-    let from: Date, to: Date;
-
-    switch (query.period) {
-      case "daily": { const r = localDayRange(); from = r.start; to = r.end; break; }
-      case "weekly":  from = fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })); to = fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })); break;
-      case "yearly":  from = fromLocal(startOfYear(localNow)); to = fromLocal(endOfYear(localNow)); break;
-      default:        from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
-    }
+    // Oraliqlar O'zbekiston kuni bo'yicha (date.util.ts). dateFrom/dateTo
+    // berilsa — aynan o'sha oraliq (o'tgan oylarni ko'rish uchun, 2026-09-03).
+    const { from, to } = periodRange(query.period, query.dateFrom, query.dateTo);
 
     const [transactions, pendingAgg, pendingClickAgg, freeAgg] = await Promise.all([
       this.prisma.transaction.findMany({
@@ -201,8 +193,9 @@ export class FinanceService {
     const cardIn = sum((t) => t.type === "INCOME" && t.paymentMethod === "CARD");
 
     // Chart data — bucket'lar LOKAL kalendar bo'yicha (from/to UTC instant,
-    // toLocal bilan surilsa kun chegaralari to'g'ri kalendar kunига tushadi)
-    const isYearly = query.period === "yearly";
+    // toLocal bilan surilsa kun chegaralari to'g'ri kalendar kunига tushadi).
+    // Uzun oraliq (2 oydan ko'p) OYLAR bo'yicha — aks holda chart siqilib ketadi.
+    const isYearly = (to.getTime() - from.getTime()) / 86_400_000 > 62;
     const buckets = isYearly
       ? eachMonthOfInterval({ start: toLocal(from), end: toLocal(to) })
       : eachDayOfInterval({ start: toLocal(from), end: toLocal(to) });
@@ -246,15 +239,12 @@ export class FinanceService {
   // Prokuratura kabi joylarga bepul berilganlar: jami soni/tarasi/summasi
   // + KIMGA qancha berilgani (mijoz bo'yicha guruhlab, eng ko'pi birinchi).
   // period: daily/weekly/monthly/yearly yoki "all" (butun vaqt).
-  async getFreeOrders(period = "monthly") {
-    const localNow = toLocal(new Date());
+  async getFreeOrders(period = "monthly", dateFrom?: string, dateTo?: string) {
+    // "all" — butun vaqt (filtrsiz); qolganlari period yoki sana oralig'i
     let from: Date | undefined, to: Date | undefined;
-    switch (period) {
-      case "daily": { const r = localDayRange(); from = r.start; to = r.end; break; }
-      case "weekly": from = fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })); to = fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })); break;
-      case "yearly": from = fromLocal(startOfYear(localNow)); to = fromLocal(endOfYear(localNow)); break;
-      case "all": break; // butun vaqt — filtr yo'q
-      default: from = fromLocal(startOfMonth(localNow)); to = fromLocal(endOfMonth(localNow));
+    if (period !== "all") {
+      const r = periodRange(period, dateFrom, dateTo);
+      from = r.from; to = r.to;
     }
 
     const orders = await this.prisma.order.findMany({
@@ -305,6 +295,152 @@ export class FinanceService {
         driverName: o.driver?.name ?? null,
       })),
       period: { from: from ?? null, to: to ?? null },
+    };
+  }
+
+  // ─── XARAJATLAR BO'LIMI (2026-09-03, egasi so'rovi) ─────────────────────────
+  // "1 oyda KIMGA qancha, NIMAGA qancha pul ketdi" — bitta so'rovda:
+  //   summary — jami/soni/naqd-klik/kunlik o'rtacha
+  //   daily   — kun bo'yicha jami (ketma-ketlik ko'rinishi uchun)
+  //   groups  — SMART guruhlash ("G'ayrat akaga" = "gayratga" = bitta guruh)
+  //   byWorker/bySource — kim yozgan / kimning pulidan ketgan
+  //   list    — har bir yozuv (tozalangan izoh bilan)
+  // Xarajat = INCOME BO'LMAGAN tranzaksiyalar (EXPENSE + SALARY + SUPPLIER_PAYMENT).
+  async getExpenseReport(query: ExpenseReportQueryDto) {
+    const { from, to } = periodRange(query.period, query.dateFrom, query.dateTo);
+
+    const rows = await this.prisma.transaction.findMany({
+      where: { type: { not: "INCOME" }, createdAt: { gte: from, lte: to } },
+      orderBy: { createdAt: "desc" },
+      include: { createdBy: { select: { id: true, name: true, role: true } } },
+    });
+
+    type Group = {
+      key: string; label: string; total: number; count: number;
+      cash: number; card: number; lastAt: Date; labelCounts: Map<string, number>;
+      items: any[];
+    };
+    const groups = new Map<string, Group>();
+    const daily = new Map<string, { date: string; total: number; count: number }>();
+    const byWorker = new Map<string, { userId: string; name: string; role: string; total: number; count: number }>();
+    const bySource = new Map<string, { name: string; total: number; count: number }>();
+    const byType = { EXPENSE: 0, SALARY: 0, SUPPLIER_PAYMENT: 0 } as Record<string, number>;
+
+    let total = 0, cash = 0, card = 0;
+
+    const list = rows.map((t) => {
+      const amount = Number(t.amount);
+      const { note, sourceName, sourceMethod } = cleanExpenseNote(t.description);
+      const { key } = expenseGroupKey(t.category, note);
+      // Ko'rinadigan nom: ma'noli kategoriya bo'lsa o'sha, aks holda izoh
+      const label = (t.category && t.category.trim()) || note || "Boshqa";
+      // Pul kimning balansidan ketgan: izohda ko'rsatilgan bo'lsa o'sha,
+      // aks holda yozuvni kiritgan odamning o'zi
+      const spentBy = sourceName || t.createdBy.name;
+      const method = (sourceMethod ?? t.paymentMethod) as "CASH" | "CARD";
+
+      const item = {
+        id: t.id,
+        type: t.type,
+        amount,
+        paymentMethod: method,
+        category: t.category,
+        note,
+        label,
+        groupKey: key,
+        createdAt: t.createdAt,
+        createdBy: { id: t.createdBy.id, name: t.createdBy.name, role: t.createdBy.role },
+        spentBy,
+      };
+
+      total += amount;
+      if (method === "CASH") cash += amount; else card += amount;
+      byType[t.type] = (byType[t.type] ?? 0) + amount;
+
+      // Guruh (smart)
+      const g = groups.get(key) ?? {
+        key, label, total: 0, count: 0, cash: 0, card: 0,
+        lastAt: t.createdAt, labelCounts: new Map<string, number>(), items: [],
+      };
+      g.total += amount;
+      g.count += 1;
+      if (method === "CASH") g.cash += amount; else g.card += amount;
+      if (t.createdAt > g.lastAt) g.lastAt = t.createdAt;
+      g.labelCounts.set(label, (g.labelCounts.get(label) ?? 0) + 1);
+      g.items.push(item);
+      groups.set(key, g);
+
+      // Kun bo'yicha (LOKAL kun — kechqurun 19:00 dagi xarajat ertaga tushmasin)
+      const dayKey = format(toLocal(t.createdAt), "yyyy-MM-dd");
+      const d = daily.get(dayKey) ?? { date: dayKey, total: 0, count: 0 };
+      d.total += amount; d.count += 1;
+      daily.set(dayKey, d);
+
+      // Kim yozgan
+      const w = byWorker.get(t.createdBy.id) ?? {
+        userId: t.createdBy.id, name: t.createdBy.name, role: t.createdBy.role, total: 0, count: 0,
+      };
+      w.total += amount; w.count += 1;
+      byWorker.set(t.createdBy.id, w);
+
+      // Kimning pulidan
+      const sv = bySource.get(spentBy) ?? { name: spentBy, total: 0, count: 0 };
+      sv.total += amount; sv.count += 1;
+      bySource.set(spentBy, sv);
+
+      return item;
+    });
+
+    // Guruh nomi — o'sha guruhda eng ko'p uchragan yozuv matni
+    const groupList = [...groups.values()]
+      .map((g) => {
+        // Eng ko'p uchragan yozuv; teng bo'lsa — to'liqrog'i (uzunrog'i)
+        const label = [...g.labelCounts.entries()]
+          .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0][0];
+        return {
+          key: g.key,
+          label,
+          total: g.total,
+          count: g.count,
+          cash: g.cash,
+          card: g.card,
+          share: total > 0 ? Math.round((g.total / total) * 1000) / 10 : 0,
+          lastAt: g.lastAt,
+          // Har xil yozilgan variantlar ("G'ayrat akaga", "gayratga") — shaffoflik uchun
+          variants: [...g.labelCounts.keys()],
+          items: g.items,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    const dailyList = [...daily.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    // O'rtacha kunlik — oraliqdagi kunlar bo'yicha (kelajakdagi kunlar sanalmaydi)
+    const today = localDayRange().end;
+    const endForAvg = to > today ? today : to;
+    // Kunlar soni — millisekundlardan (date-fns tizim TZ'ida hisoblaydi,
+    // serverda UTC bo'lgani uchun bir kun farq qilib ketardi)
+    const spanDays = Math.max(1, Math.round((endForAvg.getTime() - from.getTime()) / 86_400_000));
+
+    return {
+      summary: {
+        total,
+        count: rows.length,
+        cash,
+        card,
+        byType,
+        daysCount: spanDays,
+        activeDays: dailyList.length,
+        avgPerDay: Math.round(total / spanDays),
+        topLabel: groupList[0]?.label ?? null,
+        topAmount: groupList[0]?.total ?? 0,
+      },
+      daily: dailyList,
+      groups: groupList,
+      byWorker: [...byWorker.values()].sort((a, b) => b.total - a.total),
+      bySource: [...bySource.values()].sort((a, b) => b.total - a.total),
+      list,
+      period: { from, to },
     };
   }
 

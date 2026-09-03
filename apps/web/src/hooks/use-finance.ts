@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { apiErrorMessage } from "@/lib/utils";
+import type { RangeParams } from "./use-reports";
 
 export interface Transaction {
   id: string;
@@ -59,11 +60,13 @@ export interface FreeOrdersReport {
   period: { from: string | null; to: string | null };
 }
 
-export function useFreeOrders(period: "daily" | "weekly" | "monthly" | "yearly" | "all" = "monthly") {
+// range o'rniga "all" berilsa — butun vaqt bo'yicha
+export function useFreeOrders(range: RangeParams | "all") {
+  const params = range === "all" ? { period: "all" } : { dateFrom: range.from, dateTo: range.to };
   return useQuery({
-    queryKey: ["free-orders", period],
+    queryKey: ["free-orders", params],
     queryFn: () =>
-      api.get("/finance/free-orders", { params: { period } }).then((r) => r.data.data as FreeOrdersReport),
+      api.get("/finance/free-orders", { params }).then((r) => r.data.data as FreeOrdersReport),
   });
 }
 
@@ -86,11 +89,58 @@ export function useTransactions(params: any = {}) {
   });
 }
 
-export function useFinanceSummary(period: "daily" | "weekly" | "monthly" | "yearly" = "monthly") {
+export function useFinanceSummary(range: RangeParams) {
   return useQuery({
-    queryKey: ["finance-summary", period],
+    queryKey: ["finance-summary", range.from, range.to],
     queryFn: () =>
-      api.get("/finance/summary", { params: { period } }).then((r) => r.data.data as FinanceSummary),
+      api.get("/finance/summary", { params: { dateFrom: range.from, dateTo: range.to } })
+        .then((r) => r.data.data as FinanceSummary),
+  });
+}
+
+// ─── XARAJATLAR BO'LIMI (2026-09-03) ─────────────────────────────────────────
+// Smart guruhlash: "G'ayrat akaga" / "gayratga" / "G'ayrat aka" — hammasi
+// bitta guruh bo'lib jamlanadi (backend o'zak bo'yicha guruhlaydi).
+export interface ExpenseItem {
+  id: string;
+  type: "EXPENSE" | "SALARY" | "SUPPLIER_PAYMENT";
+  amount: number;
+  paymentMethod: "CASH" | "CARD";
+  category: string | null;
+  note: string | null;
+  label: string;
+  groupKey: string;
+  createdAt: string;
+  createdBy: { id: string; name: string; role: string };
+  /** Pul kimning balansidan ketgan (ko'rsatilmagan bo'lsa — yozgan odam) */
+  spentBy: string;
+}
+
+export interface ExpenseReport {
+  summary: {
+    total: number; count: number; cash: number; card: number;
+    byType: Record<string, number>;
+    daysCount: number; activeDays: number; avgPerDay: number;
+    topLabel: string | null; topAmount: number;
+  };
+  daily: { date: string; total: number; count: number }[];
+  groups: {
+    key: string; label: string; total: number; count: number;
+    cash: number; card: number; share: number; lastAt: string;
+    variants: string[]; items: ExpenseItem[];
+  }[];
+  byWorker: { userId: string; name: string; role: string; total: number; count: number }[];
+  bySource: { name: string; total: number; count: number }[];
+  list: ExpenseItem[];
+  period: { from: string; to: string };
+}
+
+export function useExpenseReport(range: RangeParams) {
+  return useQuery({
+    queryKey: ["expense-report", range.from, range.to],
+    queryFn: () =>
+      api.get("/finance/expenses/report", { params: { dateFrom: range.from, dateTo: range.to } })
+        .then((r) => r.data.data as ExpenseReport),
   });
 }
 
@@ -147,6 +197,7 @@ export function useAddExpense() {
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       // Xarajat ishchi balansidan ayiriladi — balans sahifasi ham yangilansin
       qc.invalidateQueries({ queryKey: ["balances"] });
+      qc.invalidateQueries({ queryKey: ["expense-report"] });
       toast.success("Xarajat qo'shildi");
     },
     onError: (e: any) => toast.error(apiErrorMessage(e)),

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShoppingBag, Truck, Warehouse,
   Wallet, Coins, FileText, BarChart3, ScrollText, Settings, Droplet, Map, HandCoins,
+  TrendingDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -17,8 +18,9 @@ const NAV_GROUPS = [
     items: [
       { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: [Role.ADMIN, Role.MANAGER] },
       { href: "/customers", label: "Mijozlar", icon: Users, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
-      // Buyurtmalar: menejer ko'rmaydi (operator zakaz yozadi, haydovchi yetkazadi)
-      { href: "/orders", label: "Buyurtmalar", icon: ShoppingBag, roles: [Role.ADMIN, Role.OPERATOR, Role.DRIVER] },
+      // Buyurtmalar: menejer ham KO'RADI (2026-09-03, egasi so'rovi) — faqat
+      // ko'rish, yozish/tahrirlash tugmalari usePermissions bilan yashiringan
+      { href: "/orders", label: "Buyurtmalar", icon: ShoppingBag, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
       // Marshrut xaritasi — haydovchining bugungi yo'nalishi
       { href: "/route", label: "Marshrut", icon: Map, roles: [Role.DRIVER] },
       // Haydovchilar: faqat admin (menejer ko'rmaydi)
@@ -31,6 +33,8 @@ const NAV_GROUPS = [
       { href: "/inventory", label: "Ombor", icon: Warehouse, roles: [Role.ADMIN, Role.MANAGER] },
       // Moliya: operator ham ko'radi (2026-07-20, egasi so'rovi) — yozish tugmalari faqat admin
       { href: "/finance", label: "Moliya", icon: Wallet, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
+      // Xarajatlar bo'limi (2026-09-03): kunlik xarajatlar + smart guruhlash
+      { href: "/expenses", label: "Xarajatlar", icon: TrendingDown, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR] },
       // Ishchi pul balansi (2026-07-19): kimda qancha naqd/klik, pul o'tkazish
       { href: "/balances", label: "Ishchi balansi", icon: HandCoins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },
       { href: "/debts", label: "Qarzdorlik", icon: Coins, roles: [Role.ADMIN, Role.MANAGER, Role.OPERATOR, Role.DRIVER] },

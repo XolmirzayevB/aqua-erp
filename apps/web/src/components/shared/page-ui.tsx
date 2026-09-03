@@ -64,20 +64,25 @@ export function StatCard({
   delta?: string; deltaUp?: boolean; loading?: boolean;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 px-4 py-[15px] shadow-card flex items-center gap-3.5 hover:-translate-y-0.5 hover:shadow-panel hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-200 min-w-0">
-      <span className={cn("w-[42px] h-[42px] rounded-xl inline-flex items-center justify-center flex-none", TONE_CLASSES[tone])}>
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 px-3 sm:px-4 py-[13px] sm:py-[15px] shadow-card flex items-center gap-2.5 sm:gap-3.5 hover:-translate-y-0.5 hover:shadow-panel hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-200 min-w-0">
+      {/* Telefonda ikonka yashiriladi — 2 ustunli tor kartada summa to'liq
+          ko'rinishi muhimroq (2026-09-03) */}
+      <span className={cn("w-[42px] h-[42px] rounded-xl hidden sm:inline-flex items-center justify-center flex-none", TONE_CLASSES[tone])}>
         <Icon className="w-[19px] h-[19px]" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[12.5px] text-gray-500 dark:text-gray-400 font-medium truncate">{label}</p>
-        <div className="flex items-baseline gap-1.5 mt-0.5">
+        {/* flex-wrap: uzun summa + birlik mobil ekranda kartadan chiqib
+            ketmasin (2026-09-03) — birlik keyingi qatorga tushadi */}
+        <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
           <span className={cn(
-            "text-[21px] font-bold tracking-tight tabular-nums leading-none",
+            // Mobilda biroz kichikroq + son bo'linmasin (ortiqchasi "..." bo'ladi)
+            "text-[17px] sm:text-[21px] font-bold tracking-tight tabular-nums leading-none max-w-full truncate",
             loading ? "text-gray-300 dark:text-gray-700 animate-pulse" : "text-gray-900 dark:text-white"
           )}>
             {loading ? "—" : value}
           </span>
-          {unit && <span className="text-[11.5px] text-gray-400 dark:text-gray-500">{unit}</span>}
+          {unit && <span className="text-[11.5px] text-gray-400 dark:text-gray-500 max-w-full truncate">{unit}</span>}
         </div>
       </div>
       {delta && (

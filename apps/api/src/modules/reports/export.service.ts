@@ -2,7 +2,11 @@ import { Injectable } from "@nestjs/common";
 import { ReportsService } from "./reports.service";
 import { ReportQueryDto } from "./dto/query-report.dto";
 import * as ExcelJS from "exceljs";
-import PDFDocument from "pdfkit";
+// pdfkit CommonJS modul — tsconfig'da esModuleInterop YO'Q, shuning uchun
+// `import PDFDocument from "pdfkit"` runtime'da undefined bo'lib qolardi va
+// PDF eksport 500 qaytarardi ("pdfkit_1.default is not a constructor").
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PDFDocument = require("pdfkit");
 import { format } from "date-fns";
 
 const STATUS_LABELS: Record<string, string> = {

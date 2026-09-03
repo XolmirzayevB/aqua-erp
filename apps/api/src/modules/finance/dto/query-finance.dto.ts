@@ -49,4 +49,33 @@ export class SummaryQueryDto {
   @IsOptional()
   @IsEnum(["daily", "weekly", "monthly", "yearly"])
   period?: "daily" | "weekly" | "monthly" | "yearly";
+
+  // Sana oralig'i (2026-09-03): berilsa period o'rniga aynan shu oraliq
+  @ApiPropertyOptional({ example: "2026-08-01" })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: "2026-08-31" })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+}
+
+// Xarajatlar bo'limi (2026-09-03): davr yoki aniq sana oralig'i
+export class ExpenseReportQueryDto {
+  @ApiPropertyOptional({ enum: ["daily", "weekly", "monthly", "yearly"], default: "monthly" })
+  @IsOptional()
+  @IsEnum(["daily", "weekly", "monthly", "yearly"])
+  period?: "daily" | "weekly" | "monthly" | "yearly";
+
+  @ApiPropertyOptional({ example: "2026-08-01" })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: "2026-08-31" })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }

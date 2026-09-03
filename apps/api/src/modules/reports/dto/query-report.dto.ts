@@ -31,4 +31,15 @@ export class TopQueryDto {
   @IsOptional()
   @IsEnum(["daily", "weekly", "monthly", "yearly"])
   period?: "daily" | "weekly" | "monthly" | "yearly" = "monthly";
+
+  // Sana oralig'i (2026-09-03): berilsa period o'rniga aynan shu oraliq olinadi
+  @ApiPropertyOptional({ example: "2026-08-01" })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: "2026-08-31" })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }

@@ -5,7 +5,10 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth.store";
 import { toast } from "sonner";
 
-type Period = "daily" | "weekly" | "monthly" | "yearly";
+// Barcha hisobot so'rovlari ENDI sana oralig'i bilan ishlaydi (2026-09-03).
+// RangePicker {from,to} beradi — o'tgan oy/hafta/ixtiyoriy kunlar shu orqali.
+export interface RangeParams { from: string; to: string }
+const rangeQuery = (r: RangeParams) => ({ dateFrom: r.from, dateTo: r.to });
 
 export interface ReportOverview {
   orders: { total: number; delivered: number; cancelled: number; revenue: number };
@@ -24,42 +27,39 @@ export interface ReportOverview {
   period: { from: string; to: string };
 }
 
-// day ("YYYY-MM-DD") berilsa — davr o'rniga o'sha BITTA kun ko'rsatiladi
-export function useReportOverview(period: Period = "monthly", day?: string) {
+export function useReportOverview(range: RangeParams) {
   return useQuery({
-    queryKey: ["report-overview", period, day ?? null],
+    queryKey: ["report-overview", range.from, range.to],
     queryFn: () =>
-      api.get("/reports/overview", {
-        params: day ? { dateFrom: day, dateTo: day } : { period },
-      }).then((r) => r.data.data as ReportOverview),
+      api.get("/reports/overview", { params: rangeQuery(range) }).then((r) => r.data.data as ReportOverview),
   });
 }
 
-export function useTopCustomers(period: Period = "monthly", limit = 10) {
+export function useTopCustomers(range: RangeParams, limit = 10) {
   return useQuery({
-    queryKey: ["top-customers", period, limit],
-    queryFn: () => api.get("/reports/top-customers", { params: { period, limit } }).then((r) => r.data.data),
+    queryKey: ["top-customers", range.from, range.to, limit],
+    queryFn: () => api.get("/reports/top-customers", { params: { ...rangeQuery(range), limit } }).then((r) => r.data.data),
   });
 }
 
-export function useTopDrivers(period: Period = "monthly", limit = 10) {
+export function useTopDrivers(range: RangeParams, limit = 10) {
   return useQuery({
-    queryKey: ["top-drivers", period, limit],
-    queryFn: () => api.get("/reports/top-drivers", { params: { period, limit } }).then((r) => r.data.data),
+    queryKey: ["top-drivers", range.from, range.to, limit],
+    queryFn: () => api.get("/reports/top-drivers", { params: { ...rangeQuery(range), limit } }).then((r) => r.data.data),
   });
 }
 
-export function useTopRegions(period: Period = "monthly", limit = 10) {
+export function useTopRegions(range: RangeParams, limit = 10) {
   return useQuery({
-    queryKey: ["top-regions", period, limit],
-    queryFn: () => api.get("/reports/top-regions", { params: { period, limit } }).then((r) => r.data.data),
+    queryKey: ["top-regions", range.from, range.to, limit],
+    queryFn: () => api.get("/reports/top-regions", { params: { ...rangeQuery(range), limit } }).then((r) => r.data.data),
   });
 }
 
-export function useDebtPayments(period: Period = "monthly", day?: string) {
+export function useDebtPayments(range: RangeParams) {
   return useQuery({
-    queryKey: ["debt-payments-report", period, day ?? null],
-    queryFn: () => api.get("/reports/debt-payments", { params: day ? { dateFrom: day, dateTo: day } : { period } }).then((r) => r.data.data as {
+    queryKey: ["debt-payments-report", range.from, range.to],
+    queryFn: () => api.get("/reports/debt-payments", { params: rangeQuery(range) }).then((r) => r.data.data as {
       payments: { id: string; amount: number; method: string; notes?: string; createdAt: string; customer: { id: string; name: string; phone: string; balance: number } | null }[];
       summary: { total: number; cash: number; card: number; count: number };
       period: { from: string; to: string };
@@ -67,12 +67,12 @@ export function useDebtPayments(period: Period = "monthly", day?: string) {
   });
 }
 
-// Download helper with auth token
-export async function downloadReport(type: "excel" | "pdf", period: Period) {
+// Download helper with auth token — eksport ham TANLANGAN oraliq bo'yicha
+export async function downloadReport(type: "excel" | "pdf", range: RangeParams) {
   const token = useAuthStore.getState().accessToken;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   try {
-    const res = await fetch(`${apiUrl}/api/v1/reports/export/${type}?period=${period}`, {
+    const res = await fetch(`${apiUrl}/api/v1/reports/export/${type}?dateFrom=${range.from}&dateTo=${range.to}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error("Export failed");
@@ -80,7 +80,7 @@ export async function downloadReport(type: "excel" | "pdf", period: Period) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `aquaerp-hisobot.${type === "excel" ? "xlsx" : "pdf"}`;
+    a.download = `gissar-hisobot-${range.from}_${range.to}.${type === "excel" ? "xlsx" : "pdf"}`;
     document.body.appendChild(a);
     a.click();
     a.remove();

@@ -5,7 +5,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger"
 import { FinanceService } from "./finance.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
-import { QueryFinanceDto, SummaryQueryDto } from "./dto/query-finance.dto";
+import { QueryFinanceDto, SummaryQueryDto, ExpenseReportQueryDto } from "./dto/query-finance.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Role } from "@aqua/shared";
@@ -49,8 +49,25 @@ export class FinanceController {
   @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Imtiyozli (bepul) zakazlar hisoboti" })
   @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly", "all"] })
-  getFreeOrders(@Query("period") period?: string) {
-    return this.financeService.getFreeOrders(period);
+  @ApiQuery({ name: "dateFrom", required: false })
+  @ApiQuery({ name: "dateTo", required: false })
+  getFreeOrders(
+    @Query("period") period?: string,
+    @Query("dateFrom") dateFrom?: string,
+    @Query("dateTo") dateTo?: string,
+  ) {
+    return this.financeService.getFreeOrders(period, dateFrom, dateTo);
+  }
+
+  // XARAJATLAR BO'LIMI (2026-09-03): kunlik ketma-ketlik + smart guruhlash
+  // ("G'ayrat akaga" har xil yozilsa ham bitta guruhga yig'iladi).
+  // MUHIM: bu yo'l "expenses/my" dan OLDIN turmasligi kerak emas — ikkalasi
+  // aniq yo'l, to'qnashmaydi.
+  @Get("expenses/report")
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @ApiOperation({ summary: "Xarajatlar hisoboti (davr/sana oralig'i, smart guruhlash)" })
+  getExpenseReport(@Query() query: ExpenseReportQueryDto) {
+    return this.financeService.getExpenseReport(query);
   }
 
   // Xarajat kiritish: haydovchi O'ZI yoki OPERATOR (haydovchi aytib turadi,

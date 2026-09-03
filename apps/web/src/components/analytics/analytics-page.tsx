@@ -13,27 +13,21 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  PageHeader, Avatar, Donut, SegmentTabs, cardClass,
+  PageHeader, Avatar, Donut, cardClass,
 } from "@/components/shared/page-ui";
-
-const PERIODS = [
-  { value: "weekly", label: "Hafta" },
-  { value: "monthly", label: "Oy" },
-  { value: "yearly", label: "Yil" },
-] as const;
-
-type Period = (typeof PERIODS)[number]["value"];
+import { RangePicker, defaultRange, rangeText, type RangeValue } from "@/components/shared/range-picker";
 
 const RANK_ICONS = [Crown, Medal, Award];
 const RANK_COLORS = ["text-amber-500", "text-gray-400", "text-amber-700"];
 const SEG_COLORS = ["#B93B3B", "#0EA5E9", "#7C3AED", "#14B8A6", "#F59E0B", "#EF4444", "#DB2777", "#16A34A"];
 
 export function AnalyticsPage() {
-  const [period, setPeriod] = useState<Period>("monthly");
-  const { data: topCustomers = [] } = useTopCustomers(period, 8);
-  const { data: topDrivers = [] } = useTopDrivers(period, 8);
-  const { data: topRegions = [] } = useTopRegions(period, 6);
-  const { data: finance } = useFinanceSummary(period);
+  // Davr tanlash barcha bo'limlarda bir xil (2026-09-03): o'tgan oylar ham
+  const [range, setRange] = useState<RangeValue>(defaultRange());
+  const { data: topCustomers = [] } = useTopCustomers(range, 8);
+  const { data: topDrivers = [] } = useTopDrivers(range, 8);
+  const { data: topRegions = [] } = useTopRegions(range, 6);
+  const { data: finance } = useFinanceSummary(range);
 
   const regionSegs = topRegions.map((r: any, i: number) => ({
     label: r.region,
@@ -45,12 +39,8 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <PageHeader title="Tahlil" subtitle="Tushum dinamikasi va eng yaxshilar">
-        <SegmentTabs
-          options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-          value={period}
-          onChange={setPeriod}
-        />
+      <PageHeader title="Tahlil" subtitle={`${rangeText(range)} — tushum dinamikasi va eng yaxshilar`}>
+        <RangePicker value={range} onChange={setRange} />
       </PageHeader>
 
       {/* Tushum dinamikasi + hududlar donut */}

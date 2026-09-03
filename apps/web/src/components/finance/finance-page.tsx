@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus, TrendingUp, TrendingDown, Wallet, Percent, Truck,
   ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, Gift, Droplets,
@@ -16,18 +16,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  PageHeader, StatCard, StatStrip, Donut, SegmentTabs, btnPrimary, cardClass,
+  PageHeader, StatCard, StatStrip, Donut, btnPrimary, cardClass,
 } from "@/components/shared/page-ui";
+import { RangePicker, defaultRange, rangeText, type RangeValue } from "@/components/shared/range-picker";
 import { usePermissions } from "@/hooks/use-permissions";
-
-const PERIODS = [
-  { value: "daily", label: "Bugun" },
-  { value: "weekly", label: "Hafta" },
-  { value: "monthly", label: "Oy" },
-  { value: "yearly", label: "Yil" },
-] as const;
-
-type Period = (typeof PERIODS)[number]["value"];
 
 const TX_META: Record<string, { label: string; isIn: boolean }> = {
   INCOME: { label: "Kirim", isIn: true },
@@ -37,14 +29,22 @@ const TX_META: Record<string, { label: string; isIn: boolean }> = {
 };
 
 export function FinancePage() {
-  const [period, setPeriod] = useState<Period>("monthly");
+  // Davr tanlash — hisobot/tahlil/xarajat bilan BIR XIL (2026-09-03)
+  const [range, setRange] = useState<RangeValue>(defaultRange());
   const [showModal, setShowModal] = useState(false);
   const [txnPage, setTxnPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
 
   const { isAdmin } = usePermissions();
-  const { data: summary, isLoading } = useFinanceSummary(period);
-  const { data: txns } = useTransactions({ page: txnPage, limit: 15, type: typeFilter || undefined });
+  const { data: summary, isLoading } = useFinanceSummary(range);
+  // Tranzaksiyalar ro'yxati ham tanlangan oraliq bo'yicha
+  const { data: txns } = useTransactions({
+    page: txnPage, limit: 15, type: typeFilter || undefined,
+    dateFrom: range.from, dateTo: range.to,
+  });
+
+  // Davr almashsa tranzaksiya ro'yxati boshidan ko'rsatilsin
+  useEffect(() => { setTxnPage(1); }, [range.from, range.to]);
 
   const income = summary?.income ?? 0;
   const totalOut = summary?.totalOut ?? 0;
@@ -61,13 +61,13 @@ export function FinancePage() {
     <div>
       <PageHeader
         title="Moliya"
-        subtitle={summary ? `Sof foyda ${formatCurrency(profit)} · ${summary.transactionCount ?? 0} tranzaksiya` : "Yuklanmoqda..."}
+        subtitle={
+          summary
+            ? `${rangeText(range)} · sof foyda ${formatCurrency(profit)} · ${summary.transactionCount ?? 0} tranzaksiya`
+            : rangeText(range)
+        }
       >
-        <SegmentTabs
-          options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-          value={period}
-          onChange={setPeriod}
-        />
+        <RangePicker value={range} onChange={setRange} />
         {/* Qo'lda tranzaksiya FAQAT admin (operator moliyani faqat ko'radi —
             uning kirimlari zakaz/qarz oqimidan avtomatik yoziladi) */}
         {isAdmin && (
@@ -192,7 +192,7 @@ export function FinancePage() {
       </div>
 
       {/* 🎁 Imtiyozli (bepul) zakazlar — alohida hisob-kitob (egasi so'rovi 2026-07-17) */}
-      <FreeOrdersCard pagePeriod={period} />
+      <FreeOrdersCard range={range} />
 
       {/* So'nggi tranzaksiyalar — dizayn ro'yxati */}
       <div className={cn(cardClass, "overflow-hidden")}>
@@ -287,13 +287,11 @@ export function FinancePage() {
 // Prokuratura kabi joylarga bepul berilganlar: jami soni/tarasi/qiymati +
 // KIMGA qancha berilgani. Davr — sahifadagi tanlov bo'yicha; "Butun vaqt"
 // tugmasi bilan boshidan beri jami ham ko'riladi.
-function FreeOrdersCard({ pagePeriod }: { pagePeriod: "daily" | "weekly" | "monthly" | "yearly" }) {
+function FreeOrdersCard({ range }: { range: RangeValue }) {
   const [allTime, setAllTime] = useState(false);
-  const { data, isLoading } = useFreeOrders(allTime ? "all" : pagePeriod);
+  const { data, isLoading } = useFreeOrders(allTime ? "all" : range);
 
-  const periodLabel = allTime
-    ? "butun vaqt"
-    : { daily: "bugun", weekly: "shu hafta", monthly: "shu oy", yearly: "shu yil" }[pagePeriod];
+  const periodLabel = allTime ? "butun vaqt" : rangeText(range);
 
   return (
     <div className={cn(cardClass, "overflow-hidden mb-4")}>

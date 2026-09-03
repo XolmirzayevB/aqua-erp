@@ -3,6 +3,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { OrderStatus } from "@aqua/database";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { localDayRange, toLocal, fromLocal } from "../../common/utils/date.util";
+import { cleanExpenseNote } from "../../common/utils/expense-group.util";
 
 @Injectable()
 export class DashboardService {
@@ -31,6 +32,7 @@ export class DashboardService {
       todayTransactions,
       monthTransactions,
       recentOrders,
+      todayExpenseRows,
     ] = await Promise.all([
       // Bugun yozilgan buyurtmalar (bekor qilinganlar sanalmaydi)
       this.prisma.order.count({
@@ -73,6 +75,14 @@ export class DashboardService {
         orderBy: { createdAt: "desc" },
         include: { customer: { select: { name: true } } },
       }),
+      // BUGUNGI XARAJATLAR (2026-09-03, egasi so'rovi): boshqaruv panelida
+      // har bir yozuv ko'rinsin — menejer zakazlar o'rniga shuni ko'radi.
+      // Xarajat = INCOME bo'lmagan tranzaksiyalar (EXPENSE/SALARY/SUPPLIER).
+      this.prisma.transaction.findMany({
+        where: { type: { not: "INCOME" }, createdAt: { gte: todayStart, lte: todayEnd } },
+        orderBy: { createdAt: "desc" },
+        include: { createdBy: { select: { id: true, name: true, role: true } } },
+      }),
     ]);
 
     return {
@@ -99,6 +109,26 @@ export class DashboardService {
       todayIncome: Number(todayTransactions._sum.amount ?? 0),
       monthIncome: Number(monthTransactions._sum.amount ?? 0),
       recentOrders,
+      // Bugungi xarajatlar: jami + har bir yozuv (tozalangan izoh bilan)
+      todayExpenses: {
+        total: todayExpenseRows.reduce((s, t) => s + Number(t.amount), 0),
+        count: todayExpenseRows.length,
+        items: todayExpenseRows.map((t) => {
+          const { note, sourceName, sourceMethod } = cleanExpenseNote(t.description);
+          return {
+            id: t.id,
+            type: t.type,
+            amount: Number(t.amount),
+            paymentMethod: (sourceMethod ?? t.paymentMethod) as string,
+            category: t.category,
+            note,
+            createdAt: t.createdAt,
+            // Pul kimning balansidan ketgani (ko'rsatilmagan bo'lsa — yozgan odam)
+            spentBy: sourceName || t.createdBy.name,
+            createdByName: t.createdBy.name,
+          };
+        }),
+      },
     };
   }
 }

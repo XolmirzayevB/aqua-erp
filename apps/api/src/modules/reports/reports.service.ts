@@ -1,36 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ReportQueryDto, TopQueryDto } from "./dto/query-report.dto";
-import {
-  startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth, startOfYear, endOfYear,
-} from "date-fns";
-import { localDayRange, toLocal, fromLocal } from "../../common/utils/date.util";
+import { periodRange } from "../../common/utils/date.util";
 
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  // Barcha oraliqlar O'ZBEKISTON kuni bo'yicha (server UTC — to'g'ridan-to'g'ri
-  // startOfDay ishlatilsa hisobot kuni lokal 05:00 da almashib qolardi).
+  // Barcha oraliqlar O'ZBEKISTON kuni bo'yicha (date.util.ts periodRange).
+  // dateFrom/dateTo berilsa — aynan o'sha oraliq (bitta kun ham, "1-31 avgust"
+  // kabi o'tgan oy ham); berilmasa — period (daily/weekly/monthly/yearly).
   private getRange(period?: string, dateFrom?: string, dateTo?: string) {
-    if (dateFrom && dateTo) {
-      // Kun tanlab ko'rish: "2026-07-13" → o'sha LOKAL kun 00:00–23:59
-      return {
-        from: localDayRange(new Date(dateFrom)).start,
-        to: localDayRange(new Date(dateTo)).end,
-      };
-    }
-    const localNow = toLocal(new Date());
-    switch (period) {
-      case "daily": {
-        const { start, end } = localDayRange();
-        return { from: start, to: end };
-      }
-      case "weekly": return { from: fromLocal(startOfWeek(localNow, { weekStartsOn: 1 })), to: fromLocal(endOfWeek(localNow, { weekStartsOn: 1 })) };
-      case "yearly": return { from: fromLocal(startOfYear(localNow)), to: fromLocal(endOfYear(localNow)) };
-      default:       return { from: fromLocal(startOfMonth(localNow)), to: fromLocal(endOfMonth(localNow)) };
-    }
+    return periodRange(period, dateFrom, dateTo);
   }
 
   // Overall report for a period.
@@ -132,7 +113,7 @@ export class ReportsService {
 
   // Top customers by spending
   async getTopCustomers(query: TopQueryDto) {
-    const { from, to } = this.getRange(query.period);
+    const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);
 
     const grouped = await this.prisma.transaction.groupBy({
       by: ["customerId"],
@@ -163,7 +144,7 @@ export class ReportsService {
 
   // Top drivers by revenue — yetkazilgan buyurtmalar asosida (sessiyasiz ish tartibi)
   async getTopDrivers(query: TopQueryDto) {
-    const { from, to } = this.getRange(query.period);
+    const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -203,7 +184,7 @@ export class ReportsService {
 
   // Top regions (by address parsing — first word as district)
   async getTopRegions(query: TopQueryDto) {
-    const { from, to } = this.getRange(query.period);
+    const { from, to } = this.getRange(query.period, query.dateFrom, query.dateTo);
 
     const orders = await this.prisma.order.findMany({
       where: { deliveredAt: { gte: from, lte: to }, status: "DELIVERED" },
