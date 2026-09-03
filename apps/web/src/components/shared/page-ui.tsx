@@ -76,13 +76,14 @@ export function StatCard({
             ketmasin (2026-09-03) — birlik keyingi qatorga tushadi */}
         <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
           <span className={cn(
-            // Mobilda biroz kichikroq + son bo'linmasin (ortiqchasi "..." bo'ladi)
-            "text-[17px] sm:text-[21px] font-bold tracking-tight tabular-nums leading-none max-w-full truncate",
+            // Mobilda kichikroq; uzun summa (63,634,000 so'm) kesilmasin —
+            // avval bo'shliqdan, kerak bo'lsagina ichidan ko'chadi
+            "text-[17px] sm:text-[21px] font-bold tracking-tight tabular-nums leading-tight max-w-full [overflow-wrap:anywhere]",
             loading ? "text-gray-300 dark:text-gray-700 animate-pulse" : "text-gray-900 dark:text-white"
           )}>
             {loading ? "—" : value}
           </span>
-          {unit && <span className="text-[11.5px] text-gray-400 dark:text-gray-500 max-w-full truncate">{unit}</span>}
+          {unit && <span className="text-[11.5px] text-gray-400 dark:text-gray-500 max-w-full [overflow-wrap:anywhere]">{unit}</span>}
         </div>
       </div>
       {delta && (
