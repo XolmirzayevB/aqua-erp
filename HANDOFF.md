@@ -302,11 +302,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   qo'shildi (bugungi UZ kuni, INCOME bo'lmagan tranzaksiyalar, cleanExpenseNote
   bilan tozalangan izoh + spentBy).
 
-**4) MOBIL O'QILISHI (StatCard)**
+**4) GRAFIK VA MOBIL O'QILISHI**
+- ⚠️ **Recharts gotcha (topilgan va tuzatilgan):** xarajat ustunli chartida
+  davr almashganda ustunlar UMUMAN chizilmasdi (30 kunlik oy: 30 ta bo'sh
+  `<g>`). Sabab — recharts kirish ANIMATSIYASI ma'lumot almashganda osilib
+  qoladi. Yechim: `isAnimationActive={false}` (+ radius ustun enidan kichik
+  bo'lsin: 20 dan ko'p ustunda 2px). Yangi chart qo'shsangiz shuni yodda tuting.
+- Xarajat guruhlari qatorida telefonda tartib raqami yashiriladi, padding va
+  summa shrifti kichrayadi — uzun nomlar ("Ziyov akaga") to'liq ko'rinadi.
+
+**4b) MOBIL O'QILISHI (StatCard)**
 - Telefonda 2 ustunli stat kartalarda summa kartadan chiqib ketardi. Endi:
   ikonka `hidden sm:inline-flex` (telefonda yashirin), matn 17px→21px (sm),
-  padding kichraydi, birlik keyingi qatorga tushadi. Moliya/Hisobot/Xarajat
-  sahifalarining hammasiga tegishli.
+  padding kichraydi, birlik keyingi qatorga tushadi, uzun summa (63,634,000
+  so'm) kesilmay ko'chadi. Moliya/Hisobot/Xarajat sahifalariga tegishli.
 
 **5) SINOVLAR (lokal, 2026-09-03)**
 - API: xarajat hisoboti 4 xil oraliqda (avgust/sentabr/bitta kun/2 oy),

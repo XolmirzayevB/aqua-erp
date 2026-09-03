@@ -14,7 +14,7 @@ import {
   ChevronDown, Banknote, CreditCard, Search, User, Crown,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { useExpenseReport, type ExpenseItem } from "@/hooks/use-finance";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -126,9 +126,18 @@ export function ExpensesPage() {
                   contentStyle={{ borderRadius: 11, border: "1px solid #ECEEF3", fontSize: 12 }}
                   cursor={{ fill: "rgba(239,68,68,0.06)" }}
                 />
-                <Bar dataKey="total" name="Xarajat" radius={[6, 6, 0, 0]} maxBarSize={38}>
-                  {data.daily.map((d) => <Cell key={d.date} fill={BAR_COLOR} />)}
-                </Bar>
+                {/* isAnimationActive=false — davr almashganda recharts'ning
+                    kirish animatsiyasi "osilib" qolib, ustunlar UMUMAN
+                    chizilmasdi (30 kunlik oyda tekshirilgan).
+                    Radius ham ustun enidan kichik bo'lishi kerak. */}
+                <Bar
+                  dataKey="total"
+                  name="Xarajat"
+                  fill={BAR_COLOR}
+                  radius={data.daily.length > 20 ? [2, 2, 0, 0] : [6, 6, 0, 0]}
+                  maxBarSize={38}
+                  isAnimationActive={false}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -197,9 +206,10 @@ function SmartView({ data, isLoading }: { data: any; isLoading: boolean }) {
               <div key={g.key} className="border-t border-gray-400/70 dark:border-gray-600">
                 <button
                   onClick={() => setOpenKey(open ? null : g.key)}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                  className="w-full flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-5 py-3.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
-                  <span className="w-6 text-center flex-none text-xs font-bold text-gray-400 tabular-nums">{i + 1}</span>
+                  {/* Tartib raqami telefonda yashirin — nomga joy ko'proq qolsin */}
+                  <span className="w-6 text-center flex-none text-xs font-bold text-gray-400 tabular-nums hidden sm:block">{i + 1}</span>
                   <Avatar name={g.label} size={34} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate">
@@ -219,10 +229,10 @@ function SmartView({ data, isLoading }: { data: any; isLoading: boolean }) {
                     </div>
                   </div>
                   <div className="text-right flex-none">
-                    <p className="text-[14px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+                    <p className="text-[13px] sm:text-[14px] font-bold text-red-600 dark:text-red-400 tabular-nums">
                       {formatCurrency(g.total)}
                     </p>
-                    <p className="text-[11.5px] text-gray-400 tabular-nums mt-0.5">
+                    <p className="text-[11px] sm:text-[11.5px] text-gray-400 tabular-nums mt-0.5">
                       {g.count} marta · {g.share}%
                     </p>
                   </div>
