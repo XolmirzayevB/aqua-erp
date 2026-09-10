@@ -15,3 +15,12 @@
 
 	encode gzip
 }
+
+# Gissar Water (kichik idishli suv ERP) — alohida stack: /opt/gissar-water.
+# Uning gw_web konteyneri shu aqua-erp-prod_default tarmog'iga ulangan.
+# ⚠️ Bu blokni o'chirmang: aqua-erp deployi shu faylni serverga ustidan yozadi,
+# blok yo'qolsa Gissar Water o'chib qoladi. Manba: ~/water-distribution/HANDOFF2.md
+suv.116-203-220-83.nip.io {
+	reverse_proxy gw_web:80
+	encode gzip
+}
