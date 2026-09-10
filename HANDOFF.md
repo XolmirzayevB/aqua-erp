@@ -905,3 +905,24 @@ curl -s https://116-203-220-83.nip.io/api/v1/dashboard/stats -H "Authorization: 
 - U ko'pincha telefondан (iPhone) test qiladi — mobil ko'rinishga e'tibor ber.
 - Har o'zgarishdан keyin: lokal build → tar deploy → ~5 daq kutib → tekshir → o'zbekcha xulosa.
 - "Davom et" desa — qolgan ishni davom ettir.
+
+---
+
+## ⚠️ Caddy: Caddyfile o'zgarishi konteynerga yetib bormaydi (2026-09-10)
+
+`aqua_caddy_prod` Caddyfile'ni **alohida fayl** sifatida ulaydi (`./caddy/Caddyfile:/etc/caddy/Caddyfile:ro`).
+Deploy (tar) faylni **yangi fayl** qilib qayta yaratadi, konteyner esa ishga tushgandagi **eski**
+faylni ko'rishda davom etadi. 2026-09-10 da aniqlandi: konteyner 2 oydan beri ishlab turgan va
+o'shandagi faylni ushlagan — `caddy reload` «config is unchanged» dedi. Ya'ni shu vaqt ichidagi
+Caddyfile o'zgarishlari **qo'llanmagan** (fayl mazmuni o'zgarmagani uchun zarar bo'lmagan).
+
+**Caddyfile o'zgartirilsa — aqua-erp'ni to'xtatmasdan qo'llash:**
+```bash
+ssh root@116.203.220.83 'docker cp /opt/aqua-erp/caddy/Caddyfile aqua_caddy_prod:/tmp/Caddyfile \
+  && docker exec aqua_caddy_prod caddy validate --config /tmp/Caddyfile --adapter caddyfile \
+  && docker exec aqua_caddy_prod caddy reload   --config /tmp/Caddyfile --adapter caddyfile'
+```
+
+**Shu Caddy'da endi ikkinchi sayt bor:** `suv.116-203-220-83.nip.io` → `gw_web:80` — Gissar Water
+(kichik idishli suv ERP, `~/water-distribution`, serverda `/opt/gissar-water`). Caddyfile'dagi
+o'sha blokni **o'chirmang** — aks holda Gissar Water o'chadi. Batafsil: `~/water-distribution/HANDOFF2.md` §2a.
