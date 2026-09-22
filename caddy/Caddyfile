@@ -24,3 +24,12 @@ suv.116-203-220-83.nip.io {
 	reverse_proxy gw_web:80
 	encode gzip
 }
+
+# Afsar (aroq dilerligi ERP) — alohida stack: /opt/afsar-savdo.
+# Uning af_web konteyneri shu aqua-erp-prod_default tarmog'iga ulangan.
+# ⚠️ Bu blokni o'chirmang: aqua-erp deployi shu faylni serverga ustidan yozadi,
+# blok yo'qolsa Afsar o'chib qoladi. Manba: ~/afsar-savdo/HANDOFF.md
+afsar.116-203-220-83.nip.io {
+	reverse_proxy af_web:80
+	encode gzip
+}
