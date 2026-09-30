@@ -7,16 +7,25 @@
 //      ("G'ayrat akaga" = "gayratga" = "G'ayrat aka"), eng kattasi birinchi.
 //   2) KETMA-KETLIK — kun bo'yicha: har kunning JAMISI va ichida har bir yozuv.
 // Sana tanlash boshqa bo'limlar bilan BIR XIL (RangePicker).
+//
+// 2026-10-01 (egasi so'rovi): chiqim IKKI TURGA bo'lindi —
+//   XARAJAT (yoqilg'i, metan, ta'mirlash) va BERILGAN PUL (odamga berilgan).
+// Tepadagi tanlagich butun sahifani (kartalar, grafik, guruhlar, ro'yxat)
+// filtrlaydi; ikki turning jamisi esa doim ko'rinib turadi.
 
 import { useMemo, useState } from "react";
 import {
   TrendingDown, CalendarClock, ListOrdered, Sparkles, Wallet, Plus,
-  ChevronDown, Banknote, CreditCard, Search, User, Crown,
+  ChevronDown, Banknote, CreditCard, Search, User, Crown, HandCoins, Fuel,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { useExpenseReport, type ExpenseItem } from "@/hooks/use-finance";
+import {
+  useExpenseReport, useSetExpenseKind, KIND_LABELS,
+  type ExpenseItem, type ExpenseKind,
+} from "@/hooks/use-finance";
 import { usePermissions } from "@/hooks/use-permissions";
 import { DriverExpenseModal } from "@/components/finance/driver-expense-modal";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
@@ -35,23 +44,31 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin", MANAGER: "Menejer", OPERATOR: "Operator", DRIVER: "Haydovchi",
 };
 
-const BAR_COLOR = "#EF4444";
+const BAR_COLOR = "#EF4444";        // haqiqiy xarajat — qizil
+const BAR_COLOR_PAYOUT = "#D97706";  // berilgan pul — amber
 
 export function ExpensesPage() {
   const [range, setRange] = useState<RangeValue>(defaultRange());
   const [tab, setTab] = useState<"smart" | "list">("smart");
+  // Chiqim turi filtri: "" = hammasi
+  const [kind, setKind] = useState<"" | ExpenseKind>("");
   const [showModal, setShowModal] = useState(false);
   const { isAdmin, isOperator } = usePermissions();
-  const { data, isLoading } = useExpenseReport(range);
+  const { data, isLoading } = useExpenseReport(range, kind || undefined);
 
   const s = data?.summary;
+  const expenseTotal = s?.byKind?.EXPENSE ?? 0;
+  const payoutTotal = s?.byKind?.PAYOUT ?? 0;
+  const kindTitle = kind === "PAYOUT" ? "Berilgan pul" : kind === "EXPENSE" ? "Haqiqiy xarajat" : "Barcha chiqim";
 
   return (
     <div>
       <PageHeader
         title="Xarajatlar"
         subtitle={
-          s ? `${rangeText(range)} · jami ${formatCurrency(s.total)} · ${s.count} ta yozuv` : rangeText(range)
+          s
+            ? `${rangeText(range)} · ${kindTitle.toLowerCase()} ${formatCurrency(s.total)} · ${s.count} ta yozuv`
+            : rangeText(range)
         }
       >
         <RangePicker value={range} onChange={setRange} />
@@ -64,14 +81,56 @@ export function ExpensesPage() {
         )}
       </PageHeader>
 
-      {/* Asosiy raqamlar */}
+      {/* ── XARAJAT / BERILGAN PUL ── bosilsa butun sahifa shu turga filtrlanadi */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4">
+        {([
+          { v: "", label: "Hammasi", sum: (s?.byKind?.EXPENSE ?? 0) + (s?.byKind?.PAYOUT ?? 0),
+            cnt: (s?.countByKind?.EXPENSE ?? 0) + (s?.countByKind?.PAYOUT ?? 0),
+            icon: Wallet, ring: "border-gray-900 dark:border-white", text: "text-gray-900 dark:text-white" },
+          { v: "EXPENSE", label: "Haqiqiy xarajat", sum: expenseTotal, cnt: s?.countByKind?.EXPENSE ?? 0,
+            icon: Fuel, ring: "border-red-500", text: "text-red-600 dark:text-red-400" },
+          { v: "PAYOUT", label: "Berilgan pul", sum: payoutTotal, cnt: s?.countByKind?.PAYOUT ?? 0,
+            icon: HandCoins, ring: "border-amber-500", text: "text-amber-600 dark:text-amber-400" },
+        ] as const).map((o) => {
+          const active = kind === o.v;
+          return (
+            <button
+              key={o.v || "all"}
+              onClick={() => setKind(o.v as "" | ExpenseKind)}
+              className={cn(
+                // Mobilda IXCHAM qator (nom chapda, summa o'ngda), sm+ da karta
+                "text-left rounded-2xl border bg-white dark:bg-gray-900 px-3.5 sm:px-4 py-2.5 sm:py-[15px] shadow-card transition-all",
+                "hover:-translate-y-0.5 hover:shadow-panel min-w-0",
+                "flex items-center justify-between gap-2 sm:block",
+                active
+                  ? cn("border-2", o.ring)
+                  : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700"
+              )}
+            >
+              <span className="flex items-center gap-2 text-[12.5px] font-medium text-gray-500 dark:text-gray-400 min-w-0">
+                <o.icon className={cn("w-4 h-4 flex-none", active && o.text)} />
+                <span className="truncate">{o.label}</span>
+                {o.cnt > 0 && <span className="text-[11px] text-gray-400 tabular-nums flex-none">{o.cnt} ta</span>}
+              </span>
+              <span className={cn(
+                "block sm:mt-1 text-[15px] sm:text-[21px] font-bold tracking-tight tabular-nums leading-tight break-words flex-none sm:flex-auto",
+                active ? o.text : "text-gray-900 dark:text-white"
+              )}>
+                {isLoading ? "—" : formatCurrency(o.sum)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Asosiy raqamlar — tanlangan tur bo'yicha */}
       <StatStrip>
         <StatCard
-          label="Jami xarajat"
+          label={kindTitle}
           value={formatCurrency(s?.total ?? 0)}
           unit={s ? `${s.count} ta` : undefined}
-          icon={TrendingDown}
-          tone="danger"
+          icon={kind === "PAYOUT" ? HandCoins : TrendingDown}
+          tone={kind === "PAYOUT" ? "warning" : "danger"}
           loading={isLoading}
         />
         <StatCard
@@ -102,7 +161,9 @@ export function ExpensesPage() {
 
       {/* Kunlik xarajat dinamikasi */}
       <div className={cn(cardClass, "p-5 mb-4")}>
-        <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">Kunlik xarajat</h2>
+        <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
+          Kunlik {kind === "PAYOUT" ? "berilgan pul" : "xarajat"}
+        </h2>
         <p className="text-[12.5px] text-gray-400 dark:text-gray-500 mt-0.5 mb-3">
           Har kuni qancha pul chiqqani
         </p>
@@ -124,7 +185,7 @@ export function ExpensesPage() {
                   formatter={(v: any) => formatCurrency(v)}
                   labelStyle={{ fontSize: 11, fontWeight: 600 }}
                   contentStyle={{ borderRadius: 11, border: "1px solid #ECEEF3", fontSize: 12 }}
-                  cursor={{ fill: "rgba(239,68,68,0.06)" }}
+                  cursor={{ fill: kind === "PAYOUT" ? "rgba(217,119,6,0.07)" : "rgba(239,68,68,0.06)" }}
                 />
                 {/* isAnimationActive=false — davr almashganda recharts'ning
                     kirish animatsiyasi "osilib" qolib, ustunlar UMUMAN
@@ -132,8 +193,8 @@ export function ExpensesPage() {
                     Radius ham ustun enidan kichik bo'lishi kerak. */}
                 <Bar
                   dataKey="total"
-                  name="Xarajat"
-                  fill={BAR_COLOR}
+                  name={kind === "PAYOUT" ? "Berilgan pul" : "Xarajat"}
+                  fill={kind === "PAYOUT" ? BAR_COLOR_PAYOUT : BAR_COLOR}
                   radius={data.daily.length > 20 ? [2, 2, 0, 0] : [6, 6, 0, 0]}
                   maxBarSize={38}
                   isAnimationActive={false}
@@ -161,9 +222,9 @@ export function ExpensesPage() {
       </div>
 
       {tab === "smart" ? (
-        <SmartView data={data} isLoading={isLoading} />
+        <SmartView data={data} isLoading={isLoading} canEdit={isAdmin} />
       ) : (
-        <SequenceView data={data} isLoading={isLoading} />
+        <SequenceView data={data} isLoading={isLoading} canEdit={isAdmin} />
       )}
 
       {showModal && <DriverExpenseModal onClose={() => setShowModal(false)} />}
@@ -172,7 +233,7 @@ export function ExpensesPage() {
 }
 
 /* ─── 1) SMART TAHLIL ─────────────────────────────────────────────────────── */
-function SmartView({ data, isLoading }: { data: any; isLoading: boolean }) {
+function SmartView({ data, isLoading, canEdit }: { data: any; isLoading: boolean; canEdit: boolean }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const groups = data?.groups ?? [];
   const max = groups[0]?.total ?? 0;
@@ -251,9 +312,11 @@ function SmartView({ data, isLoading }: { data: any; isLoading: boolean }) {
                           {it.note && it.note !== it.label ? ` · ${it.note}` : ""}
                           <span className="text-gray-400"> — {it.spentBy}</span>
                         </span>
+                        <KindBadge kind={it.kind} />
                         <span className="text-[12.5px] font-bold text-gray-900 dark:text-white tabular-nums flex-none">
                           {formatCurrency(it.amount)}
                         </span>
+                        {canEdit && <KindSwitch item={it} />}
                       </div>
                     ))}
                   </div>
@@ -359,8 +422,39 @@ function BreakdownCard({
   );
 }
 
+/* ─── Chiqim turi belgisi va tuzatish tugmasi ─────────────────────────────── */
+// "Berilgan pul" yozuvlari amber belgi bilan ajralib turadi; xarajatlarda
+// belgi ko'rsatilmaydi (ular ko'pchilik — ro'yxat shovqinlashmasin).
+function KindBadge({ kind }: { kind?: ExpenseKind }) {
+  if (kind !== "PAYOUT") return null;
+  return (
+    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap flex-none bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+      <HandCoins className="w-3 h-3" /> berildi
+    </span>
+  );
+}
+
+// Admin xato belgilangan yozuvni bitta bosishda qarama-qarshi turga o'tkazadi
+function KindSwitch({ item }: { item: ExpenseItem }) {
+  const setKindMut = useSetExpenseKind();
+  const next: ExpenseKind = item.kind === "PAYOUT" ? "EXPENSE" : "PAYOUT";
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setKindMut.mutate({ id: item.id, kind: next });
+      }}
+      disabled={setKindMut.isPending}
+      title={`"${KIND_LABELS[next]}"ga o'tkazish`}
+      className="w-[26px] h-[26px] rounded-lg inline-flex items-center justify-center flex-none text-gray-300 dark:text-gray-600 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors disabled:opacity-40"
+    >
+      <ArrowLeftRight className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
 /* ─── 2) KETMA-KETLIK (kun bo'yicha) ──────────────────────────────────────── */
-function SequenceView({ data, isLoading }: { data: any; isLoading: boolean }) {
+function SequenceView({ data, isLoading, canEdit }: { data: any; isLoading: boolean; canEdit: boolean }) {
   const [q, setQ] = useState("");
 
   // Kun bo'yicha guruhlash — har kunning JAMISI sarlavhada
@@ -474,9 +568,14 @@ function SequenceView({ data, isLoading }: { data: any; isLoading: boolean }) {
                 {it.type !== "EXPENSE" && (
                   <Pill tone="warning" className="hidden sm:inline-flex">{TYPE_LABELS[it.type]}</Pill>
                 )}
-                <span className="text-[13.5px] font-bold text-red-600 dark:text-red-400 tabular-nums flex-none">
+                <KindBadge kind={it.kind} />
+                <span className={cn(
+                  "text-[13.5px] font-bold tabular-nums flex-none",
+                  it.kind === "PAYOUT" ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
+                )}>
                   −{formatCurrency(it.amount)}
                 </span>
+                {canEdit && <KindSwitch item={it} />}
               </div>
             ))}
           </div>

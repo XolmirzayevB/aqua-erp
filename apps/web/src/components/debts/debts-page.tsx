@@ -10,23 +10,23 @@ import { PaymentModal } from "@/components/customers/payment-modal";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
-  PageHeader, StatCard, Avatar, Pill, thClass, cardClass,
+  PageHeader, StatCard, Avatar, Pill, thClass, cardClass, LoadMore,
 } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
 
 export function DebtsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(30);   // sahifalash o'rniga ko'proq ko'rsatish
   const [payTarget, setPayTarget] = useState<{ id: string; name: string; balance: number } | null>(null);
 
   const { readOnly, isDriver } = usePermissions();
-  const { data, isLoading } = useDebts(page, debouncedSearch);
+  const { data, isLoading } = useDebts(limit, debouncedSearch);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     clearTimeout((handleSearch as any)._t);
-    (handleSearch as any)._t = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 400);
+    (handleSearch as any)._t = setTimeout(() => { setDebouncedSearch(val); setLimit(30); }, 400);
   };
 
   const debtors = data?.data || [];
@@ -111,21 +111,18 @@ export function DebtsPage() {
             </div>
           ))
         )}
-        {/* Mobil sahifalash */}
-        {data?.meta && data.meta.totalPages > 1 && (
-          <div className={cn(cardClass, "px-4 py-3 flex items-center justify-between")}>
-            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{data.meta.total} ta jami</p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(page - 1)} disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 text-xs text-gray-500 tabular-nums">{page} / {data.meta.totalPages}</span>
-              <button onClick={() => setPage(page + 1)} disabled={page >= data.meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+        {/* Ko'proq ko'rsatish (mobil) */}
+        {data?.meta && (
+          <div className={cn(cardClass, "overflow-hidden")}>
+            <LoadMore
+              shown={data.data.length}
+              total={data.meta.total}
+              step={50}
+              loading={isLoading}
+              noun="qarzdor"
+              onMore={() => setLimit((l) => l + 50)}
+              onAll={() => setLimit(Math.min(data.meta.total, 500))}
+            />
           </div>
         )}
       </div>
@@ -240,27 +237,16 @@ export function DebtsPage() {
           </table>
         </div>
 
-        {data?.meta && data.meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{data.meta.total} ta jami</p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 text-xs text-gray-500 tabular-nums">{page} / {data.meta.totalPages}</span>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= data.meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        {data?.meta && (
+          <LoadMore
+            shown={data.data.length}
+            total={data.meta.total}
+            step={50}
+            loading={isLoading}
+            noun="qarzdor"
+            onMore={() => setLimit((l) => l + 50)}
+            onAll={() => setLimit(Math.min(data.meta.total, 500))}
+          />
         )}
       </div>
 

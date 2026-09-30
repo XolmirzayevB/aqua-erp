@@ -256,3 +256,43 @@ export function SegmentTabs<T extends string>({
 /* ---------- Qator ichidagi kichik tugma (30px) ---------- */
 export const rowBtnClass =
   "w-[30px] h-[30px] rounded-[9px] inline-flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all";
+
+/* ---------- Ko'proq ko'rsatish (sahifalash o'rniga) ----------
+   Egasi (2026-10-01): "ko'p joyda mijozlarni o'tkazib ko'rish kerak, juda
+   noqulay". Raqamli sahifalash o'rniga ro'yxat SHU YERDA uzayadi — bosgan
+   sari yana bir bo'lak qo'shiladi, telefonda ham qulay. */
+export function LoadMore({
+  shown, total, step = 50, loading, onMore, onAll, noun = "ta",
+}: {
+  shown: number; total: number; step?: number;
+  loading?: boolean; onMore: () => void; onAll?: () => void; noun?: string;
+}) {
+  if (total === 0) return null;
+  const left = Math.max(0, total - shown);
+  return (
+    <div className="px-4 sm:px-5 py-3.5 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-center gap-3 flex-wrap">
+      <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+        {Math.min(shown, total)} / {total} {noun}
+      </span>
+      {left > 0 && (
+        <button
+          onClick={onMore}
+          disabled={loading}
+          className="inline-flex items-center gap-2 h-[38px] px-4 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 text-[13px] font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+        >
+          {loading ? "Yuklanmoqda..." : `Yana ${Math.min(step, left)} ta ko'rsatish`}
+        </button>
+      )}
+      {/* Ro'yxat uzun bo'lsa — bir bosishda hammasini ochish */}
+      {onAll && left > step && (
+        <button
+          onClick={onAll}
+          disabled={loading}
+          className="text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+        >
+          Hammasi ({total})
+        </button>
+      )}
+    </div>
+  );
+}

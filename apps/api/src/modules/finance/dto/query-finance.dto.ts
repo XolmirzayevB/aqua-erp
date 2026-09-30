@@ -39,7 +39,7 @@ export class QueryFinanceDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   @Type(() => Number)
   limit?: number = 20;
 }
@@ -62,8 +62,14 @@ export class SummaryQueryDto {
   dateTo?: string;
 }
 
-// Xarajatlar bo'limi (2026-09-03): davr yoki aniq sana oralig'i
+// Xarajatlar bo'limi (2026-09-03): davr yoki aniq sana oralig'i.
+// kind (2026-10-01): faqat haqiqiy xarajat yoki faqat berilgan pul.
 export class ExpenseReportQueryDto {
+  @ApiPropertyOptional({ enum: ["EXPENSE", "PAYOUT"], description: "Bo'sh = hammasi" })
+  @IsOptional()
+  @IsEnum(["EXPENSE", "PAYOUT"])
+  kind?: "EXPENSE" | "PAYOUT";
+
   @ApiPropertyOptional({ enum: ["daily", "weekly", "monthly", "yearly"], default: "monthly" })
   @IsOptional()
   @IsEnum(["daily", "weekly", "monthly", "yearly"])

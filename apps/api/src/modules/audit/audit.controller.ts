@@ -16,13 +16,17 @@ export class AuditController {
   @ApiQuery({ name: "page", required: false })
   @ApiQuery({ name: "entity", required: false })
   @ApiQuery({ name: "action", required: false })
+  @ApiQuery({ name: "limit", required: false })
   findAll(
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number,
     @Query("entity") entity?: string,
     @Query("action") action?: string,
     @Query("userId") userId?: string,
   ) {
-    return this.auditService.findAll({ page, limit: 30, entity, action, userId });
+    return this.auditService.findAll({
+      page, limit: Math.min(Math.max(limit, 1), 500), entity, action, userId,
+    });
   }
 
   @Get("entities")

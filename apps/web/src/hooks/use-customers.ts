@@ -67,15 +67,17 @@ export interface InactiveCustomer extends Customer {
   daysSince: number;
 }
 
-export function useInactiveCustomers(days = 14, page = 1) {
+// limit — "Ko'proq ko'rsatish" (2026-10-01): sahifa varaqlash o'rniga
+export function useInactiveCustomers(days = 14, limit = 30) {
   return useQuery({
-    queryKey: ["inactive-customers", days, page],
+    queryKey: ["inactive-customers", days, limit],
     queryFn: () =>
-      api.get("/customers/inactive", { params: { days, page } }).then((r) => r.data.data as {
+      api.get("/customers/inactive", { params: { days, page: 1, limit } }).then((r) => r.data.data as {
         data: InactiveCustomer[];
         meta: { total: number; page: number; limit: number; totalPages: number };
         days: number;
       }),
+    placeholderData: (prev) => prev,
   });
 }
 

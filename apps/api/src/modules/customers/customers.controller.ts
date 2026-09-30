@@ -46,11 +46,15 @@ export class CustomersController {
   @ApiOperation({ summary: "Yo'qolayotgan mijozlar (uzoq zakaz qilmaganlar)" })
   @ApiQuery({ name: "days", required: false })
   @ApiQuery({ name: "page", required: false })
+  // limit — "Ko'proq ko'rsatish" uchun (2026-10-01): sahifama-sahifa varaqlash
+  // o'rniga ro'yxat bir joyda uzayadi
+  @ApiQuery({ name: "limit", required: false })
   getInactive(
     @Query("days", new DefaultValuePipe(14), ParseIntPipe) days: number,
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number,
   ) {
-    return this.customersService.getInactive(days, page, 20);
+    return this.customersService.getInactive(days, page, Math.min(Math.max(limit, 1), 500));
   }
 
   @Get(":id")

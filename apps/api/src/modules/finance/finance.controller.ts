@@ -1,11 +1,12 @@
 import {
-  Controller, Get, Post, Body, Query, ParseIntPipe, DefaultValuePipe,
+  Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { FinanceService } from "./finance.service";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { QueryFinanceDto, SummaryQueryDto, ExpenseReportQueryDto } from "./dto/query-finance.dto";
+import { UpdateExpenseKindDto } from "./dto/update-kind.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Role } from "@aqua/shared";
@@ -63,6 +64,14 @@ export class FinanceController {
   // ("G'ayrat akaga" har xil yozilsa ham bitta guruhga yig'iladi).
   // MUHIM: bu yo'l "expenses/my" dan OLDIN turmasligi kerak emas — ikkalasi
   // aniq yo'l, to'qnashmaydi.
+  // Xato belgilangan chiqimni tuzatish: "xarajat" ↔ "berilgan pul"
+  @Patch("expenses/:id/kind")
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Chiqim turini o'zgartirish (xarajat / berilgan pul)" })
+  setExpenseKind(@Param("id") id: string, @Body() dto: UpdateExpenseKindDto) {
+    return this.financeService.setExpenseKind(id, dto.kind);
+  }
+
   @Get("expenses/report")
   @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @ApiOperation({ summary: "Xarajatlar hisoboti (davr/sana oralig'i, smart guruhlash)" })
@@ -93,10 +102,12 @@ export class FinanceController {
   @ApiOperation({ summary: "Qarzdor mijozlar" })
   @ApiQuery({ name: "page", required: false })
   @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "limit", required: false })
   getDebts(
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number,
     @Query("search") search?: string,
   ) {
-    return this.financeService.getDebts(page, 20, search);
+    return this.financeService.getDebts(page, Math.min(Math.max(limit, 1), 500), search);
   }
 }

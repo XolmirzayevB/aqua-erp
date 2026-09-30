@@ -26,11 +26,12 @@ function KpiCard({
         <Icon className="w-[19px] h-[19px]" />
       </span>
       <p className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1.5">{label}</p>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tracking-tight leading-none tabular-nums">
+      {/* Uzun summa mobilda sig'sin: kichikroq shrift + birlik pastga tushadi */}
+      <div className="flex items-baseline gap-1.5 flex-wrap">
+        <span className="text-[21px] sm:text-[26px] md:text-[30px] font-bold text-gray-900 dark:text-white tracking-tight leading-tight tabular-nums break-words min-w-0">
           {value}
         </span>
-        {unit && <span className="text-[13px] text-gray-400 dark:text-gray-500 font-medium">{unit}</span>}
+        {unit && <span className="text-[12px] sm:text-[13px] text-gray-400 dark:text-gray-500 font-medium">{unit}</span>}
       </div>
     </div>
   );
@@ -153,7 +154,9 @@ export function DashboardPage() {
             </div>
           ))}
           </div>
-          <div className="flex-1 flex items-stretch divide-x divide-gray-400/70 dark:divide-gray-600 border-t xl:border-t-0 xl:border-l border-gray-400/70 dark:border-gray-600">
+          {/* MOBIL (2026-10-01): pul bloklari yonma-yon turganda matn kesilardi
+              ("1,197,000 so..." ) — endi telefonda ustma-ust tushadi */}
+          <div className="flex-1 flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-gray-400/70 dark:divide-gray-600 border-t xl:border-t-0 xl:border-l border-gray-400/70 dark:border-gray-600">
           {/* KELGAN pul (bugun) — yashil. Tushum endi zakaz YETKAZILGANDA yoziladi.
               Tagida: bugun nechta almashtirish/yangi tara sotilgani (egasi so'rovi) */}
           <div className="flex-1 flex items-center gap-3 px-5 py-4 bg-green-50/60 dark:bg-green-500/10">
@@ -161,7 +164,7 @@ export function DashboardPage() {
               <Banknote className="w-[18px] h-[18px] text-green-600 dark:text-green-400" />
             </span>
             <div className="min-w-0">
-              <div className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums tracking-tight leading-none truncate">
+              <div className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums tracking-tight leading-tight break-words">
                 {data ? formatCurrency(data.todayIncome || 0) : "—"}
               </div>
               <div className="text-[12px] text-green-700/80 dark:text-green-400/70 font-medium mt-1">Bugungi tushum (kelgan pul)</div>
@@ -177,7 +180,7 @@ export function DashboardPage() {
               <Wallet className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
             </span>
             <div className="min-w-0">
-              <div className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums tracking-tight leading-none truncate">
+              <div className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums tracking-tight leading-tight break-words">
                 {data ? formatCurrency(data.pendingAmount || 0) : "—"}
               </div>
               <div className="text-[12px] text-amber-700/80 dark:text-amber-400/70 font-medium mt-1">
@@ -196,7 +199,7 @@ export function DashboardPage() {
                 <CreditCard className="w-[18px] h-[18px] text-sky-600 dark:text-sky-400" />
               </span>
               <div className="min-w-0">
-                <div className="text-lg font-bold text-sky-600 dark:text-sky-400 tabular-nums tracking-tight leading-none truncate">
+                <div className="text-lg font-bold text-sky-600 dark:text-sky-400 tabular-nums tracking-tight leading-tight break-words">
                   {formatCurrency(data?.pendingClickAmount || 0)}
                 </div>
                 <div className="text-[12px] text-sky-700/80 dark:text-sky-400/70 font-medium mt-1">
@@ -331,11 +334,19 @@ function TodayExpensesCard({ data, isLoading }: { data: any; isLoading: boolean 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          {/* JAMI — boshida katta ko'rinadi (egasi so'rovi) */}
-          <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] bg-red-50 dark:bg-red-500/15 text-[15px] font-bold text-red-600 dark:text-red-400 tabular-nums">
-            {isLoading ? "…" : formatCurrency(exp?.total ?? 0)}
-          </span>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* JAMI — boshida katta ko'rinadi (egasi so'rovi).
+              Ostida: haqiqiy xarajat va odamga berilgan pul alohida (2026-10-01) */}
+          <div className="flex flex-col items-end gap-1">
+            <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] bg-red-50 dark:bg-red-500/15 text-[15px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+              {isLoading ? "…" : formatCurrency(exp?.total ?? 0)}
+            </span>
+            {(exp?.payoutTotal ?? 0) > 0 && (
+              <span className="text-[11.5px] text-gray-400 dark:text-gray-500 tabular-nums">
+                xarajat {formatCurrency(exp?.expenseTotal ?? 0)} · berildi {formatCurrency(exp?.payoutTotal ?? 0)}
+              </span>
+            )}
+          </div>
           <Link
             href="/expenses"
             className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:gap-2 transition-all"
@@ -361,6 +372,11 @@ function TodayExpensesCard({ data, isLoading }: { data: any; isLoading: boolean 
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-[13.5px] font-semibold text-gray-900 dark:text-white truncate">
+                {x.kind === "PAYOUT" && (
+                  <span className="mr-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 align-middle">
+                    berildi
+                  </span>
+                )}
                 {x.category || "Xarajat"}
                 {x.note && <span className="font-normal text-gray-400"> · {x.note}</span>}
               </p>
@@ -369,7 +385,10 @@ function TodayExpensesCard({ data, isLoading }: { data: any; isLoading: boolean 
                 {x.createdByName !== x.spentBy ? ` · yozdi: ${x.createdByName}` : ""}
               </p>
             </div>
-            <span className="text-[13.5px] font-bold text-red-600 dark:text-red-400 tabular-nums flex-none">
+            <span className={cn(
+              "text-[13.5px] font-bold tabular-nums flex-none",
+              x.kind === "PAYOUT" ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
+            )}>
               −{formatCurrency(x.amount)}
             </span>
           </div>

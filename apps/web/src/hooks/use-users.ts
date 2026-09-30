@@ -71,11 +71,12 @@ export function useDeleteUser() {
 
 // ─── Audit ─────────────────────────────────────────────────────────────────
 
-export function useAuditLog(page = 1, entity?: string, action?: string) {
+export function useAuditLog(limit = 30, entity?: string, action?: string) {
   return useQuery({
-    queryKey: ["audit", page, entity, action],
+    queryKey: ["audit", limit, entity, action],
     queryFn: () =>
-      api.get("/audit", { params: { page, entity, action } }).then((r) => r.data.data),
+      api.get("/audit", { params: { page: 1, limit, entity, action } }).then((r) => r.data.data),
+    placeholderData: (prev) => prev,
   });
 }
 

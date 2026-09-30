@@ -35,4 +35,11 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsUUID()
   sourceUserId?: string;
+
+  // Chiqim turi (2026-10-01): haqiqiy xarajatmi yoki odamga berilgan pulmi.
+  // Yozayotgan odam o'zi belgilaydi; ko'rsatilmasa — xarajat.
+  @ApiPropertyOptional({ enum: ["EXPENSE", "PAYOUT"], default: "EXPENSE" })
+  @IsOptional()
+  @IsEnum(["EXPENSE", "PAYOUT"])
+  kind?: "EXPENSE" | "PAYOUT";
 }

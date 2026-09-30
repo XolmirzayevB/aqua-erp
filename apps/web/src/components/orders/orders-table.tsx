@@ -19,7 +19,7 @@ import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { PAYMENT_TYPE_LABELS } from "@aqua/shared";
 import { cn } from "@/lib/utils";
 import {
-  PageHeader, Avatar, Pill, SegmentTabs, btnPrimary, thClass, cardClass, rowBtnClass,
+  PageHeader, Avatar, Pill, SegmentTabs, btnPrimary, thClass, cardClass, rowBtnClass, LoadMore,
 } from "@/components/shared/page-ui";
 import type { Tone } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -84,7 +84,7 @@ export function OrdersTable() {
   const [day, setDay] = useState("");
   // Hudud filtri — mijozlar sahifasidagidek chiplar
   const [zone, setZone] = useState("");
-  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(30);   // sahifalash o'rniga ko'proq ko'rsatish
   const [showForm, setShowForm] = useState(false);
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<string | undefined>(undefined);
@@ -120,8 +120,8 @@ export function OrdersTable() {
     zone: zone || undefined,
     dateFrom: !specialView && day ? day : undefined,
     dateTo: !specialView && day ? day : undefined,
-    page,
-    limit: 20,
+    page: 1,
+    limit,
   });
 
   // Banner/tab uchun doimiy hisob — nechta zakaz qolib ketgan
@@ -148,7 +148,7 @@ export function OrdersTable() {
     clearTimeout((handleSearch as any)._t);
     (handleSearch as any)._t = setTimeout(() => {
       setDebouncedSearch(val);
-      setPage(1);
+      setLimit(30);
     }, 400);
   };
 
@@ -166,46 +166,18 @@ export function OrdersTable() {
   const orders = data?.data || [];
   const meta = data?.meta;
 
-  // Sahifalash — mobil kartalar va jadval ostida bir xil ishlatiladi
-  const pagination = meta && meta.totalPages > 1 ? (
-    <div className="px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-between">
-      <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-        {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} / {meta.total}
-      </p>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setPage(page - 1)}
-          disabled={page <= 1}
-          className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        {Array.from({ length: Math.min(meta.totalPages, 7) }).map((_, i) => {
-          const p = i + 1;
-          return (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={cn(
-                "w-8 h-8 flex items-center justify-center rounded-[9px] text-xs font-semibold transition-colors tabular-nums",
-                page === p
-                  ? "bg-blue-600 text-white"
-                  : "border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-              )}
-            >
-              {p}
-            </button>
-          );
-        })}
-        <button
-          onClick={() => setPage(page + 1)}
-          disabled={page >= meta.totalPages}
-          className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
+  // Ko'proq ko'rsatish — mobil kartalar va jadval ostida bir xil ishlatiladi
+  // (2026-10-01: raqamli sahifalash noqulay edi, ro'yxat endi shu yerda uzayadi)
+  const pagination = meta ? (
+    <LoadMore
+      shown={orders.length}
+      total={meta.total}
+      step={50}
+      loading={isLoading}
+      noun="zakaz"
+      onMore={() => setLimit((l) => l + 50)}
+      onAll={() => setLimit(Math.min(meta.total, 500))}
+    />
   ) : null;
 
   return (
@@ -234,7 +206,7 @@ export function OrdersTable() {
       {/* ⏰ QOLIB KETGAN zakazlar banneri — bor bo'lsa doim ko'rinib turadi */}
       {!isDriver && overdueCount > 0 && !isOverdueView && (
         <button
-          onClick={() => { setStatus("OVERDUE"); setDay(""); setPage(1); }}
+          onClick={() => { setStatus("OVERDUE"); setDay(""); setLimit(30); }}
           className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-2xl border-2 border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-left hover:border-red-300 dark:hover:border-red-800 transition-colors"
         >
           <span className="w-9 h-9 rounded-[11px] bg-red-100 dark:bg-red-500/15 flex items-center justify-center flex-none">
@@ -256,7 +228,7 @@ export function OrdersTable() {
           12 soat ichida tasdiqlanmasa avto-nasiyaga o'tadi — operator unutmasin. */}
       {!isDriver && cardPendingCount > 0 && !isCardPendingView && (
         <button
-          onClick={() => { setStatus("CARD_PENDING"); setDay(""); setPage(1); }}
+          onClick={() => { setStatus("CARD_PENDING"); setDay(""); setLimit(30); }}
           className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-2xl border-2 border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/30 text-left hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
         >
           <span className="w-9 h-9 rounded-[11px] bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center flex-none">
@@ -289,7 +261,7 @@ export function OrdersTable() {
             <MapPin className={cn("w-4 h-4 flex-none", zone ? "text-blue-600 dark:text-blue-400" : "text-gray-400")} />
             <select
               value={zone}
-              onChange={(e) => { setZone(e.target.value); setPage(1); }}
+              onChange={(e) => { setZone(e.target.value); setLimit(30); }}
               className={cn(
                 "bg-transparent text-[13.5px] font-semibold focus:outline-none pr-1 cursor-pointer",
                 zone ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-200"
@@ -330,12 +302,12 @@ export function OrdersTable() {
               type="date"
               value={day}
               max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => { setDay(e.target.value); setPage(1); }}
+              onChange={(e) => { setDay(e.target.value); setLimit(30); }}
               className="bg-transparent text-[13px] font-semibold text-gray-900 dark:text-white focus:outline-none w-[124px]"
             />
             {day && (
               <button
-                onClick={() => { setDay(""); setPage(1); }}
+                onClick={() => { setDay(""); setLimit(30); }}
                 title="Kunni bekor qilish"
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white dark:hover:bg-gray-800 transition-colors"
               >
@@ -361,7 +333,7 @@ export function OrdersTable() {
               : []),
           ]}
           value={status}
-          onChange={(v) => { setStatus(v); setPage(1); }}
+          onChange={(v) => { setStatus(v); setLimit(30); }}
         />
       </div>
 
@@ -463,14 +435,17 @@ export function OrdersTable() {
                   </span>
                 )}
 
-                {/* 3-qator: tara/summa + asosiy tugma */}
-                <div className="flex items-center justify-between gap-2 mt-2.5">
-                  <div className="text-[13px] text-gray-700 dark:text-gray-300">
+                {/* 3-qator: tara/summa + asosiy tugmalar.
+                    MOBIL (2026-10-01): tugmalar ko'p bo'lganda ("Yetkazildi" +
+                    "Almashtirish") qator ekrandan chiqib ketardi — endi
+                    tugmalar pastga o'ralib tushadi, summa alohida turadi. */}
+                <div className="flex items-center justify-between gap-2 mt-2.5 flex-wrap">
+                  <div className="text-[13px] text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     <span className="font-semibold tabular-nums">{order.quantity} ta</span>
                     <span className="text-gray-300 dark:text-gray-600"> · </span>
                     <span className="font-bold tabular-nums">{formatCurrency(order.totalAmount)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
                     {/* 📞 Qo'ng'iroq — faqat OCHIQ zakazlarda (yopilgan/bekorda shart emas) */}
                     {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) && (
                       <a

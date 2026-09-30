@@ -83,6 +83,9 @@ export class FinanceService {
       return tx.transaction.create({
         data: {
           type: "EXPENSE" as TransactionType,
+          // Haqiqiy xarajatmi yoki odamga berilgan pulmi (2026-10-01) —
+          // yozayotgan odam modalda belgilaydi
+          expenseKind: (dto.kind ?? "EXPENSE") as any,
           amount: dto.amount,
           paymentMethod: method as any,
           category: dto.category?.trim() || (isDriver ? "Haydovchi xarajati" : "Boshqa"),
@@ -101,7 +104,7 @@ export class FinanceService {
     const data = await this.prisma.transaction.findMany({
       where: { createdById: userId, type: "EXPENSE", createdAt: { gte: start, lte: end } },
       orderBy: { createdAt: "desc" },
-      select: { id: true, amount: true, category: true, description: true, createdAt: true },
+      select: { id: true, amount: true, category: true, description: true, createdAt: true, expenseKind: true },
     });
     return {
       data,
@@ -309,11 +312,26 @@ export class FinanceService {
   async getExpenseReport(query: ExpenseReportQueryDto) {
     const { from, to } = periodRange(query.period, query.dateFrom, query.dateTo);
 
-    const rows = await this.prisma.transaction.findMany({
+    const allRows = await this.prisma.transaction.findMany({
       where: { type: { not: "INCOME" }, createdAt: { gte: from, lte: to } },
       orderBy: { createdAt: "desc" },
       include: { createdBy: { select: { id: true, name: true, role: true } } },
     });
+
+    // Ikkala turning jamisi HAR DOIM hisoblanadi (filtrdan qat'i nazar) —
+    // sahifa tepasidagi ikki karta shundan chiqadi
+    const byKind = { EXPENSE: 0, PAYOUT: 0 } as Record<string, number>;
+    const countByKind = { EXPENSE: 0, PAYOUT: 0 } as Record<string, number>;
+    for (const r of allRows) {
+      const k = (r.expenseKind ?? "EXPENSE") as string;
+      byKind[k] = (byKind[k] ?? 0) + Number(r.amount);
+      countByKind[k] = (countByKind[k] ?? 0) + 1;
+    }
+
+    // Tanlangan tur bo'yicha filtr (bo'sh bo'lsa — hammasi)
+    const rows = query.kind
+      ? allRows.filter((r) => (r.expenseKind ?? "EXPENSE") === query.kind)
+      : allRows;
 
     type Group = {
       key: string; label: string; total: number; count: number;
@@ -349,6 +367,7 @@ export class FinanceService {
       const item = {
         id: t.id,
         type: t.type,
+        kind: (t.expenseKind ?? "EXPENSE") as "EXPENSE" | "PAYOUT",
         amount,
         paymentMethod: method,
         category: t.category,
@@ -442,6 +461,9 @@ export class FinanceService {
         avgPerDay: Math.round(total / spanDays),
         topLabel: groupList[0]?.label ?? null,
         topAmount: groupList[0]?.total ?? 0,
+        // Butun oraliq bo'yicha: haqiqiy xarajat va berilgan pul alohida
+        byKind,
+        countByKind,
       },
       daily: dailyList,
       groups: groupList,
@@ -450,6 +472,21 @@ export class FinanceService {
       list,
       period: { from, to },
     };
+  }
+
+  // Xato belgilangan chiqimni qayta belgilash (2026-10-01, faqat admin).
+  // Pulga tegilmaydi — faqat "xarajat" ↔ "berilgan pul" yorlig'i almashadi.
+  async setExpenseKind(id: string, kind: "EXPENSE" | "PAYOUT") {
+    const txn = await this.prisma.transaction.findUnique({ where: { id } });
+    if (!txn) throw new NotFoundException("Yozuv topilmadi");
+    if (txn.type === "INCOME") {
+      throw new BadRequestException("Kirim yozuvini xarajat turiga bo'lib bo'lmaydi");
+    }
+    return this.prisma.transaction.update({
+      where: { id },
+      data: { expenseKind: kind as any },
+      select: { id: true, expenseKind: true },
+    });
   }
 
   async getCategories() {

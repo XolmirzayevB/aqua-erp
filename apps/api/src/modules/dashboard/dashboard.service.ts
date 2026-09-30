@@ -113,11 +113,19 @@ export class DashboardService {
       todayExpenses: {
         total: todayExpenseRows.reduce((s, t) => s + Number(t.amount), 0),
         count: todayExpenseRows.length,
+        // Haqiqiy xarajat va odamga berilgan pul alohida (2026-10-01)
+        expenseTotal: todayExpenseRows
+          .filter((t) => (t.expenseKind ?? "EXPENSE") === "EXPENSE")
+          .reduce((s, t) => s + Number(t.amount), 0),
+        payoutTotal: todayExpenseRows
+          .filter((t) => t.expenseKind === "PAYOUT")
+          .reduce((s, t) => s + Number(t.amount), 0),
         items: todayExpenseRows.map((t) => {
           const { note, sourceName, sourceMethod } = cleanExpenseNote(t.description);
           return {
             id: t.id,
             type: t.type,
+            kind: (t.expenseKind ?? "EXPENSE") as string,
             amount: Number(t.amount),
             paymentMethod: (sourceMethod ?? t.paymentMethod) as string,
             category: t.category,

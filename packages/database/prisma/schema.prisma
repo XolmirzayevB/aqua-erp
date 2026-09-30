@@ -38,6 +38,17 @@ enum TransactionType {
   SUPPLIER_PAYMENT
 }
 
+// Chiqimning TURI (2026-10-01, egasi so'rovi): hamma narsa "xarajat" bo'lib
+// ketgani uchun ajratildi.
+//   EXPENSE — HAQIQIY xarajat: yoqilg'i, metan, ta'mirlash, ovqat...
+//   PAYOUT  — odamga BERILGAN pul: avans, qarz, oylik oldi ("G'ayrat akamga")
+// Pul harakati ikkalasida bir xil (balansdan ayiriladi) — faqat hisobotda
+// alohida ko'rsatiladi. INCOME yozuvlarida bu maydon ishlatilmaydi.
+enum ExpenseKind {
+  EXPENSE
+  PAYOUT
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -327,6 +338,7 @@ model Transaction {
   paymentMethod PaymentMethod   @map("payment_method")
   category      String?         @db.VarChar(100)
   description   String?         @db.Text
+  expenseKind   ExpenseKind     @default(EXPENSE) @map("expense_kind")
   orderId       String?         @map("order_id")
   customerId    String?         @map("customer_id")
   createdById   String          @map("created_by_id")

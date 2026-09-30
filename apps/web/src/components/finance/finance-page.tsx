@@ -16,7 +16,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  PageHeader, StatCard, StatStrip, Donut, btnPrimary, cardClass,
+  PageHeader, StatCard, StatStrip, Donut, btnPrimary, cardClass, LoadMore,
 } from "@/components/shared/page-ui";
 import { RangePicker, defaultRange, rangeText, type RangeValue } from "@/components/shared/range-picker";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -32,19 +32,19 @@ export function FinancePage() {
   // Davr tanlash — hisobot/tahlil/xarajat bilan BIR XIL (2026-09-03)
   const [range, setRange] = useState<RangeValue>(defaultRange());
   const [showModal, setShowModal] = useState(false);
-  const [txnPage, setTxnPage] = useState(1);
+  const [txnLimit, setTxnLimit] = useState(20);   // sahifalash o'rniga ko'proq
   const [typeFilter, setTypeFilter] = useState("");
 
   const { isAdmin } = usePermissions();
   const { data: summary, isLoading } = useFinanceSummary(range);
   // Tranzaksiyalar ro'yxati ham tanlangan oraliq bo'yicha
   const { data: txns } = useTransactions({
-    page: txnPage, limit: 15, type: typeFilter || undefined,
+    page: 1, limit: txnLimit, type: typeFilter || undefined,
     dateFrom: range.from, dateTo: range.to,
   });
 
   // Davr almashsa tranzaksiya ro'yxati boshidan ko'rsatilsin
-  useEffect(() => { setTxnPage(1); }, [range.from, range.to]);
+  useEffect(() => { setTxnLimit(20); }, [range.from, range.to]);
 
   const income = summary?.income ?? 0;
   const totalOut = summary?.totalOut ?? 0;
@@ -200,7 +200,7 @@ export function FinancePage() {
           <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">So'nggi tranzaksiyalar</h2>
           <select
             value={typeFilter}
-            onChange={(e) => { setTypeFilter(e.target.value); setTxnPage(1); }}
+            onChange={(e) => { setTypeFilter(e.target.value); setTxnLimit(20); }}
             className="text-xs font-medium border border-gray-100 dark:border-gray-800 rounded-[9px] px-2.5 py-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none"
           >
             <option value="">Barchasi</option>
@@ -254,27 +254,15 @@ export function FinancePage() {
           })}
         </div>
 
-        {txns?.meta && txns.meta.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-400/70 dark:border-gray-600 flex items-center justify-between">
-            <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{txns.meta.total} ta jami</p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setTxnPage(txnPage - 1)}
-                disabled={txnPage <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 text-xs text-gray-500 tabular-nums">{txnPage} / {txns.meta.totalPages}</span>
-              <button
-                onClick={() => setTxnPage(txnPage + 1)}
-                disabled={txnPage >= txns.meta.totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        {txns?.meta && (
+          <LoadMore
+            shown={txns.data.length}
+            total={txns.meta.total}
+            step={30}
+            noun="yozuv"
+            onMore={() => setTxnLimit((l) => l + 30)}
+            onAll={() => setTxnLimit(Math.min(txns.meta.total, 500))}
+          />
         )}
       </div>
 

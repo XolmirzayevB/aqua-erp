@@ -9,7 +9,7 @@ import { useInactiveCustomers } from "@/hooks/use-customers";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
-  PageHeader, Avatar, Pill, SegmentTabs, thClass, cardClass,
+  PageHeader, Avatar, Pill, SegmentTabs, thClass, cardClass, LoadMore,
 } from "@/components/shared/page-ui";
 import { usePermissions } from "@/hooks/use-permissions";
 
@@ -28,9 +28,9 @@ function toneForDays(d: number) {
 
 export function InactiveCustomers() {
   const [days, setDays] = useState("14");
-  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(30);   // sahifalash o'rniga ko'proq ko'rsatish
   const { isDriver } = usePermissions();
-  const { data, isLoading } = useInactiveCustomers(Number(days), page);
+  const { data, isLoading } = useInactiveCustomers(Number(days), limit);
 
   const list = data?.data || [];
   const meta = data?.meta;
@@ -57,7 +57,7 @@ export function InactiveCustomers() {
         <SegmentTabs
           options={DAY_OPTIONS}
           value={days}
-          onChange={(v) => { setDays(v); setPage(1); }}
+          onChange={(v) => { setDays(v); setLimit(30); }}
         />
       </div>
 
@@ -170,21 +170,17 @@ export function InactiveCustomers() {
         </div>
       </div>
 
-      {/* Sahifalash */}
-      {meta && meta.totalPages > 1 && (
-        <div className={cn(cardClass, "px-4 py-3 mt-3 flex items-center justify-between")}>
-          <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{meta.total} ta jami</p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(page - 1)} disabled={page <= 1}
-              className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-xs text-gray-500 tabular-nums">{page} / {meta.totalPages}</span>
-            <button onClick={() => setPage(page + 1)} disabled={page >= meta.totalPages}
-              className="w-8 h-8 flex items-center justify-center rounded-[9px] border border-gray-100 dark:border-gray-800 text-gray-500 disabled:opacity-40">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+      {meta && (
+        <div className={cn(cardClass, "mt-3 overflow-hidden")}>
+          <LoadMore
+            shown={list.length}
+            total={meta.total}
+            step={50}
+            loading={isLoading}
+            noun="mijoz"
+            onMore={() => setLimit((l) => l + 50)}
+            onAll={() => setLimit(Math.min(meta.total, 500))}
+          />
         </div>
       )}
     </div>

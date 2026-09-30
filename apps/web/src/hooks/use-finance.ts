@@ -101,9 +101,18 @@ export function useFinanceSummary(range: RangeParams) {
 // ─── XARAJATLAR BO'LIMI (2026-09-03) ─────────────────────────────────────────
 // Smart guruhlash: "G'ayrat akaga" / "gayratga" / "G'ayrat aka" — hammasi
 // bitta guruh bo'lib jamlanadi (backend o'zak bo'yicha guruhlaydi).
+// Chiqim turi (2026-10-01): haqiqiy xarajatmi yoki odamga berilgan pulmi
+export type ExpenseKind = "EXPENSE" | "PAYOUT";
+
+export const KIND_LABELS: Record<ExpenseKind, string> = {
+  EXPENSE: "Xarajat",
+  PAYOUT: "Berilgan pul",
+};
+
 export interface ExpenseItem {
   id: string;
   type: "EXPENSE" | "SALARY" | "SUPPLIER_PAYMENT";
+  kind: ExpenseKind;
   amount: number;
   paymentMethod: "CASH" | "CARD";
   category: string | null;
@@ -122,6 +131,9 @@ export interface ExpenseReport {
     byType: Record<string, number>;
     daysCount: number; activeDays: number; avgPerDay: number;
     topLabel: string | null; topAmount: number;
+    // Butun oraliq bo'yicha (filtrdan qat'i nazar) — ikki turning jamisi
+    byKind: Record<string, number>;
+    countByKind: Record<string, number>;
   };
   daily: { date: string; total: number; count: number }[];
   groups: {
@@ -135,12 +147,30 @@ export interface ExpenseReport {
   period: { from: string; to: string };
 }
 
-export function useExpenseReport(range: RangeParams) {
+export function useExpenseReport(range: RangeParams, kind?: ExpenseKind) {
   return useQuery({
-    queryKey: ["expense-report", range.from, range.to],
+    queryKey: ["expense-report", range.from, range.to, kind ?? "all"],
     queryFn: () =>
-      api.get("/finance/expenses/report", { params: { dateFrom: range.from, dateTo: range.to } })
-        .then((r) => r.data.data as ExpenseReport),
+      api.get("/finance/expenses/report", {
+        params: { dateFrom: range.from, dateTo: range.to, ...(kind ? { kind } : {}) },
+      }).then((r) => r.data.data as ExpenseReport),
+    // Tur almashganda ro'yxat "yo'qolib" turmasin
+    placeholderData: (prev) => prev,
+  });
+}
+
+// Xato belgilangan chiqimni tuzatish (faqat admin)
+export function useSetExpenseKind() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, kind }: { id: string; kind: ExpenseKind }) =>
+      api.patch(`/finance/expenses/${id}/kind`, { kind }).then((r) => r.data.data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["expense-report"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success(v.kind === "PAYOUT" ? "Berilgan pulga o'tkazildi" : "Xarajatga o'tkazildi");
+    },
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
@@ -163,6 +193,7 @@ export function useCreateTransaction() {
 
 export interface MyExpense {
   id: string;
+  expenseKind?: ExpenseKind;
   amount: number;
   category?: string;
   description?: string;
@@ -189,8 +220,9 @@ export function useAddExpense() {
       description?: string;
       paymentMethod?: "CASH" | "CARD";
       sourceUserId?: string;
+      kind?: ExpenseKind;
     }) => api.post("/finance/expenses", data).then((r) => r.data.data),
-    onSuccess: () => {
+    onSuccess: (_res, data) => {
       qc.invalidateQueries({ queryKey: ["my-expenses"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["finance-summary"] });
@@ -198,17 +230,18 @@ export function useAddExpense() {
       // Xarajat ishchi balansidan ayiriladi — balans sahifasi ham yangilansin
       qc.invalidateQueries({ queryKey: ["balances"] });
       qc.invalidateQueries({ queryKey: ["expense-report"] });
-      toast.success("Xarajat qo'shildi");
+      toast.success(data.kind === "PAYOUT" ? "Berilgan pul yozildi" : "Xarajat qo'shildi");
     },
     onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 
-export function useDebts(page = 1, search?: string) {
+export function useDebts(limit = 30, search?: string) {
   return useQuery({
-    queryKey: ["debts", page, search],
+    queryKey: ["debts", limit, search],
     queryFn: () =>
-      api.get("/finance/debts", { params: { page, search } })
+      api.get("/finance/debts", { params: { page: 1, limit, search } })
         .then((r) => r.data.data as { data: DebtCustomer[]; meta: any; totalDebt: number }),
+    placeholderData: (prev) => prev,
   });
 }

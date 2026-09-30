@@ -154,27 +154,34 @@ export function RangePicker({
   const months = lastMonths(now);
 
   return (
-    <div className="flex gap-2 flex-wrap items-center">
+    // MOBIL (2026-10-01): tez tugmalar va "Davr" tugmasi BITTA qatorda turadi —
+    // ilgari har biri alohida qatorga tushib, sahifa tepasi 3 qator joy egallardi
+    <div className="flex gap-2 items-center w-full sm:w-auto min-w-0">
       {/* Tez tugmalar — barcha sahifalarda bir xil */}
-      <SegmentTabs
-        options={QUICK_TABS}
-        value={isCustom ? "" : value.key}
-        onChange={(k) => onChange(quickRange(k))}
-      />
+      <div className="min-w-0 flex-1 sm:flex-none">
+        <SegmentTabs
+          options={QUICK_TABS}
+          value={isCustom ? "" : value.key}
+          onChange={(k) => onChange(quickRange(k))}
+        />
+      </div>
 
       {/* Davr tanlash (o'tgan oylar / ixtiyoriy oraliq) */}
-      <div className="relative" ref={boxRef}>
+      <div className="relative flex-none" ref={boxRef}>
         <button
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "inline-flex items-center gap-2 h-[42px] px-3.5 rounded-xl border text-[13.5px] font-semibold transition-colors max-w-[280px]",
+            "inline-flex items-center gap-2 h-[42px] px-3 sm:px-3.5 rounded-xl border text-[13.5px] font-semibold transition-colors max-w-[190px] sm:max-w-[280px]",
             isCustom
               ? "border-blue-500/60 bg-blue-50/70 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
               : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           )}
         >
           <CalendarDays className="w-4 h-4 flex-none" />
-          <span className="truncate">{isCustom ? value.label : "Davr tanlash"}</span>
+          {/* Mobilda joy tejash: tanlanmagan bo'lsa faqat ikonka ko'rinadi */}
+          <span className={cn("truncate", !isCustom && "hidden sm:inline")}>
+            {isCustom ? value.label : "Davr tanlash"}
+          </span>
           {isCustom ? (
             <span
               role="button"

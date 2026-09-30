@@ -9,14 +9,16 @@
 // Moliya bo'limiga EXPENSE tranzaksiya bo'lib tushadi (foydaga ta'sir qiladi).
 
 import { useState } from "react";
-import { X, Loader2, Wallet, Banknote, CreditCard, ChevronDown } from "lucide-react";
-import { useAddExpense, useMyTodayExpenses } from "@/hooks/use-finance";
+import { X, Loader2, Wallet, Banknote, CreditCard, ChevronDown, HandCoins, Fuel } from "lucide-react";
+import { useAddExpense, useMyTodayExpenses, type ExpenseKind } from "@/hooks/use-finance";
 import { useBalances } from "@/hooks/use-balances";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useAuthStore } from "@/store/auth.store";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 
-const CATEGORIES = ["Yoqilg'i", "Ovqat", "Ta'mirlash", "Boshqa"];
+// Chiplar turga qarab o'zgaradi: xarajatda — nimaga, berilgan pulda — kimga
+const EXPENSE_CATEGORIES = ["Yoqilg'i", "Metan", "Ovqat", "Ta'mirlash"];
+const PAYOUT_CATEGORIES = ["Avans", "Oylik", "Qarz", "Kunlik"];
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
@@ -25,13 +27,18 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
+  // Eslatma: ikkala turda ham pul balansdan bir xil ayiriladi —
+  // farqi faqat hisobotda (haqiqiy xarajat / berilgan pul).
   const addExpense = useAddExpense();
   const { data: today } = useMyTodayExpenses();
   const { isDriver, isAdmin } = usePermissions();
   const me = useAuthStore((s) => s.user);
   const { data: balances } = useBalances();
 
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  // Chiqim turi (2026-10-01, egasi so'rovi): haqiqiy xarajatmi yoki odamga
+  // berilgan pulmi — yozayotgan odam SHU YERDA belgilaydi
+  const [kind, setKind] = useState<ExpenseKind>("EXPENSE");
+  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [amountStr, setAmountStr] = useState("");
   const [description, setDescription] = useState("");
   // Pul manbasi: kimning balansidan (default — o'zim) va naqd/klik
@@ -39,6 +46,19 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
   const [method, setMethod] = useState<"CASH" | "CARD">("CASH");
 
   const amount = Number(amountStr.replace(/\D/g, ""));
+  const isPayout = kind === "PAYOUT";
+  const chips = isPayout ? PAYOUT_CATEGORIES : EXPENSE_CATEGORIES;
+
+  // Tur almashganda kategoriya avtomatik o'sha turning birinchi chipiga o'tadi
+  // (faqat oldingi chip tanlangan bo'lsa — qo'lda yozilgan matn saqlanadi)
+  const switchKind = (k: ExpenseKind) => {
+    if (k === kind) return;
+    const wasChip = [...EXPENSE_CATEGORIES, ...PAYOUT_CATEGORIES].includes(category);
+    setKind(k);
+    if (wasChip || !category.trim()) {
+      setCategory(k === "PAYOUT" ? "" : EXPENSE_CATEGORIES[0]);
+    }
+  };
 
   const workers = balances?.data || [];
   const mine = workers.find((w) => w.id === me?.id);
@@ -63,6 +83,7 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
       description: description.trim() || undefined,
       paymentMethod: method,
       sourceUserId: sourceUserId || undefined,
+      kind,
     });
     setAmountStr("");
     setDescription("");
@@ -80,7 +101,7 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h2 className="font-semibold text-gray-900 dark:text-white text-[16px] flex items-center gap-2">
             <Wallet className="w-4.5 h-4.5 text-red-500" />
-            Xarajat kiritish
+            {isPayout ? "Berilgan pul" : "Xarajat kiritish"}
           </h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <X className="w-4 h-4" />
@@ -88,6 +109,37 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-4">
+          {/* ── BU NIMA? — haqiqiy xarajatmi yoki odamga berilgan pulmi ──
+              Egasi: "qaysilar haqiqiy xarajat, qaysilar berilgan pul" bilinsin */}
+          <div>
+            <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Bu nima?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { v: "EXPENSE", label: "Xarajat", hint: "yoqilg'i, metan...", icon: Fuel,
+                  active: "border-red-500 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400" },
+                { v: "PAYOUT", label: "Berilgan pul", hint: "odamga berildi", icon: HandCoins,
+                  active: "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+              ] as const).map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => switchKind(o.v)}
+                  className={cn(
+                    "py-2.5 px-3 rounded-xl border-2 text-left transition-all",
+                    kind === o.v
+                      ? o.active
+                      : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold">
+                    <o.icon className="w-4 h-4 flex-none" /> {o.label}
+                  </span>
+                  <span className="block text-[11.5px] mt-0.5 opacity-80 truncate">{o.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Kimning pulidan? — operator/admin tanlaydi (haydovchida ko'rinmaydi) */}
           {!isDriver && sourceOptions.length > 0 && (
             <div>
@@ -153,9 +205,11 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
           {/* Kategoriya: tez tanlash chiplari YOKI o'zi qo'lda yozadi
               (masalan "dori" — egasi so'rovi bilan erkin matn qo'shildi) */}
           <div>
-            <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nimaga?</label>
+            <label className="block text-[13px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+              {isPayout ? "Kimga?" : "Nimaga?"}
+            </label>
             <div className="grid grid-cols-2 gap-2 mb-2">
-              {CATEGORIES.map((c) => (
+              {chips.map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -174,7 +228,7 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
             <input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="yoki o'zingiz yozing: dori, moyka..."
+              placeholder={isPayout ? "Ism: G'ayrat akamga, Bexruzga..." : "yoki o'zingiz yozing: dori, moyka..."}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
           </div>
@@ -210,10 +264,13 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
           <button
             type="submit"
             disabled={addExpense.isPending || !amount || (overBudget && !isDriver)}
-            className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            className={cn(
+              "w-full py-3 rounded-xl disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2",
+              isPayout ? "bg-amber-600 hover:bg-amber-700" : "bg-red-600 hover:bg-red-700"
+            )}
           >
             {addExpense.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Xarajatni saqlash
+            {isPayout ? "Berilgan pulni saqlash" : "Xarajatni saqlash"}
           </button>
         </form>
 
@@ -229,6 +286,11 @@ export function DriverExpenseModal({ onClose }: { onClose: () => void }) {
                 <div key={x.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-gray-50/60 dark:bg-gray-800/30">
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 truncate">
+                      {x.expenseKind === "PAYOUT" && (
+                        <span className="mr-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 align-middle">
+                          berildi
+                        </span>
+                      )}
                       {x.category || "Xarajat"}
                       {(() => {
                         // "(haydovchi)" texnik belgisi — admin uchun; haydovchining o'ziga ko'rsatilmaydi
