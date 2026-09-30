@@ -349,7 +349,7 @@ export class FinanceService {
     const list = rows.map((t) => {
       const amount = Number(t.amount);
       const { note, sourceName, sourceMethod } = cleanExpenseNote(t.description);
-      let { key } = expenseGroupKey(t.category, note);
+      let { key, from: keyFrom } = expenseGroupKey(t.category, note);
       // Kalit mavjud guruhga bitta harf xatosi bilan o'xshasa — yangi guruh
       // ochilmaydi, o'shanga qo'shiladi ("Mwtan" → "Metan", "Gayrta" → "Gayrat")
       if (!groups.has(key)) {
@@ -357,8 +357,15 @@ export class FinanceService {
           if (keysAreTypoVariants(existing, key)) { key = existing; break; }
         }
       }
-      // Ko'rinadigan nom: ma'noli kategoriya bo'lsa o'sha, aks holda izoh
-      const label = (t.category && t.category.trim()) || note || "Boshqa";
+      // Ko'rinadigan nom (2026-10-01 tuzatildi): kategoriyada MA'NOLI so'z
+      // bo'lsagina o'sha ishlatiladi. Operator "Nimaga?" maydoniga to'lov
+      // usulini ("Klik") yozib, haqiqiy nomni izohga qoldirsa — ro'yxatda
+      // "Klik" emas, izohdagi nom ("gayrat akamga") chiqadi. Guruhlash
+      // allaqachon to'g'ri ishlardi, faqat KO'RINADIGAN nom xato edi.
+      const label =
+        keyFrom === "category"
+          ? t.category!.trim()
+          : note || (t.category?.trim() || "") || "Boshqa";
       // Pul kimning balansidan ketgan: izohda ko'rsatilgan bo'lsa o'sha,
       // aks holda yozuvni kiritgan odamning o'zi
       const spentBy = sourceName || t.createdBy.name;
