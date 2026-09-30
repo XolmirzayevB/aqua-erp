@@ -206,6 +206,39 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **XARAJAT/BERILGAN PUL + SAHIFALASH + MOBIL (2026-10-01, DEPLOY QILINDI):**
+- **Muammo (egasi):** (1) hamma chiqim "xarajat" bo'lib ketgan — odamga
+  berilgan pul ajratilmagan; (2) ro'yxatlarda sahifa varaqlash juda noqulay;
+  (3) telefonda ba'zi joylar kesilib ketadi.
+- **1) ExpenseKind (EXPENSE | PAYOUT)** — migratsiya
+  `20261001090000_expense_kind`, `transactions.expense_kind` (default EXPENSE).
+  Pul harakati O'ZGARMAGAN (ikkalasi ham balansdan ayiriladi) — faqat hisobot
+  ikkiga bo'linadi. Backfill QO'LDA bajarilgan (70 qator → PAYOUT: gayrat/
+  bexruz/behruz/jamshid nomlari; "— pul: Ism" qismi qidiruvdan chiqarilgan).
+  - Modal (driver-expense-modal): tepada "Bu nima?" — Xarajat | Berilgan pul.
+    Tur almashsa "Nimaga?" → "Kimga?", chiplar ham almashadi.
+  - Xarajatlar sahifasi: 3 ta filtr kartasi (Hammasi/Haqiqiy xarajat/Berilgan
+    pul); `byKind`/`countByKind` filtrdan QAT'I NAZAR butun oraliq bo'yicha
+    keladi (ikki karta doim to'la ko'rinadi).
+  - `PATCH /finance/expenses/:id/kind` (faqat ADMIN) — ro'yxatdagi ⇄ tugmasi
+    xato belgilangan yozuvni bir bosishda ikkinchi turga o'tkazadi.
+  - Dashboard "Bugungi xarajatlar" ham xarajat/berildi deb ajratadi.
+- **2) LoadMore** (page-ui.tsx) — raqamli sahifalash O'RNIGA "Yana N ta" +
+  "Hammasi (N)". Qo'llandi: mijozlar, buyurtmalar, qarzdorlik, yo'qolayotgan
+  mijozlar, audit, moliya tranzaksiyalari. Backend limit shifti 100→500;
+  debts/inactive/audit endpointlari endi `limit` qabul qiladi.
+- **3) Mobil:** davr tanlagich BITTA qatorda (ilgari 3 qator); mijozlar
+  telefonda jadval emas KARTA (ism/telefon-bosilsa-qo'ng'iroq/manzil/tara/
+  balans); dashboard pul bloklari ustma-ust (summa kesilmaydi); buyurtma
+  kartasida tugmalar o'ralib tushadi; xarajat turi kartalari ixcham qator.
+- **Guruh NOMI tuzatildi:** kategoriyada ma'noli so'z bo'lmasa ("Klik"),
+  nom izohdan olinadi — sentabrdagi "Klik 10.1 mln" endi "Gayrat aka" bo'lib
+  chiqadi. Guruhlash avvaldan to'g'ri edi, faqat ko'rinadigan nom xato edi.
+- ⚠️ **Eslatma:** "haqiqiy xarajat"da hali odamga berilganga o'xshash yozuvlar
+  bor (Ziyov akaga, Azizga, Kreditga...) — egasi faqat 3 ta ismni ko'rsatgani
+  uchun qolganlari tegilmagan. Egasi ⇄ tugmasi bilan o'zi o'tkazadi.
+
+
 ✅ **DAVR TANLASH + XARAJATLAR BO'LIMI + MENEJER PANELI (2026-09-03, DEPLOY QILINDI):**
 
 **1) O'TGAN OYLARNI KO'RISH — hamma bo'limda bir xil davr tanlagich**
