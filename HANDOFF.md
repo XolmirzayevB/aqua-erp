@@ -206,6 +206,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **YO'QOLAYOTGAN MIJOZGA SMS TUGMASI (2026-10-05, DEPLOY QILINDI):**
+- **So'rov (egasi):** yo'qolayotgan mijoz yonida tugma — bossa o'sha raqamga
+  o'zidan SMS ketsin.
+- **Yechim:** `/inactive` sahifasida (mobil karta + kompyuter jadvali)
+  "Qo'ng'iroq" yonida "SMS" tugmasi — oddiy `sms:<raqam>?&body=<matn>` havola.
+  Telefonning SMS ilovasi raqam va tayyor matn bilan ochiladi, "Yuborish"ni
+  odam o'zi bosadi → SMS bosgan odamning O'Z raqamidan ketadi. **Server SMS
+  yubormaydi, SMS-gateway (Eskiz va h.k.) YO'Q** — egasi shu bepul yo'lni tanladi.
+- Matn: `inactive-customers.tsx` boshidagi `smsText(name)` — egasi matnni
+  keyin o'zgartirishi mumkin (faqat shu joy). Oddiy `'` ishlating (`ʻ` emas),
+  aks holda SMS unicode bo'lib qimmatlashadi.
+- Telefonsiz mijozlarda (`+99800000000N`) SMS tugmasi ko'rinmaydi.
+- Kompyuterda `sms:` faqat iPhone ulangan Mac'da ishlaydi — asosan telefon uchun.
+
 ✅ **XARAJAT/BERILGAN PUL + SAHIFALASH + MOBIL (2026-10-01, DEPLOY QILINDI):**
 - **Muammo (egasi):** (1) hamma chiqim "xarajat" bo'lib ketgan — odamga
   berilgan pul ajratilmagan; (2) ro'yxatlarda sahifa varaqlash juda noqulay;

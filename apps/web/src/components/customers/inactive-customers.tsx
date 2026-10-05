@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Phone, Navigation, ChevronLeft, ChevronRight, UserX, Clock,
+  ArrowLeft, Phone, Navigation, ChevronLeft, ChevronRight, UserX, Clock, MessageSquare,
 } from "lucide-react";
 import { useInactiveCustomers } from "@/hooks/use-customers";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/utils";
@@ -25,6 +25,19 @@ function toneForDays(d: number) {
   if (d >= 14) return "warning" as const;
   return "muted" as const;
 }
+
+// SMS tugmasi (2026-10-05, egasi so'rovi): bosilganda telefonning SMS ilovasi
+// raqam va shu matn bilan ochiladi — "Yuborish"ni odam o'zi bosadi (server
+// SMS yubormaydi). Matnda oddiy ' ishlating (ʻ emas) — aks holda SMS qimmatlashadi.
+const smsText = (name: string) =>
+  `Assalomu alaykum, ${name}! Gissar Water. Anchadan beri suv buyurtma qilmadingiz. Suv kerak bo'lsa, shu raqamga yozing yoki qo'ng'iroq qiling.`;
+
+// "?&body=" — iPhone ham, Android ham tushunadigan ko'rinish
+const smsHref = (phone: string, name: string) =>
+  `sms:${phone}?&body=${encodeURIComponent(smsText(name.trim()))}`;
+
+// Telefonsiz mijozlar vaqtinchalik +99800000000N raqam bilan kiritilgan
+const hasRealPhone = (phone: string) => !phone.startsWith("+99800000000");
 
 export function InactiveCustomers() {
   const [days, setDays] = useState("14");
@@ -91,12 +104,17 @@ export function InactiveCustomers() {
                   <Clock className="w-3 h-3" /> {c.daysSince} kun
                 </Pill>
               </div>
-              <div className="flex items-center justify-between gap-2 mt-3">
-                <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                  Oxirgi zakaz: {formatDate(c.lastOrderAt, "dd.MM.yyyy")}
-                  {Number(c.balance) < 0 && <span className="text-red-500 font-medium"> · qarz {formatCurrency(Math.abs(Number(c.balance)))}</span>}
-                </span>
-                <a href={`tel:${c.phone}`} className="flex-none inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors">
+              <div className="mt-3 text-xs text-gray-400 dark:text-gray-500 truncate">
+                Oxirgi zakaz: {formatDate(c.lastOrderAt, "dd.MM.yyyy")}
+                {Number(c.balance) < 0 && <span className="text-red-500 font-medium"> · qarz {formatCurrency(Math.abs(Number(c.balance)))}</span>}
+              </div>
+              <div className="flex gap-2 mt-2.5">
+                {hasRealPhone(c.phone) && (
+                  <a href={smsHref(c.phone, c.name)} className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-[9px] border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/70 text-blue-700 dark:text-blue-300 text-[13px] font-semibold transition-colors">
+                    <MessageSquare className="w-4 h-4" /> SMS
+                  </a>
+                )}
+                <a href={`tel:${c.phone}`} className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors">
                   <Phone className="w-4 h-4" /> Qo'ng'iroq
                 </a>
               </div>
@@ -158,7 +176,12 @@ export function InactiveCustomers() {
                       ? <span className="text-red-500">{formatCurrency(Math.abs(Number(c.balance)))}</span>
                       : <span className="text-gray-300 dark:text-gray-600">—</span>}
                   </td>
-                  <td className="px-4 pr-5 py-3 text-right">
+                  <td className="px-4 pr-5 py-3 text-right whitespace-nowrap">
+                    {hasRealPhone(c.phone) && (
+                      <a href={smsHref(c.phone, c.name)} className="inline-flex items-center gap-1.5 h-8 px-3 mr-2 rounded-[9px] border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/70 text-blue-700 dark:text-blue-300 text-xs font-semibold transition-colors whitespace-nowrap">
+                        <MessageSquare className="w-3.5 h-3.5" /> SMS
+                      </a>
+                    )}
                     <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap">
                       <Phone className="w-3.5 h-3.5" /> Qo'ng'iroq
                     </a>
