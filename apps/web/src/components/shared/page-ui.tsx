@@ -216,21 +216,28 @@ export function Donut({
 }
 
 /* ---------- Segment tab (davr/filtr tanlash) ---------- */
+// stretch — telefonda butun kenglikni teng bo'lib egallaydi (hisoblagichli
+// 3 ta tab tor ekranga sig'ishi uchun); kompyuterda odatdagidek ixcham.
 export function SegmentTabs<T extends string>({
-  options, value, onChange,
+  options, value, onChange, stretch,
 }: {
   options: { value: T; label: string; count?: number }[];
   value: T;
   onChange: (v: T) => void;
+  stretch?: boolean;
 }) {
   return (
-    <div className="inline-flex gap-1 p-1 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 rounded-xl overflow-x-auto max-w-full">
+    <div className={cn(
+      "gap-1 p-1 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 rounded-xl overflow-x-auto max-w-full",
+      stretch ? "flex w-full sm:inline-flex sm:w-auto" : "inline-flex"
+    )}>
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
             "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold whitespace-nowrap transition-all",
+            stretch && "flex-1 justify-center max-sm:px-2 max-sm:text-[12.5px] sm:flex-none",
             value === o.value
               ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-card"
               : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"

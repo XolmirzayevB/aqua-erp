@@ -219,6 +219,21 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   aks holda SMS unicode bo'lib qimmatlashadi.
 - Telefonsiz mijozlarda (`+99800000000N`) SMS tugmasi ko'rinmaydi.
 - Kompyuterda `sms:` faqat iPhone ulangan Mac'da ishlaydi — asosan telefon uchun.
+- **"SMS jo'natildi" belgisi (o'sha kuni qo'shildi):** jadval `customer_sms`
+  (migratsiya `20261005100000_customer_sms`, model `CustomerSms`: customerId,
+  userId, createdAt). SMS tugmasi BOSILGANDA `POST /customers/:id/sms` — kim,
+  qachon yozib qo'yiladi; ro'yxatda yashil "SMS jo'natildi · sana · soat · kim".
+  - Tizim SMS haqiqatan ketganini BILMAYDI (faqat tugma bosilganini) — adashsa
+    ✕ → `DELETE /customers/:id/sms` (oxirgi belgini o'chiradi).
+  - Belgi faqat **oxirgi zakazdan KEYIN** yuborilgan SMS'lar uchun ko'rinadi
+    (`getInactive` ichida) — mijoz qayta zakaz berib yana yo'qolsa, toza boshlanadi.
+  - Saralash: `?sms=sent|unsent` → sahifada "Hammasi / SMS yo'q / SMS bor"
+    (meta: `all`, `smsSent`). `SegmentTabs` ga `stretch` prop qo'shildi (mobil).
+  - Tugma SMS ilovasini ochib sahifani orqa fonga o'tkazadi → `useMarkSms`
+    optimistik + `retry: 2`; server 2 daqiqa ichidagi takrorni bitta deb oladi.
+  - Menejer (read-only rol) ham belgilay oladi — tugma unga ham ko'rinadi.
+  - Kompyuter jadvali ixchamlandi (telefon ism ostida, kun+sana bitta ustun) —
+    SMS ustuni bilan 1280px ekranga sig'ishi uchun.
 
 ✅ **XARAJAT/BERILGAN PUL + SAHIFALASH + MOBIL (2026-10-01, DEPLOY QILINDI):**
 - **Muammo (egasi):** (1) hamma chiqim "xarajat" bo'lib ketgan — odamga

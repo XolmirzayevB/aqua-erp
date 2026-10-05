@@ -49,12 +49,36 @@ export class CustomersController {
   // limit — "Ko'proq ko'rsatish" uchun (2026-10-01): sahifama-sahifa varaqlash
   // o'rniga ro'yxat bir joyda uzayadi
   @ApiQuery({ name: "limit", required: false })
+  @ApiQuery({ name: "sms", required: false, enum: ["sent", "unsent"] })
   getInactive(
     @Query("days", new DefaultValuePipe(14), ParseIntPipe) days: number,
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number,
+    @Query("sms") sms?: string,
   ) {
-    return this.customersService.getInactive(days, page, Math.min(Math.max(limit, 1), 500));
+    return this.customersService.getInactive(
+      days, page, Math.min(Math.max(limit, 1), 500),
+      sms === "sent" || sms === "unsent" ? sms : undefined,
+    );
+  }
+
+  // SMS belgisi (2026-10-05): "SMS" tugmasi bosilganda yoziladi / adashganda
+  // olib tashlanadi. Menejer ham belgilay oladi — tugma unga ham ko'rinadi,
+  // SMS ochilib, belgi qo'yilmay qolsa chalkashlik bo'ladi.
+  @Post(":id/sms")
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @ApiOperation({ summary: "Mijozga SMS yuborildi deb belgilash" })
+  @ApiParam({ name: "id", type: "string" })
+  markSms(@Param("id", ParseUUIDPipe) id: string, @CurrentUser("sub") userId: string) {
+    return this.customersService.markSms(id, userId);
+  }
+
+  @Delete(":id/sms")
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
+  @ApiOperation({ summary: "Oxirgi SMS belgisini olib tashlash" })
+  @ApiParam({ name: "id", type: "string" })
+  unmarkSms(@Param("id", ParseUUIDPipe) id: string) {
+    return this.customersService.unmarkSms(id);
   }
 
   @Get(":id")

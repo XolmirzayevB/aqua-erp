@@ -62,22 +62,77 @@ export function useCustomers(params: CustomerQueryParams = {}) {
   });
 }
 
+// Oxirgi zakazdan KEYIN yuborilgan SMS belgisi (yuborilmagan bo'lsa null)
+export interface CustomerSmsInfo {
+  lastAt: string;
+  lastBy: string;
+  count: number;
+}
+
 export interface InactiveCustomer extends Customer {
   lastOrderAt: string;
   daysSince: number;
+  sms: CustomerSmsInfo | null;
+}
+
+export type SmsFilter = "all" | "unsent" | "sent";
+
+interface InactiveResponse {
+  data: InactiveCustomer[];
+  // all / smsSent — saralashdan qat'i nazar umumiy sonlar
+  meta: { total: number; page: number; limit: number; totalPages: number; all: number; smsSent: number };
+  days: number;
 }
 
 // limit — "Ko'proq ko'rsatish" (2026-10-01): sahifa varaqlash o'rniga
-export function useInactiveCustomers(days = 14, limit = 30) {
+export function useInactiveCustomers(days = 14, limit = 30, sms: SmsFilter = "all") {
   return useQuery({
-    queryKey: ["inactive-customers", days, limit],
+    queryKey: ["inactive-customers", days, limit, sms],
     queryFn: () =>
-      api.get("/customers/inactive", { params: { days, page: 1, limit } }).then((r) => r.data.data as {
-        data: InactiveCustomer[];
-        meta: { total: number; page: number; limit: number; totalPages: number };
-        days: number;
-      }),
+      api.get("/customers/inactive", {
+        params: { days, page: 1, limit, sms: sms === "all" ? undefined : sms },
+      }).then((r) => r.data.data as InactiveResponse),
     placeholderData: (prev) => prev,
+  });
+}
+
+// "SMS" tugmasi bosilganda — yuborildi deb belgilash (2026-10-05).
+// Tugma telefonning SMS ilovasini ochadi va sahifa orqa fonga o'tadi, shuning
+// uchun: belgi DARHOL ekranda ko'rinadi (optimistik), so'rov uzilsa qayta
+// uriniladi (server 2 daqiqa ichidagi takrorni bitta deb oladi).
+export function useMarkSms() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; by: string }) =>
+      api.post(`/customers/${id}/sms`).then((r) => r.data.data),
+    retry: 2,
+    onMutate: ({ id, by }) => {
+      qc.setQueriesData<InactiveResponse>({ queryKey: ["inactive-customers"] }, (old) =>
+        old && {
+          ...old,
+          data: old.data.map((c) =>
+            c.id === id
+              ? { ...c, sms: { lastAt: new Date().toISOString(), lastBy: by, count: (c.sms?.count ?? 0) + 1 } }
+              : c
+          ),
+        }
+      );
+    },
+    onError: (e: any) => toast.error(apiErrorMessage(e, "SMS belgisi saqlanmadi")),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["inactive-customers"] }),
+  });
+}
+
+// Adashib bosilgan bo'lsa — oxirgi SMS belgisini olib tashlash
+export function useUnmarkSms() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/customers/${id}/sms`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inactive-customers"] });
+      toast.success("SMS belgisi olib tashlandi");
+    },
+    onError: (e: any) => toast.error(apiErrorMessage(e)),
   });
 }
 

@@ -125,6 +125,7 @@ model User {
   refreshTokens  RefreshToken[]
   transfersSent     WorkerTransfer[] @relation("TransferFrom")
   transfersReceived WorkerTransfer[] @relation("TransferTo")
+  customerSms       CustomerSms[]
 
   @@index([role])
   @@index([isActive])
@@ -160,11 +161,28 @@ model Customer {
   transactions Transaction[]
   payments     Payment[]
   locations    CustomerLocation[]
+  smsLogs      CustomerSms[]
 
   @@index([phone])
   @@index([name])
   @@index([isActive])
   @@map("customers")
+}
+
+// Yo'qolayotgan mijozga SMS yuborilgani belgisi (2026-10-05, egasi so'rovi).
+// SMS'ni server YUBORMAYDI — xodim o'z telefonidan yuboradi (sms: havola);
+// bu yerda faqat "kim, qachon" saqlanadi. Har bosish = bitta yozuv.
+model CustomerSms {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  userId     String   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([customerId, createdAt])
+  @@map("customer_sms")
 }
 
 // Mijozning QO'SHIMCHA manzillari (Uy, Apteka, Do'kon...).

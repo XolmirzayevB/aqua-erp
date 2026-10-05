@@ -164,7 +164,8 @@ export class CustomersService {
 
   // Yo'qolayotgan mijozlar: oxirgi buyurtmasi `days` kundan oldin bo'lganlar.
   // Faqat avval zakaz bergan (endi to'xtagan) aktiv mijozlar; eng uzoq to'xtagani birinchi.
-  async getInactive(days = 14, page = 1, limit = 20) {
+  // sms: "sent" | "unsent" — SMS belgisi bo'yicha saralash (2026-10-05)
+  async getInactive(days = 14, page = 1, limit = 20, sms?: "sent" | "unsent") {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
@@ -182,9 +183,32 @@ export class CustomersService {
     });
     const activeSet = new Set(active.map((c) => c.id));
 
-    const stale = grouped
+    const staleAll = grouped
       .filter((g) => activeSet.has(g.customerId) && g._max.createdAt && g._max.createdAt < cutoff)
       .sort((a, b) => a._max.createdAt!.getTime() - b._max.createdAt!.getTime());
+
+    // SMS belgisi: faqat oxirgi zakazdan KEYIN yuborilganlari hisoblanadi —
+    // mijoz qayta zakaz berib, keyin yana yo'qolsa, eski belgi ko'rinmaydi.
+    const lastOrderAt = new Map(staleAll.map((s) => [s.customerId, s._max.createdAt!]));
+    const smsLogs = staleAll.length
+      ? await this.prisma.customerSms.findMany({
+          where: { customerId: { in: staleAll.map((s) => s.customerId) } },
+          orderBy: { createdAt: "desc" },
+          select: { customerId: true, createdAt: true, user: { select: { name: true } } },
+        })
+      : [];
+    const smsMap = new Map<string, { lastAt: Date; lastBy: string; count: number }>();
+    for (const l of smsLogs) {
+      if (l.createdAt <= lastOrderAt.get(l.customerId)!) continue;
+      const cur = smsMap.get(l.customerId);
+      if (cur) cur.count++;
+      else smsMap.set(l.customerId, { lastAt: l.createdAt, lastBy: l.user.name, count: 1 });
+    }
+
+    const stale =
+      sms === "sent" ? staleAll.filter((s) => smsMap.has(s.customerId))
+      : sms === "unsent" ? staleAll.filter((s) => !smsMap.has(s.customerId))
+      : staleAll;
 
     const total = stale.length;
     const pageItems = stale.slice((page - 1) * limit, page * limit);
@@ -202,11 +226,45 @@ export class CustomersService {
         const c = map.get(s.customerId);
         if (!c) return null;
         const last = s._max.createdAt!;
-        return { ...c, lastOrderAt: last, daysSince: Math.floor((now - last.getTime()) / 86400000) };
+        return {
+          ...c,
+          lastOrderAt: last,
+          daysSince: Math.floor((now - last.getTime()) / 86400000),
+          sms: smsMap.get(c.id) ?? null,
+        };
       })
       .filter(Boolean);
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) }, days };
+    return {
+      data,
+      // all / smsSent — saralashdan qat'i nazar umumiy sonlar (tab hisoblagichlari uchun)
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit), all: staleAll.length, smsSent: smsMap.size },
+      days,
+    };
+  }
+
+  // "SMS" tugmasi bosildi — kim, qachon yuborganini yozib qo'yamiz.
+  // SMS'ni server yubormaydi (xodim o'z telefonidan yuboradi).
+  async markSms(customerId: string, userId: string) {
+    await this.assertExists(customerId);
+    // Ikki marta bosish / tarmoq qayta urinishi ikkita yozuv bo'lib qolmasin
+    const recent = await this.prisma.customerSms.findFirst({
+      where: { customerId, userId, createdAt: { gte: new Date(Date.now() - 2 * 60_000) } },
+      orderBy: { createdAt: "desc" },
+    });
+    const row = recent ?? (await this.prisma.customerSms.create({ data: { customerId, userId } }));
+    return { id: row.id, sentAt: row.createdAt };
+  }
+
+  // Adashib bosilgan bo'lsa — oxirgi SMS belgisini olib tashlash
+  async unmarkSms(customerId: string) {
+    const last = await this.prisma.customerSms.findFirst({
+      where: { customerId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!last) throw new NotFoundException("SMS belgisi topilmadi");
+    await this.prisma.customerSms.delete({ where: { id: last.id } });
+    return { message: "SMS belgisi olib tashlandi" };
   }
 
   async getOrders(id: string, page = 1, limit = 10) {
