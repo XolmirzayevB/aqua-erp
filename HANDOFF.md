@@ -212,8 +212,14 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
   naqd qilsa — yechim.
 - **1) "+ Yangi joy":** `order-form.tsx` boshida `ALLOW_ADD_LOCATION = false`
   (qaytarish = true, kod joyida). Mijozda qo'shimcha manzil BO'LSA tanlash
-  ishlaydi; bo'lmasa "Qayerga yetkaziladi?" bloki umuman ko'rinmaydi. Haydovchining
-  yopishdagi "Lokatsiyani saqlash" (GPS) tugmasiga TEGILMAGAN.
+  ishlaydi; bo'lmasa "Qayerga yetkaziladi?" bloki umuman ko'rinmaydi.
+  ⚠️ Bu egasi so'raganidan BOSHQA narsa edi (noto'g'ri tushunilgan) — egasi
+  aslida pastdagi 1b ni nazarda tutgan. "Yangi joy" o'chiq QOLDIRILDI; egasi
+  qaytarishni so'rasa `true` qilinadi.
+- **1b) "Lokatsiyani saqlash" (haydovchi zakaz YOPAYOTGANDA GPS yozishi):**
+  `deliver-modal.tsx` boshida `ALLOW_SAVE_LOCATION = false` — egasi aynan
+  shuni "hozircha olib tashla" degan. Server tomoni (`driverLat/driverLng`)
+  joyida, faqat tugma yashirilgan; qaytarish = `true`.
 - **2) `PaymentType.MIXED` ("Aralash")** + `orders.cash_amount / card_amount /
   debt_amount` (migratsiya `20261011090000_mixed_payment`, faqat DDL). Ustunlar
   FAQAT MIXED'da ma'noli (yig'indisi = totalAmount); oddiy CASH/CARD/DEBT/FREE

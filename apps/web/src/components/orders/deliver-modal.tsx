@@ -35,6 +35,11 @@ const OPTIONS = [
   { value: "FREE", label: "Bepul (imtiyoz)", desc: "Pul olinmaydi", icon: Gift, active: "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400" },
 ] as const;
 
+// "Lokatsiyani saqlash" tugmasi (haydovchi zakaz yopayotganda GPS joyini
+// mijozga yozishi) HOZIRCHA O'CHIRILGAN (2026-10-11, egasi so'rovi).
+// Qaytarish uchun true qiling — kod va server tomoni joyida.
+const ALLOW_SAVE_LOCATION = false;
+
 // Summa maydoni: faqat raqam, minglik ajratgich bilan ko'rinadi ("30,000")
 const fmtAmount = (n: number) => (n > 0 ? new Intl.NumberFormat("uz-UZ").format(n) : "");
 const parseAmount = (v: string) => parseInt(v.replace(/\D/g, "").slice(0, 9)) || 0;
@@ -219,64 +224,66 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
           )}
 
           {/* 📍 Lokatsiyani saqlash — haydovchi mijoz uyida turib yoqadi */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={handleGeoToggle}
-              className={cn(
-                "w-full flex items-center gap-3.5 px-4 py-2 min-h-[58px] rounded-[14px] border-2 text-left transition-all",
-                geoState === "ready"
-                  ? "border-sky-500 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                  : geoState === "error"
-                  ? "border-red-300 dark:border-red-500/50 bg-red-50/60 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                  : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300 hover:border-sky-300 dark:hover:border-sky-700"
-              )}
-            >
-              {geoState === "loading" ? (
-                <Loader2 className="w-6 h-6 flex-none animate-spin text-sky-500" />
-              ) : (
-                <MapPin className="w-6 h-6 flex-none" />
-              )}
-              <span className="flex-1 min-w-0">
-                <span className="block text-[15px] font-bold leading-tight">
-                  {geoState === "ready"
-                    ? `✓ Lokatsiya tayyor (~${Math.round(geo?.accuracy ?? 0)} m)`
-                    : geoState === "loading"
-                    ? "Joylashuv aniqlanmoqda..."
-                    : "Lokatsiyani saqlash"}
+          {ALLOW_SAVE_LOCATION && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleGeoToggle}
+                className={cn(
+                  "w-full flex items-center gap-3.5 px-4 py-2 min-h-[58px] rounded-[14px] border-2 text-left transition-all",
+                  geoState === "ready"
+                    ? "border-sky-500 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                    : geoState === "error"
+                    ? "border-red-300 dark:border-red-500/50 bg-red-50/60 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                    : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300 hover:border-sky-300 dark:hover:border-sky-700"
+                )}
+              >
+                {geoState === "loading" ? (
+                  <Loader2 className="w-6 h-6 flex-none animate-spin text-sky-500" />
+                ) : (
+                  <MapPin className="w-6 h-6 flex-none" />
+                )}
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[15px] font-bold leading-tight">
+                    {geoState === "ready"
+                      ? `✓ Lokatsiya tayyor (~${Math.round(geo?.accuracy ?? 0)} m)`
+                      : geoState === "loading"
+                      ? "Joylashuv aniqlanmoqda..."
+                      : "Lokatsiyani saqlash"}
+                  </span>
+                  <span className="block text-[12px] opacity-70 mt-0.5">
+                    {geoState === "ready"
+                      ? `Yopilganda ${targetLabel} yoziladi · bekor qilish uchun yana bosing`
+                      : geoState === "loading"
+                      ? "GPS aniqlashishini kuting (bir necha soniya)"
+                      : `Hozir turgan joyingiz ${targetLabel} yoziladi`}
+                  </span>
                 </span>
-                <span className="block text-[12px] opacity-70 mt-0.5">
-                  {geoState === "ready"
-                    ? `Yopilganda ${targetLabel} yoziladi · bekor qilish uchun yana bosing`
-                    : geoState === "loading"
-                    ? "GPS aniqlashishini kuting (bir necha soniya)"
-                    : `Hozir turgan joyingiz ${targetLabel} yoziladi`}
-                </span>
-              </span>
-            </button>
-            {geoState === "error" && (
-              <p className="text-[12.5px] font-medium text-red-500">
-                {geoError} — qayta urinish uchun tugmani bosing
-              </p>
-            )}
-            {/* Aniqlik past bo'lsa — ochiq joyda qayta urinish tavsiyasi */}
-            {geoState === "ready" && (geo?.accuracy ?? 0) > 50 && (
-              <p className="text-[12.5px] font-medium text-amber-600 dark:text-amber-400">
-                ⚠️ Aniqlik past (~{Math.round(geo!.accuracy)} m) — mijoz eshigi oldida, osmon ochiq joyda qayta urinib ko'ring
-              </p>
-            )}
-            {/* Mavjud lokatsiya ustiga yozilishi haqida ogohlantirish */}
-            {hasExisting && geoState !== "off" && (
-              <p className="text-[12.5px] font-medium text-amber-600 dark:text-amber-400">
-                Bu manzilda lokatsiya allaqachon bor — saqlansa YANGISI bilan almashadi
-              </p>
-            )}
-            {hasExisting && geoState === "off" && (
-              <p className="text-[12px] text-gray-400">
-                ℹ️ Bu manzilda lokatsiya bor — odatda qayta saqlash shart emas
-              </p>
-            )}
-          </div>
+              </button>
+              {geoState === "error" && (
+                <p className="text-[12.5px] font-medium text-red-500">
+                  {geoError} — qayta urinish uchun tugmani bosing
+                </p>
+              )}
+              {/* Aniqlik past bo'lsa — ochiq joyda qayta urinish tavsiyasi */}
+              {geoState === "ready" && (geo?.accuracy ?? 0) > 50 && (
+                <p className="text-[12.5px] font-medium text-amber-600 dark:text-amber-400">
+                  ⚠️ Aniqlik past (~{Math.round(geo!.accuracy)} m) — mijoz eshigi oldida, osmon ochiq joyda qayta urinib ko'ring
+                </p>
+              )}
+              {/* Mavjud lokatsiya ustiga yozilishi haqida ogohlantirish */}
+              {hasExisting && geoState !== "off" && (
+                <p className="text-[12.5px] font-medium text-amber-600 dark:text-amber-400">
+                  Bu manzilda lokatsiya allaqachon bor — saqlansa YANGISI bilan almashadi
+                </p>
+              )}
+              {hasExisting && geoState === "off" && (
+                <p className="text-[12px] text-gray-400">
+                  ℹ️ Bu manzilda lokatsiya bor — odatda qayta saqlash shart emas
+                </p>
+              )}
+            </div>
+          )}
 
           {locked && (
             <p className="text-[12.5px] text-gray-400">
