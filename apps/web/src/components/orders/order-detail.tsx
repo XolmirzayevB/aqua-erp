@@ -8,7 +8,7 @@ import {
   Truck, CheckCircle, XCircle, Clock, User,
   ChevronRight, Banknote, CreditCard, FileText, Navigation, PencilLine,
 } from "lucide-react";
-import { useOrder, useUpdateOrderStatus, useAssignDriver, useConfirmCardPayment, isCardPending, cardTimeLeftLabel } from "@/hooks/use-orders";
+import { useOrder, useUpdateOrderStatus, useAssignDriver, useConfirmCardPayment, isCardPending, hasCardPart, cardPartAmount, mixedParts, cardTimeLeftLabel } from "@/hooks/use-orders";
 import { AssignDriverModal } from "./assign-driver-modal";
 import { DeliverModal } from "./deliver-modal";
 import { AdjustOrderModal } from "./adjust-order-modal";
@@ -108,7 +108,7 @@ export function OrderDetail({ id }: Props) {
   // Klik tasdiqlash — operator Click hisobida pulni KO'RIB bosadi
   const handleConfirmCard = async () => {
     if (!confirm(
-      `#${order.seq} — ${order.customer.name}\n${formatCurrency(order.totalAmount)} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
+      `#${order.seq} — ${order.customer.name}\n${formatCurrency(cardPartAmount(order))}${order.paymentType === "MIXED" ? " (aralash to'lovning Klik qismi)" : ""} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
     )) return;
     await confirmCard.mutateAsync(id);
   };
@@ -188,7 +188,7 @@ export function OrderDetail({ id }: Props) {
               Klik to'lovi hali tasdiqlanmagan · {cardTimeLeftLabel(order.deliveredAt)}
             </p>
             <p className="text-[12.5px] text-sky-600/80 dark:text-sky-400/70 mt-0.5">
-              Click hisobida {formatCurrency(order.totalAmount)} kelganini ko'rib tasdiqlang — 12 soatda tasdiqlanmasa zakaz nasiyaga o'tadi
+              Click hisobida {formatCurrency(cardPartAmount(order))} kelganini ko'rib tasdiqlang — 12 soatda tasdiqlanmasa {order.paymentType === "MIXED" ? "bu qism qarzga" : "zakaz nasiyaga"} o'tadi
             </p>
           </div>
           {canManageOrders && (
@@ -205,7 +205,7 @@ export function OrderDetail({ id }: Props) {
       )}
 
       {/* ✓ Klik tasdiqlangan belgisi */}
-      {order.paymentType === "CARD" && order.cardConfirmedAt && (
+      {hasCardPart(order) && order.cardConfirmedAt && (
         <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30">
           <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400 flex-none" />
           <p className="text-[13px] font-medium text-green-700 dark:text-green-400">
@@ -365,13 +365,24 @@ export function OrderDetail({ id }: Props) {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">To'lov turi</span>
                 {order.paymentType ? (
-                  <span className={cn("font-medium", order.paymentType === "DEBT" ? "text-orange-600" : "text-green-600")}>
+                  <span className={cn("font-medium", order.paymentType === "DEBT" ? "text-orange-600" : order.paymentType === "MIXED" ? "text-amber-600" : "text-green-600")}>
                     {PAYMENT_TYPE_LABELS[order.paymentType]}
                   </span>
                 ) : (
                   <span className="font-medium text-gray-400">Yetkazilganda tanlanadi</span>
                 )}
               </div>
+              {/* Aralash/qisman to'lov qismlari: naqd · klik · qarz */}
+              {mixedParts(order).map((p) => (
+                <div key={p.kind} className="flex justify-between text-sm pl-3">
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {p.kind === "cash" ? "— naqd olindi" : p.kind === "card" ? `— klik${order.cardConfirmedAt ? " (tasdiqlangan)" : " (kutilmoqda)"}` : "— qarzga yozildi"}
+                  </span>
+                  <span className={cn("font-semibold tabular-nums", p.kind === "debt" ? "text-red-500" : "text-gray-900 dark:text-white")}>
+                    {formatCurrency(p.amount)}
+                  </span>
+                </div>
+              ))}
               {order.bottlesReturned > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Qaytarilgan tara</span>

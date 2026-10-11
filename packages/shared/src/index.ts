@@ -20,6 +20,7 @@ export enum PaymentType {
   CARD = "CARD",
   DEBT = "DEBT",
   FREE = "FREE", // Imtiyozli/bepul — pul olinmaydi
+  MIXED = "MIXED", // Aralash/qisman: naqd + klik + qarz (summalar zakazda)
 }
 
 export enum TransactionType {
@@ -105,4 +106,5 @@ export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
   [PaymentType.CARD]: "Karta",
   [PaymentType.DEBT]: "Nasiya",
   [PaymentType.FREE]: "Bepul",
+  [PaymentType.MIXED]: "Aralash",
 };

@@ -14,7 +14,7 @@ const STATUS_LABELS: Record<string, string> = {
   DELIVERED: "Yetkazildi", CANCELLED: "Bekor qilindi",
 };
 const PAYMENT_LABELS: Record<string, string> = {
-  CASH: "Naqd", CARD: "Karta", DEBT: "Nasiya", FREE: "Bepul",
+  CASH: "Naqd", CARD: "Karta", DEBT: "Nasiya", FREE: "Bepul", MIXED: "Aralash",
 };
 
 @Injectable()

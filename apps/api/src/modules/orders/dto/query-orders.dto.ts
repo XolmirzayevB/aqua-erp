@@ -25,7 +25,7 @@ export class QueryOrdersDto {
 
   @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT", "FREE"] })
   @IsOptional()
-  @IsEnum(["CASH", "CARD", "DEBT", "FREE"])
+  @IsEnum(["CASH", "CARD", "DEBT", "FREE", "MIXED"])
   paymentType?: string;
 
   @ApiPropertyOptional({ example: "A", description: "Mijoz hududi bo'yicha filtr" })

@@ -206,6 +206,44 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
+✅ **ARALASH / QISMAN TO'LOV + "YANGI JOY" O'CHIRILDI (2026-10-11, DEPLOY QILINDI):**
+- **So'rov (egasi):** (1) zakaz yozayotganda lokatsiya qo'shishni hozircha olib
+  tashlash; (2) zakaz yopishda mijoz to'liq bermasa yoki yarmini klik, yarmini
+  naqd qilsa — yechim.
+- **1) "+ Yangi joy":** `order-form.tsx` boshida `ALLOW_ADD_LOCATION = false`
+  (qaytarish = true, kod joyida). Mijozda qo'shimcha manzil BO'LSA tanlash
+  ishlaydi; bo'lmasa "Qayerga yetkaziladi?" bloki umuman ko'rinmaydi. Haydovchining
+  yopishdagi "Lokatsiyani saqlash" (GPS) tugmasiga TEGILMAGAN.
+- **2) `PaymentType.MIXED` ("Aralash")** + `orders.cash_amount / card_amount /
+  debt_amount` (migratsiya `20261011090000_mixed_payment`, faqat DDL). Ustunlar
+  FAQAT MIXED'da ma'noli (yig'indisi = totalAmount); oddiy CASH/CARD/DEBT/FREE
+  zakazlar avvalgidek totalAmount bilan ishlaydi — eski mantiq o'zgarmagan.
+  - **Yopish (`updateStatus`):** haydovchi "Aralash / qisman"ni tanlab Naqd va
+    Klik summasini yozadi (`cashAmount`, `cardAmount`); qolgani = qarz. Server:
+    naqd+klik > summa → 400. Faqat BITTA qism bo'lsa oddiy turga aylantiradi
+    (to'liq naqd → CASH, 0/0 → DEBT) — MIXED faqat ≥2 qismda saqlanadi.
+    Naqd qismi: INCOME(CASH) + haydovchi `cashBalance`. Qarz qismi: mijoz
+    `balance -=`. Klik qismi: kutadi (tasdiqlash oqimi).
+  - **Klik tasdiqlash:** `confirmCardPayment` MIXED'da faqat `cardAmount`ni
+    kirim qiladi (idempotentlik: shu zakazning CARD kirimi bor-yo'qligi).
+  - **12 soat o'tsa (`convertExpiredCardOrders`):** MIXED'ning Klik qismi qarzga
+    o'tadi (`debtAmount += card`, `balance -= card`); naqd qismi yo'q bo'lsa
+    zakaz oddiy DEBT bo'lib qoladi (summa ustunlari 0).
+  - **Yopilgan zakazni tahrirlash (`adjustMixedMoney`):** summa OSHSA → ortgani
+    qarzga; KAMAYSA → qarz → tasdiqlanmagan klik → naqd (haydovchi balansi,
+    kirim) → tasdiqlangan klik. Bitta qism qolsa oddiy turga qaytadi.
+  - **Hisobotlar:** kutilayotgan Klik (dashboard, finance, reports) va "Yozilgan
+    qarzlar" MIXED qismlarini ham sanaydi. Ro'yxat filtri `cardPending` ham.
+  - **UI:** `deliver-modal.tsx` (5-variant + 2 ta summa maydoni, "qolgani"
+    tugmasi, "Qarzga qoladi"); ro'yxat/tafsilotda "Aralash: Naqd · Klik · Qarz";
+    yordamchilar `use-orders.ts`: `isCardPending`, `hasCardPart`,
+    `cardPartAmount`, `mixedParts`.
+  - Lokalda sinalgan: aralash, yarim-yarim, qisman, ortiqcha (400), tasdiqlash,
+    muddat o'tishi, tahrirlash (oshirish/kamaytirish), oddiy naqd/klik regressiya —
+    mijoz balansi, ishchi balanslari va kirimlar so'mma-so'm to'g'ri chiqdi.
+  - ⚠️ Mijoz zakaz summasidan KO'P bersa (eski qarzini ham to'lasa) — bu yerda
+    yozilmaydi, alohida "Qarz to'lovi" orqali qabul qilinadi.
+
 ✅ **YO'QOLAYOTGAN MIJOZGA SMS TUGMASI (2026-10-05, DEPLOY QILINDI):**
 - **So'rov (egasi):** yo'qolayotgan mijoz yonida tugma — bossa o'sha raqamga
   o'zidan SMS ketsin.

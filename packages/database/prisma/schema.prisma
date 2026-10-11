@@ -29,6 +29,9 @@ enum PaymentType {
   CARD
   DEBT
   FREE // Imtiyozli/bepul zakaz (prokuratura kabi) — pul olinmaydi
+  // ARALASH / QISMAN to'lov (2026-10-11, egasi so'rovi): bir qismi naqd, bir
+  // qismi klik, qolgani qarz. Summalar Order.cashAmount/cardAmount/debtAmount da.
+  MIXED
 }
 
 enum TransactionType {
@@ -226,6 +229,13 @@ model Order {
   // To'lov turi endi YETKAZILGANDA tanlanadi (haydovchi belgilaydi) —
   // shuning uchun ixtiyoriy. Ochiq zakazda null bo'lishi normal holat.
   paymentType      PaymentType? @map("payment_type")
+  // ARALASH/QISMAN TO'LOV qismlari (2026-10-11) — FAQAT paymentType=MIXED
+  // bo'lganda ma'noli: cashAmount + cardAmount + debtAmount = totalAmount.
+  // Oddiy (CASH/CARD/DEBT/FREE) zakazlarda 0 turadi — ular totalAmount bilan
+  // avvalgidek ishlaydi.
+  cashAmount       Decimal     @default(0) @map("cash_amount") @db.Decimal(12, 2)
+  cardAmount       Decimal     @default(0) @map("card_amount") @db.Decimal(12, 2)
+  debtAmount       Decimal     @default(0) @map("debt_amount") @db.Decimal(12, 2)
   // Qaysi manzilga (mijozning qo'shimcha lokatsiyasi). null = asosiy manzil.
   locationId       String?     @map("location_id")
   status           OrderStatus @default(NEW)

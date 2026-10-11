@@ -31,7 +31,12 @@ export interface Order {
   bottlesReturned: number;
   // null = to'lov turi hali tanlanmagan (yetkazilganda haydovchi tanlaydi)
   // FREE = imtiyozli/bepul zakaz (pul olinmaydi)
-  paymentType: "CASH" | "CARD" | "DEBT" | "FREE" | null;
+  // MIXED = aralash/qisman to'lov (2026-10-11): naqd + klik + qarz qismlari
+  paymentType: "CASH" | "CARD" | "DEBT" | "FREE" | "MIXED" | null;
+  // Faqat paymentType="MIXED"da ma'noli: cashAmount + cardAmount + debtAmount = totalAmount
+  cashAmount?: number | string;
+  cardAmount?: number | string;
+  debtAmount?: number | string;
   status: "NEW" | "PROCESSING" | "ASSIGNED" | "DELIVERED" | "CANCELLED";
   notes?: string;
   deliveredAt?: string;
@@ -50,8 +55,30 @@ export interface Order {
 }
 
 // KLIK TASDIQLASH (2026-07-18): yetkazilgan + Karta (Click) + hali tasdiqlanmagan
+// Aralash to'lovda (MIXED) faqat Klik QISMI tasdiqlanadi.
 export function isCardPending(o: Order): boolean {
-  return o.status === "DELIVERED" && o.paymentType === "CARD" && !o.cardConfirmedAt;
+  return o.status === "DELIVERED" && !o.cardConfirmedAt &&
+    (o.paymentType === "CARD" || (o.paymentType === "MIXED" && Number(o.cardAmount) > 0));
+}
+
+// Zakazda Klik (karta) puli bormi — to'liq Klik yoki aralashning Klik qismi
+export function hasCardPart(o: Pick<Order, "paymentType" | "cardAmount">): boolean {
+  return o.paymentType === "CARD" || (o.paymentType === "MIXED" && Number(o.cardAmount) > 0);
+}
+
+// Klik bo'yicha kutilayotgan/tasdiqlanadigan summa (aralashda — faqat Klik qismi)
+export function cardPartAmount(o: Pick<Order, "paymentType" | "totalAmount" | "cardAmount">): number {
+  return Number(o.paymentType === "MIXED" ? o.cardAmount : o.totalAmount);
+}
+
+// ARALASH to'lov qismlari — ro'yxat/tafsilotda "Naqd · Klik · Qarz" ko'rsatish uchun
+export function mixedParts(o: Pick<Order, "paymentType" | "cashAmount" | "cardAmount" | "debtAmount">) {
+  if (o.paymentType !== "MIXED") return [];
+  return [
+    { kind: "cash" as const, label: "Naqd", amount: Number(o.cashAmount) },
+    { kind: "card" as const, label: "Klik", amount: Number(o.cardAmount) },
+    { kind: "debt" as const, label: "Qarz", amount: Number(o.debtAmount) },
+  ].filter((p) => p.amount > 0);
 }
 
 // Klik tasdiqlash muddati (soat) — backend orders.service CARD_CONFIRM_HOURS
@@ -160,9 +187,11 @@ export function useUpdateOrderStatus() {
   return useMutation({
     // paymentType — "Yetkazildi"da haydovchi tanlagan to'lov turi (naqd/karta/nasiya).
     // driverLat/driverLng — "Lokatsiyani saqlash" yoqilgan bo'lsa haydovchining GPS joyi.
-    mutationFn: ({ id, status, notes, paymentType, driverLat, driverLng, locationAccuracy }:
-      { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" | "FREE"; driverLat?: number; driverLng?: number; locationAccuracy?: number }) =>
-      api.patch(`/orders/${id}/status`, { status, notes, paymentType, driverLat, driverLng, locationAccuracy }).then((r) => r.data.data),
+    // cashAmount/cardAmount — faqat paymentType="MIXED" (aralash/qisman): qancha naqd
+    // va qancha klik olingani; qolgani serverda mijoz qarziga yoziladi.
+    mutationFn: ({ id, status, notes, paymentType, cashAmount, cardAmount, driverLat, driverLng, locationAccuracy }:
+      { id: string; status: string; notes?: string; paymentType?: "CASH" | "CARD" | "DEBT" | "FREE" | "MIXED"; cashAmount?: number; cardAmount?: number; driverLat?: number; driverLng?: number; locationAccuracy?: number }) =>
+      api.patch(`/orders/${id}/status`, { status, notes, paymentType, cashAmount, cardAmount, driverLat, driverLng, locationAccuracy }).then((r) => r.data.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["driver-day-orders"] });

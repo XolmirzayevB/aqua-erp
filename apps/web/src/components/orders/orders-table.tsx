@@ -7,7 +7,7 @@ import {
   Truck, MoreHorizontal, Eye, XCircle, CheckCircle, Navigation,
   CalendarDays, X, MapPin, Clock, PencilLine, Wallet, CreditCard, Phone,
 } from "lucide-react";
-import { useOrders, useCancelOrder, useConfirmCardPayment, isCardPending, cardTimeLeftLabel, Order } from "@/hooks/use-orders";
+import { useOrders, useCancelOrder, useConfirmCardPayment, isCardPending, hasCardPart, cardPartAmount, mixedParts, cardTimeLeftLabel, Order } from "@/hooks/use-orders";
 import { useSettings } from "@/hooks/use-settings";
 import { OrderForm } from "./order-form";
 import { AssignDriverModal } from "./assign-driver-modal";
@@ -51,7 +51,25 @@ const PAYMENT_TONES: Record<string, Tone> = {
   DEBT: "danger",
   PARTIAL: "warning",
   FREE: "violet", // imtiyozli/bepul zakaz
+  MIXED: "warning", // aralash/qisman: naqd + klik + qarz
 };
+
+// ARALASH to'lov qismlari: "Naqd 30,000 · Klik 20,000 · Qarz 10,000"
+// (qarz qismi qizil — hali to'lanmagan pul)
+function MixedParts({ order, className }: { order: Order; className?: string }) {
+  const parts = mixedParts(order);
+  if (parts.length === 0) return null;
+  return (
+    <span className={cn("text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400", className)}>
+      {parts.map((p, i) => (
+        <span key={p.kind} className={cn("whitespace-nowrap", p.kind === "debt" && "text-red-500 dark:text-red-400")}>
+          {i > 0 && <span className="text-gray-300 dark:text-gray-600"> · </span>}
+          {p.label} {new Intl.NumberFormat("uz-UZ").format(p.amount)}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 // Zakazni tahrirlash mumkinmi: OCHIQ zakaz — istalgan payt (yetkazishdan
 // oldin, 2026-07-20); YOPILGAN — yetkazilganidan 24 soat ichida.
@@ -137,7 +155,7 @@ export function OrdersTable() {
   // Klik tasdiqlash — pul Click hisobiga kelganini operator KO'RIB bosadi
   const handleConfirmCard = async (order: Order) => {
     if (!confirm(
-      `#${order.seq} — ${order.customer.name}\n${formatCurrency(order.totalAmount)} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
+      `#${order.seq} — ${order.customer.name}\n${formatCurrency(cardPartAmount(order))}${order.paymentType === "MIXED" ? " (aralash to'lovning Klik qismi)" : ""} Klik (Click) hisobingizga KELGANINI tasdiqlaysizmi?\n\nTasdiqlagach bu pul moliyaga kirim bo'lib yoziladi.`
     )) return;
     await confirmCard.mutateAsync(order.id);
     setOpenMenu(null);
@@ -421,6 +439,13 @@ export function OrdersTable() {
                     ✓ Yetkazildi: {formatDate(order.deliveredAt, "dd.MM · HH:mm")}
                   </span>
                 )}
+                {/* Aralash/qisman to'lov — qismlari (naqd · klik · qarz) */}
+                {order.paymentType === "MIXED" && (
+                  <span className="block mt-1">
+                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">Aralash: </span>
+                    <MixedParts order={order} />
+                  </span>
+                )}
                 {/* Qolib ketgan — qancha kechikkani */}
                 {["NEW", "PROCESSING", "ASSIGNED"].includes(order.status) &&
                   Date.now() - new Date(order.createdAt).getTime() >= 86400000 && (
@@ -431,7 +456,7 @@ export function OrdersTable() {
                 {/* Klik tasdiqlanmagan — nasiyaga o'tishga qancha qoldi */}
                 {isCardPending(order) && (
                   <span className="block mt-1 text-[11.5px] font-bold text-sky-600 dark:text-sky-400">
-                    💳 Klik: {cardTimeLeftLabel(order.deliveredAt)}
+                    💳 Klik{order.paymentType === "MIXED" ? ` (${formatCurrency(cardPartAmount(order))})` : ""}: {cardTimeLeftLabel(order.deliveredAt)}
                   </span>
                 )}
 
@@ -638,13 +663,15 @@ export function OrdersTable() {
                           <Pill tone={PAYMENT_TONES[order.paymentType] || "muted"}>
                             {PAYMENT_TYPE_LABELS[order.paymentType]}
                           </Pill>
+                          {/* Aralash to'lov qismlari */}
+                          <MixedParts order={order} className="block mt-1" />
                           {/* Klik holati: kutilmoqda (muddat bilan) yoki tasdiqlangan */}
                           {isCardPending(order) && (
                             <span className="block mt-1 text-[10.5px] font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
                               💳 {cardTimeLeftLabel(order.deliveredAt)}
                             </span>
                           )}
-                          {order.paymentType === "CARD" && order.cardConfirmedAt && (
+                          {hasCardPart(order) && order.cardConfirmedAt && (
                             <span className="block mt-1 text-[10.5px] font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
                               ✓ Klik tasdiqlangan
                             </span>

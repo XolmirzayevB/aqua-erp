@@ -76,6 +76,12 @@ function QtyStepper({
   );
 }
 
+// "+ Yangi joy" (zakaz yozayotganda mijozga yangi manzil qo'shish) HOZIRCHA
+// O'CHIRILGAN (2026-10-11, egasi so'rovi). Qaytarish uchun true qiling — kod
+// joyida. Mavjud qo'shimcha manzillardan TANLASH ishlayveradi; yangi manzil
+// mijoz sahifasidan qo'shiladi.
+const ALLOW_ADD_LOCATION = false;
+
 // Katta input uslubi — formaning barcha maydonlari bir xil bo'yda
 const bigInput =
   "w-full h-[52px] px-4 rounded-[14px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-[15px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:bg-white dark:focus:bg-gray-900 transition-all";
@@ -494,7 +500,7 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
 
           {/* ── QAYERGA YETKAZILADI? — mijoz manzillari (Uy, Apteka...) ──
               To'lov turi bu formada YO'Q — haydovchi yetkazganda tanlaydi. */}
-          {mode === "existing" && selected && (
+          {mode === "existing" && selected && (ALLOW_ADD_LOCATION || (selected.locations || []).length > 0) && (
             <div>
               <label className={label15}>Qayerga yetkaziladi?</label>
               <div className="flex flex-wrap gap-2">
@@ -525,14 +531,16 @@ export function OrderForm({ onClose, defaultCustomer }: Props) {
                   </button>
                 ))}
                 {/* Yangi joy qo'shish */}
-                <button type="button" onClick={() => setAddingLoc((v) => !v)}
-                  className="inline-flex items-center gap-1.5 h-11 px-3.5 rounded-[12px] border-2 border-dashed border-gray-200 dark:border-gray-700 text-[13.5px] font-semibold text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400 transition-all">
-                  <Plus className="w-4 h-4" /> Yangi joy
-                </button>
+                {ALLOW_ADD_LOCATION && (
+                  <button type="button" onClick={() => setAddingLoc((v) => !v)}
+                    className="inline-flex items-center gap-1.5 h-11 px-3.5 rounded-[12px] border-2 border-dashed border-gray-200 dark:border-gray-700 text-[13.5px] font-semibold text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400 transition-all">
+                    <Plus className="w-4 h-4" /> Yangi joy
+                  </button>
+                )}
               </div>
 
               {/* Yangi joy mini-formasi */}
-              {addingLoc && (
+              {ALLOW_ADD_LOCATION && addingLoc && (
                 <div className="mt-3 p-4 rounded-[14px] border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 space-y-3">
                   <input value={locLabel} onChange={(e) => setLocLabel(e.target.value)}
                     placeholder="Joy nomi (masalan: Apteka)" className={bigInput} autoFocus />

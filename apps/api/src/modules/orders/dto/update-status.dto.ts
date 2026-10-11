@@ -15,10 +15,27 @@ export class UpdateStatusDto {
   // "Yetkazildi" bosilganda haydovchi to'lov turini tanlaydi:
   // naqd/karta/nasiya/BEPUL (imtiyozli — prokuratura kabi, pul olinmaydi).
   // Buyurtmada to'lov turi hali belgilanmagan bo'lsa MAJBURIY.
-  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT", "FREE"] })
+  @ApiPropertyOptional({ enum: ["CASH", "CARD", "DEBT", "FREE", "MIXED"] })
   @IsOptional()
-  @IsEnum(["CASH", "CARD", "DEBT", "FREE"])
-  paymentType?: "CASH" | "CARD" | "DEBT" | "FREE";
+  @IsEnum(["CASH", "CARD", "DEBT", "FREE", "MIXED"])
+  paymentType?: "CASH" | "CARD" | "DEBT" | "FREE" | "MIXED";
+
+  // ARALASH / QISMAN TO'LOV (2026-10-11, egasi so'rovi): paymentType=MIXED
+  // bo'lganda haydovchi qancha NAQD va qancha KLIK olganini yozadi. Qolgani
+  // (zakaz summasi − naqd − klik) avtomatik mijoz QARZIGA yoziladi.
+  @ApiPropertyOptional({ description: "Naqd olingan qism (faqat MIXED)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  cashAmount?: number;
+
+  @ApiPropertyOptional({ description: "Klik (karta) qismi (faqat MIXED)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  cardAmount?: number;
 
   // LOKATSIYA SAQLASH (2026-07-20, egasi so'rovi): haydovchi zakaz yopishda
   // "Lokatsiyani saqlash"ni yoqqan bo'lsa — uning hozirgi GPS joyi shu zakaz

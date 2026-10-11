@@ -267,8 +267,15 @@ export class OrdersService implements OnModuleInit {
       ...(cardPending
         ? {
             status: "DELIVERED" as OrderStatus,
-            paymentType: "CARD" as any,
             cardConfirmedAt: null,
+            // Oddiy Klik yoki aralash to'lovning Klik qismi (AND ichida —
+            // pastdagi qidiruv OR'i bilan to'qnashmasin)
+            AND: [{
+              OR: [
+                { paymentType: "CARD" as any },
+                { paymentType: "MIXED" as any, cardAmount: { gt: 0 } },
+              ],
+            }],
           }
         : {}),
       ...(status && !overdue && !cardPending ? { status: status as OrderStatus } : {}),
@@ -407,16 +414,39 @@ export class OrdersService implements OnModuleInit {
     // - Buyurtmada to'lov turi yo'q (yangi oqim) → dto.paymentType MAJBURIY.
     // - Buyurtmada avvaldan bor (eski oqim: yaratishda tanlangan) → o'zgartirib
     //   bo'lmaydi (nasiya balansi yaratishда yozilgan — almashtirish chalkashtiradi).
-    let effectivePayment: "CASH" | "CARD" | "DEBT" | "FREE" | null =
+    let effectivePayment: "CASH" | "CARD" | "DEBT" | "FREE" | "MIXED" | null =
       (order.paymentType as any) ?? null;
     let applyDebtNow = false; // nasiya balansini SHU yetkazishda yozish kerakmi
+    // ARALASH / QISMAN TO'LOV (2026-10-11, egasi so'rovi): haydovchi qancha naqd
+    // va qancha klik olganini yozadi, qolgani mijoz qarziga o'tadi. Faqat
+    // kamida IKKI qism bo'lsa MIXED saqlanadi — bitta qism bo'lsa oddiy turga
+    // (naqd/karta/nasiya) aylantiriladi va eski mantiq o'zgarishsiz ishlaydi.
+    let mixed: { cash: number; card: number; debt: number } | null = null;
     if (dto.status === "DELIVERED") {
       if (!order.paymentType) {
         if (!dto.paymentType) {
           throw new BadRequestException("To'lov turini tanlang: naqd, karta, nasiya yoki bepul");
         }
-        effectivePayment = dto.paymentType;
-        applyDebtNow = dto.paymentType === "DEBT";
+        if (dto.paymentType === "MIXED") {
+          const total = Number(order.totalAmount);
+          const cash = Math.round(dto.cashAmount ?? 0);
+          const card = Math.round(dto.cardAmount ?? 0);
+          if (cash + card > total) {
+            throw new BadRequestException(
+              `Olingan pul (${cash + card} so'm) zakaz summasidan (${total} so'm) ko'p bo'lishi mumkin emas`,
+            );
+          }
+          const debt = total - cash - card;
+          if ([cash, card, debt].filter((v) => v > 0).length >= 2) {
+            effectivePayment = "MIXED";
+            mixed = { cash, card, debt };
+          } else {
+            effectivePayment = card > 0 ? "CARD" : cash > 0 ? "CASH" : "DEBT";
+          }
+        } else {
+          effectivePayment = dto.paymentType;
+        }
+        applyDebtNow = effectivePayment === "DEBT";
       } else if (dto.paymentType && dto.paymentType !== order.paymentType) {
         throw new BadRequestException(
           "Bu buyurtmada to'lov turi avvaldan belgilangan — o'zgartirib bo'lmaydi"
@@ -443,6 +473,9 @@ export class OrdersService implements OnModuleInit {
           status: dto.status as OrderStatus,
           ...(dto.status === "DELIVERED"
             ? { deliveredAt: new Date(), paymentType: effectivePayment as any }
+            : {}),
+          ...(mixed
+            ? { cashAmount: mixed.cash, cardAmount: mixed.card, debtAmount: mixed.debt }
             : {}),
           // Yangi izoh kelsa o'sha; lokatsiya saqlansa iz ham qo'shiladi
           ...(dto.notes || geoNote
@@ -483,7 +516,10 @@ export class OrdersService implements OnModuleInit {
       // - FREE (imtiyozli/bepul): INCOME ham, qarz ham YOZILMAYDI — pul yo'q.
       // - Idempotent: eski (o'tish davri) buyurtmalarda kirim yaratishда
       //   yozilgan bo'lishi mumkin — bor bo'lsa qayta yozilmaydi.
-      if (dto.status === "DELIVERED" && effectivePayment === "CASH") {
+      // - MIXED (aralash, 2026-10-11): faqat NAQD QISMI shu yerda kirim bo'ladi;
+      //   klik qismi tasdiqlanganda, qarz qismi to'langanda keladi.
+      const cashPart = mixed ? mixed.cash : order.totalAmount;
+      if (dto.status === "DELIVERED" && (effectivePayment === "CASH" || (mixed && mixed.cash > 0))) {
         const existing = await tx.transaction.findFirst({
           where: { orderId: id, type: "INCOME" },
           select: { id: true },
@@ -492,10 +528,10 @@ export class OrdersService implements OnModuleInit {
           await tx.transaction.create({
             data: {
               type: "INCOME",
-              amount: order.totalAmount,
+              amount: cashPart,
               paymentMethod: "CASH",
               category: "Suv sotuvi",
-              description: `${result.customer.name} — buyurtma #${result.seq} yetkazildi`,
+              description: `${result.customer.name} — buyurtma #${result.seq} yetkazildi${mixed ? " (aralash to'lov: naqd qismi)" : ""}`,
               orderId: id,
               customerId: order.customerId,
               createdById: userId,
@@ -508,17 +544,18 @@ export class OrdersService implements OnModuleInit {
         // (STATUS_TRANSITIONS), shuning uchun ikki marta qo'shilmaydi.
         await tx.user.update({
           where: { id: order.driverId ?? userId },
-          data: { cashBalance: { increment: order.totalAmount } },
+          data: { cashBalance: { increment: cashPart } },
         });
       }
 
       // NASIYA yetkazishda tanlangan bo'lsa — summa mijoz qarziga SHU YERDA
       // yoziladi (yangi oqim). Eski oqimda (yaratishda DEBT) allaqachon yozilgan
       // bo'ladi — applyDebtNow=false, ikki marta yozilmaydi.
-      if (dto.status === "DELIVERED" && applyDebtNow) {
+      // MIXED'da faqat TO'LANMAGAN QISM qarzga yoziladi.
+      if (dto.status === "DELIVERED" && (applyDebtNow || (mixed && mixed.debt > 0))) {
         await tx.customer.update({
           where: { id: order.customerId },
-          data: { balance: { decrement: order.totalAmount } },
+          data: { balance: { decrement: mixed ? mixed.debt : order.totalAmount } },
         });
       }
 
@@ -592,16 +629,21 @@ export class OrdersService implements OnModuleInit {
     if (order.status !== "DELIVERED") {
       throw new BadRequestException("Faqat yetkazilgan zakaz tasdiqlanadi");
     }
-    if (order.paymentType !== "CARD") {
+    // ARALASH to'lovda (2026-10-11) faqat KLIK QISMI tasdiqlanadi
+    const mixedCard = order.paymentType === "MIXED" && Number(order.cardAmount) > 0;
+    if (order.paymentType !== "CARD" && !mixedCard) {
       throw new BadRequestException(
         order.paymentType === "DEBT"
           ? "Bu zakaz nasiyaga o'tgan — pul kelgan bo'lsa \"Qarz to'lovi\" (karta) orqali qabul qiling"
-          : "Bu zakaz Klik (karta) bilan yopilmagan",
+          : order.paymentType === "MIXED"
+            ? "Bu zakazda tasdiqlanadigan Klik qismi yo'q — Klik puli qarzga o'tgan bo'lsa \"Qarz to'lovi\" (karta) orqali qabul qiling"
+            : "Bu zakaz Klik (karta) bilan yopilmagan",
       );
     }
     if (order.cardConfirmedAt) {
       throw new BadRequestException("Bu zakazning Klik to'lovi allaqachon tasdiqlangan");
     }
+    const cardPart = mixedCard ? order.cardAmount : order.totalAmount;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.order.update({
@@ -614,18 +656,20 @@ export class OrdersService implements OnModuleInit {
       });
       // Idempotent: shu zakazga kirim allaqachon bo'lsa qayta yozilmaydi
       // (masalan eski oqim zakazi yoki ikki marta bosilgan holat)
+      // Aralash zakazda NAQD qismining kirimi allaqachon bor — faqat KLIK
+      // kirimi bor-yo'qligiga qaraladi.
       const existing = await tx.transaction.findFirst({
-        where: { orderId: id, type: "INCOME" },
+        where: { orderId: id, type: "INCOME", ...(mixedCard ? { paymentMethod: "CARD" as const } : {}) },
         select: { id: true },
       });
       if (!existing) {
         await tx.transaction.create({
           data: {
             type: "INCOME",
-            amount: order.totalAmount,
+            amount: cardPart,
             paymentMethod: "CARD",
             category: "Suv sotuvi",
-            description: `${order.customer.name} — buyurtma #${order.seq} (Klik tasdiqlandi)`,
+            description: `${order.customer.name} — buyurtma #${order.seq} (${mixedCard ? "aralash to'lov: Klik qismi tasdiqlandi" : "Klik tasdiqlandi"})`,
             orderId: id,
             customerId: order.customerId,
             createdById: userId,
@@ -637,7 +681,7 @@ export class OrdersService implements OnModuleInit {
       // cardConfirmedAt tekshiruvi yuqorida — ikki marta qo'shilmaydi.
       await tx.user.update({
         where: { id: userId },
-        data: { clickBalance: { increment: order.totalAmount } },
+        data: { clickBalance: { increment: cardPart } },
       });
       return result;
     });
@@ -661,38 +705,64 @@ export class OrdersService implements OnModuleInit {
     const cutoff = new Date(Date.now() - CARD_CONFIRM_HOURS * 3600 * 1000);
     const expired = await this.prisma.order.findMany({
       where: {
-        paymentType: "CARD",
         status: "DELIVERED",
         cardConfirmedAt: null,
         deliveredAt: { lt: cutoff },
+        // Oddiy Klik zakaz YOKI aralash to'lovning tasdiqlanmagan Klik qismi
+        OR: [
+          { paymentType: "CARD" },
+          { paymentType: "MIXED", cardAmount: { gt: 0 } },
+        ],
       },
       include: { customer: { select: { id: true, name: true } } },
     });
 
     for (const order of expired) {
+      let moved = 0; // qarzga o'tgan summa (log uchun)
       await this.prisma.$transaction(async (tx) => {
         // Poyga himoyasi: shu orada tasdiqlangan bo'lsa — tegmaymiz
         const fresh = await tx.order.findUnique({
           where: { id: order.id },
-          select: { paymentType: true, cardConfirmedAt: true },
+          select: { paymentType: true, cardConfirmedAt: true, totalAmount: true, cashAmount: true, cardAmount: true },
         });
-        if (!fresh || fresh.paymentType !== "CARD" || fresh.cardConfirmedAt) return;
+        if (!fresh || fresh.cardConfirmedAt) return;
 
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            paymentType: "DEBT",
-            notes: [order.notes, `⏰ Klik ${CARD_CONFIRM_HOURS} soat ichida tasdiqlanmadi — nasiyaga o'tkazildi (avto)`]
-              .filter(Boolean).join(" · "),
-          },
-        });
+        if (fresh.paymentType === "CARD") {
+          moved = Number(fresh.totalAmount);
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              paymentType: "DEBT",
+              notes: [order.notes, `⏰ Klik ${CARD_CONFIRM_HOURS} soat ichida tasdiqlanmadi — nasiyaga o'tkazildi (avto)`]
+                .filter(Boolean).join(" · "),
+            },
+          });
+        } else if (fresh.paymentType === "MIXED" && Number(fresh.cardAmount) > 0) {
+          // ARALASH: faqat Klik qismi qarzga o'tadi. Naqd qismi bo'lmasa zakaz
+          // butunlay nasiya bo'lib qoladi (oddiy DEBT, summa ustunlari 0).
+          moved = Number(fresh.cardAmount);
+          const allDebt = Number(fresh.cashAmount) === 0;
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              ...(allDebt
+                ? { paymentType: "DEBT", cashAmount: 0, cardAmount: 0, debtAmount: 0 }
+                : { cardAmount: 0, debtAmount: { increment: moved } }),
+              notes: [order.notes, `⏰ Klik qismi (${moved} so'm) ${CARD_CONFIRM_HOURS} soat ichida tasdiqlanmadi — qarzga o'tkazildi (avto)`]
+                .filter(Boolean).join(" · "),
+            },
+          });
+        } else {
+          return;
+        }
         await tx.customer.update({
           where: { id: order.customerId },
-          data: { balance: { decrement: order.totalAmount } },
+          data: { balance: { decrement: moved } },
         });
       });
+      if (moved === 0) continue;
       this.logger.warn(
-        `Buyurtma #${order.seq} (${order.customer.name}): Klik tasdiqlanmadi — nasiyaga o'tkazildi (${order.totalAmount} so'm)`,
+        `Buyurtma #${order.seq} (${order.customer.name}): Klik tasdiqlanmadi — nasiyaga o'tkazildi (${moved} so'm)`,
       );
       // Operatorlarga real-time xabar — ro'yxatlar yangilanadi
       this.notifications.emitToAll("order_status_changed", {
@@ -891,6 +961,12 @@ export class OrdersService implements OnModuleInit {
       }
 
       // 4) Moliya — to'lov turiga qarab
+      // ARALASH to'lov: farq qismlarga taqsimlanadi (pastdagi metod) — quyidagi
+      // oddiy turlar tarmoqlari MIXED'ga mos kelmaydi, tegmaydi.
+      if (order.paymentType === "MIXED") {
+        await this.adjustMixedMoney(tx, order, newTotal - oldTotal);
+      }
+
       // CARD hali TASDIQLANMAGAN bo'lsa: kirim YO'Q va yozilmaydi ham —
       // tasdiqlanganda (confirmCardPayment) YANGI summa bilan yoziladi.
       const cardUnconfirmed = order.paymentType === "CARD" && !order.cardConfirmedAt;
@@ -974,6 +1050,96 @@ export class OrdersService implements OnModuleInit {
     });
 
     return updated;
+  }
+
+  // ARALASH to'lovli (MIXED) yopilgan zakaz summasi o'zgarganda farqni
+  // qismlarga taqsimlaydi (2026-10-11). Qoida:
+  //  - Summa OSHSA: ortgani QARZGA yoziladi (bu pul hali olinmagan — kelganda
+  //    "Qarz to'lovi" orqali qabul qilinadi).
+  //  - Summa KAMAYSA, shu tartibda kamayadi: qarz qismi → tasdiqlanmagan Klik
+  //    (hali kelmagan pul) → naqd (haydovchi qaytargan) → tasdiqlangan Klik.
+  //  - Oxirida bitta qism qolsa zakaz oddiy turga (naqd/karta/nasiya) qaytadi.
+  private async adjustMixedMoney(tx: Prisma.TransactionClient, order: any, diff: number) {
+    let cash = Number(order.cashAmount);
+    let card = Number(order.cardAmount);
+    let debt = Number(order.debtAmount);
+
+    // Kirim yozuvini yangi qism summasiga tenglashtirish (0 bo'lsa o'chiriladi)
+    const syncIncome = async (method: "CASH" | "CARD", amount: number) => {
+      const inc = await tx.transaction.findFirst({
+        where: { orderId: order.id, type: "INCOME", paymentMethod: method },
+      });
+      if (!inc) return;
+      if (amount <= 0) {
+        await tx.transaction.delete({ where: { id: inc.id } });
+      } else {
+        await tx.transaction.update({
+          where: { id: inc.id },
+          data: { amount, description: `${inc.description ?? ""} (tahrirlangan)`.trim() },
+        });
+      }
+    };
+
+    if (diff > 0) {
+      debt += diff;
+      await tx.customer.update({
+        where: { id: order.customerId },
+        data: { balance: { decrement: diff } },
+      });
+    } else if (diff < 0) {
+      let rem = -diff;
+      const take = (from: number) => {
+        const t = Math.min(rem, from);
+        rem -= t;
+        return t;
+      };
+
+      const fromDebt = take(debt);
+      if (fromDebt > 0) {
+        debt -= fromDebt;
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: { balance: { increment: fromDebt } },
+        });
+      }
+
+      if (!order.cardConfirmedAt) card -= take(card);
+
+      const fromCash = take(cash);
+      if (fromCash > 0) {
+        cash -= fromCash;
+        await tx.user.update({
+          where: { id: order.driverId ?? order.createdById },
+          data: { cashBalance: { decrement: fromCash } },
+        });
+        await syncIncome("CASH", cash);
+      }
+
+      if (order.cardConfirmedAt) {
+        const fromCard = take(card);
+        if (fromCard > 0) {
+          card -= fromCard;
+          if (order.cardConfirmedById) {
+            await tx.user.update({
+              where: { id: order.cardConfirmedById },
+              data: { clickBalance: { decrement: fromCard } },
+            });
+          }
+          await syncIncome("CARD", card);
+        }
+      }
+    }
+
+    const simple =
+      [cash, card, debt].filter((v) => v > 0).length <= 1
+        ? card > 0 ? "CARD" : cash > 0 ? "CASH" : "DEBT"
+        : null;
+    await tx.order.update({
+      where: { id: order.id },
+      data: simple
+        ? { paymentType: simple as any, cashAmount: 0, cardAmount: 0, debtAmount: 0 }
+        : { cashAmount: cash, cardAmount: card, debtAmount: debt },
+    });
   }
 
   // ── OCHIQ ZAKAZNI TAHRIRLASH (2026-07-20, egasi so'rovi) ───────────────────

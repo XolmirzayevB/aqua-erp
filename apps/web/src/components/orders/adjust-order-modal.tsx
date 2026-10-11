@@ -189,7 +189,7 @@ export function AdjustOrderModal({ order, onClose }: Props) {
             ) : (
               <>
                 Saqlashda hammasi avtomatik tuzatiladi: ombor, mijozdagi tara soni,{" "}
-                {order.paymentType === "DEBT" ? "mijoz qarzi" : order.paymentType === "FREE" ? "(bepul — moliyaga ta'sir yo'q)" : "moliya kirimlari"} va hisobotlar.
+                {order.paymentType === "DEBT" ? "mijoz qarzi" : order.paymentType === "FREE" ? "(bepul — moliyaga ta'sir yo'q)" : order.paymentType === "MIXED" ? "aralash to'lov (summa oshsa — ortgani qarzga; kamaysa — avval qarz, keyin naqd/klik kamayadi)" : "moliya kirimlari"} va hisobotlar.
                 Zakaz &quot;Tahrirlangan&quot; belgisini oladi.
               </>
             )}

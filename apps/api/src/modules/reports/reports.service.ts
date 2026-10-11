@@ -35,6 +35,7 @@ export class ReportsService {
         select: {
           quantity: true, totalAmount: true, bottlesReturned: true, newBottles: true,
           paymentType: true, cardConfirmedAt: true,
+          cardAmount: true, debtAmount: true,
         },
       }),
       this.prisma.order.count({ where: { status: "CANCELLED", updatedAt: { gte: from, lte: to } } }),
@@ -57,16 +58,23 @@ export class ReportsService {
     // hisobiga tushishi kutilmoqda, Kirimga KIRMAGAN. Tasdiqlangach INCOME
     // yoziladi va Kirimda chiqadi; 48 soatda tasdiqlanmasa avto-nasiyaga
     // o'tadi (paymentType=DEBT) va "Yozilgan qarzlar"ga o'tib qoladi.
+    // ARALASH to'lovda (MIXED, 2026-10-11) faqat Klik QISMI kutilayotgan bo'ladi.
     const pendingClickOrders = deliveredOrders.filter(
-      (o) => o.paymentType === "CARD" && !o.cardConfirmedAt,
+      (o) => !o.cardConfirmedAt &&
+        (o.paymentType === "CARD" || (o.paymentType === "MIXED" && Number(o.cardAmount) > 0)),
     );
-    const pendingClick = pendingClickOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+    const pendingClick = pendingClickOrders.reduce(
+      (s, o) => s + Number(o.paymentType === "MIXED" ? o.cardAmount : o.totalAmount), 0);
 
     // YOZILGAN QARZLAR: davrda yetkazilgan NASIYA zakazlar summasi (mijoz
     // qarziga yozilgan). To'lovlari alohida — "Qarz to'lovlari" bo'limida
     // (Payment orqali, to'langan kuni Kirimga tushadi).
-    const debtOrders = deliveredOrders.filter((o) => o.paymentType === "DEBT");
-    const debtsWritten = debtOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+    // Aralash to'lovda faqat to'lanmagan QISM qarzga yozilgan.
+    const debtOrders = deliveredOrders.filter(
+      (o) => o.paymentType === "DEBT" || (o.paymentType === "MIXED" && Number(o.debtAmount) > 0),
+    );
+    const debtsWritten = debtOrders.reduce(
+      (s, o) => s + Number(o.paymentType === "MIXED" ? o.debtAmount : o.totalAmount), 0);
     // Suv/tara — yetkazilganlar asosida (real harakat)
     const waterSold = deliveredOrders.reduce((s, o) => s + o.quantity, 0);
     const bottlesReturned = deliveredOrders.reduce((s, o) => s + o.bottlesReturned, 0);

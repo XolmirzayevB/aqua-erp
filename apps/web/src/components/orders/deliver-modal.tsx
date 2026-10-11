@@ -5,9 +5,12 @@
 // Naqd / Karta (Click) / Nasiya. Operator zakaz yozganda to'lov TANLAMAYDI —
 // bu haydovchining ishi (egasi so'rovi).
 // Eski zakazlarda to'lov avvaldan belgilangan bo'lsa — faqat tasdiq so'raladi.
+// ARALASH / QISMAN (2026-10-11, egasi so'rovi): mijoz yarmini naqd, yarmini
+// klik qilsa yoki to'liq bermasa — haydovchi qancha naqd va qancha klik
+// olganini yozadi, qolgani avtomatik mijoz qarziga o'tadi.
 
 import { useState } from "react";
-import { X, Loader2, CheckCircle, Banknote, CreditCard, NotebookPen, Gift, MapPin } from "lucide-react";
+import { X, Loader2, CheckCircle, Banknote, CreditCard, NotebookPen, Gift, MapPin, Split } from "lucide-react";
 import { useUpdateOrderStatus, Order, OrderLocation } from "@/hooks/use-orders";
 import { getPreciseLocation, PreciseLocation } from "@/lib/geo";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -24,17 +27,34 @@ interface Props {
 const OPTIONS = [
   { value: "CASH", label: "Naqd", desc: "Pul qo'lda olindi", icon: Banknote, active: "border-green-500 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" },
   // Klik: pul moliyaga OPERATOR TASDIQLAGACH tushadi (12 soatda tasdiqlanmasa nasiya)
-  { value: "CARD", label: "Karta / Click", desc: "Operator tasdiqlagach hisobga tushadi", icon: CreditCard, active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+  { value: "CARD", label: "Karta / Click", desc: "Operator tasdiqlagach tushadi", icon: CreditCard, active: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+  // Aralash/qisman: naqd + klik summalari yoziladi, qolgani qarzga o'tadi
+  { value: "MIXED", label: "Aralash / qisman", desc: "Naqd + klik, qolgani qarzga", icon: Split, active: "border-teal-500 bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400" },
   { value: "DEBT", label: "Nasiya", desc: "Qarzga yozildi", icon: NotebookPen, active: "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" },
   // Imtiyozli zakaz (prokuratura kabi) — pul olinmaydi, moliyaga hech narsa yozilmaydi
   { value: "FREE", label: "Bepul (imtiyoz)", desc: "Pul olinmaydi", icon: Gift, active: "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400" },
 ] as const;
 
+// Summa maydoni: faqat raqam, minglik ajratgich bilan ko'rinadi ("30,000")
+const fmtAmount = (n: number) => (n > 0 ? new Intl.NumberFormat("uz-UZ").format(n) : "");
+const parseAmount = (v: string) => parseInt(v.replace(/\D/g, "").slice(0, 9)) || 0;
+
 export function DeliverModal({ order, onClose, onDone }: Props) {
   // Eski zakazda to'lov avvaldan bor — o'zgartirib bo'lmaydi, faqat tasdiqlanadi
   const locked = !!order.paymentType;
-  const [payment, setPayment] = useState<"CASH" | "CARD" | "DEBT" | "FREE">(order.paymentType || "CASH");
+  const [payment, setPayment] = useState<"CASH" | "CARD" | "DEBT" | "FREE" | "MIXED">(order.paymentType || "CASH");
   const updateStatus = useUpdateOrderStatus();
+
+  // ARALASH / QISMAN: qancha naqd, qancha klik — qolgani qarzga
+  const total = Number(order.totalAmount);
+  const [cash, setCash] = useState(0);
+  const [card, setCard] = useState(0);
+  const mixed = payment === "MIXED";
+  const paid = cash + card;
+  const debt = total - paid;
+  const over = paid > total;
+  // Hech narsa kiritilmagan — bu shunchaki nasiya, alohida tugmasi bor
+  const mixedEmpty = mixed && paid === 0;
 
   // 📍 LOKATSIYANI SAQLASH (2026-07-20, egasi so'rovi): haydovchi mijoz uyida
   // turib tugmani yoqadi — zakaz yopilganda uning GPS joyi mijozga yoziladi.
@@ -80,6 +100,7 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
       status: "DELIVERED",
       // Belgilangan bo'lsa yubormaymiz (backend o'zgartirishga ruxsat bermaydi)
       ...(locked ? {} : { paymentType: payment }),
+      ...(mixed ? { cashAmount: cash, cardAmount: card } : {}),
       // Lokatsiya tayyor bo'lsa — zakaz bilan BIRGA yoziladi (bitta amal, adashmaydi)
       ...(geo ? { driverLat: geo.lat, driverLng: geo.lng, locationAccuracy: geo.accuracy } : {}),
     });
@@ -89,7 +110,7 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-[20px] md:rounded-[20px] shadow-2xl border border-gray-100 dark:border-gray-800">
+      <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto bg-white dark:bg-gray-900 rounded-t-[20px] md:rounded-[20px] shadow-2xl border border-gray-100 dark:border-gray-800">
         {/* Sarlavha */}
         <div className="flex items-center gap-3.5 px-6 py-5 border-b border-gray-100 dark:border-gray-800">
           <div className="w-11 h-11 rounded-[13px] bg-green-50 dark:bg-green-500/15 flex items-center justify-center flex-none">
@@ -114,7 +135,7 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
           </p>
 
           {/* To'lov variantlari — katta, barmoq bilan oson bosiladigan */}
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {OPTIONS.map(({ value, label, desc, icon: Icon, active }) => {
               const disabled = locked && value !== order.paymentType;
               return (
@@ -124,7 +145,7 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
                   disabled={disabled}
                   onClick={() => setPayment(value)}
                   className={cn(
-                    "w-full flex items-center gap-3.5 px-4 h-[62px] rounded-[14px] border-2 text-left transition-all",
+                    "w-full flex items-center gap-3.5 px-4 py-2 min-h-[56px] rounded-[14px] border-2 text-left transition-all",
                     payment === value
                       ? active
                       : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300 hover:border-gray-200 dark:hover:border-gray-700",
@@ -149,13 +170,61 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
             })}
           </div>
 
+          {/* ARALASH / QISMAN — naqd va klik summalari; qolgani qarzga */}
+          {mixed && !locked && (
+            <div className="rounded-[14px] border-2 border-teal-200 dark:border-teal-500/30 bg-teal-50/40 dark:bg-teal-500/5 p-3.5 space-y-2.5">
+              {([
+                { key: "cash", label: "Naqd", icon: Banknote, value: cash, set: setCash, other: card },
+                { key: "card", label: "Klik", icon: CreditCard, value: card, set: setCard, other: cash },
+              ] as const).map(({ key, label, icon: Icon, value, set, other }) => (
+                <div key={key} className="flex items-center gap-2.5">
+                  <Icon className="w-5 h-5 flex-none text-gray-500 dark:text-gray-400" />
+                  <span className="flex-1 min-w-0 text-[14px] font-semibold text-gray-800 dark:text-gray-200 truncate">{label}</span>
+                  {/* Qolgan summani shu maydonga bir bosishda yozish */}
+                  {total - other > 0 && value !== total - other && (
+                    <button
+                      type="button"
+                      onClick={() => set(Math.max(0, total - other))}
+                      className="flex-none h-8 px-2.5 rounded-[9px] border border-teal-300 dark:border-teal-500/40 bg-white dark:bg-gray-900 text-[11.5px] font-semibold text-teal-700 dark:text-teal-400 active:scale-95 transition-all"
+                    >
+                      qolgani
+                    </button>
+                  )}
+                  <input
+                    inputMode="numeric"
+                    value={fmtAmount(value)}
+                    onChange={(e) => set(parseAmount(e.target.value))}
+                    placeholder="0"
+                    aria-label={label}
+                    className="flex-none w-[124px] h-[46px] px-3 text-right rounded-[12px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-[17px] font-bold tabular-nums placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 transition-all"
+                  />
+                </div>
+              ))}
+
+              <div className="h-px bg-teal-200/70 dark:bg-teal-500/20" />
+
+              {/* Natija: qarzga qancha qoladi */}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13.5px] font-semibold text-gray-600 dark:text-gray-400">
+                  {over ? "Ortiqcha kiritildi" : debt > 0 ? "Qarzga qoladi" : "To'liq to'landi"}
+                </span>
+                <span className={cn(
+                  "text-[17px] font-bold tabular-nums",
+                  over ? "text-red-500" : debt > 0 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"
+                )}>
+                  {over ? formatCurrency(paid - total) : debt > 0 ? formatCurrency(debt) : "✓"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* 📍 Lokatsiyani saqlash — haydovchi mijoz uyida turib yoqadi */}
           <div className="space-y-2">
             <button
               type="button"
               onClick={handleGeoToggle}
               className={cn(
-                "w-full flex items-center gap-3.5 px-4 h-[58px] rounded-[14px] border-2 text-left transition-all",
+                "w-full flex items-center gap-3.5 px-4 py-2 min-h-[58px] rounded-[14px] border-2 text-left transition-all",
                 geoState === "ready"
                   ? "border-sky-500 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300"
                   : geoState === "error"
@@ -219,6 +288,22 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
               {formatCurrency(order.totalAmount)} mijoz qarziga yoziladi — pul keyin olinadi
             </p>
           )}
+          {!locked && mixed && over && (
+            <p className="text-[13px] font-medium text-red-500">
+              Kiritilgan pul zakaz summasidan ({formatCurrency(total)}) ko'p — summani to'g'rilang
+            </p>
+          )}
+          {!locked && mixedEmpty && (
+            <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">
+              Qancha naqd va qancha klik olinganini yozing. Hech narsa olinmagan bo'lsa — «Nasiya»ni tanlang.
+            </p>
+          )}
+          {!locked && mixed && !over && !mixedEmpty && (debt > 0 || card > 0) && (
+            <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+              {debt > 0 && <>{formatCurrency(debt)} mijoz qarziga yoziladi. </>}
+              {card > 0 && <>Klik qismi ({formatCurrency(card)}) operator tasdiqlagach hisobga tushadi.</>}
+            </p>
+          )}
           {!locked && payment === "FREE" && (
             <p className="text-[13px] font-medium text-violet-600 dark:text-violet-400">
               Imtiyozli zakaz — pul olinmaydi, tushumga ham, qarzga ham yozilmaydi
@@ -228,7 +313,7 @@ export function DeliverModal({ order, onClose, onDone }: Props) {
           {/* Tasdiqlash */}
           <button
             onClick={handleConfirm}
-            disabled={updateStatus.isPending}
+            disabled={updateStatus.isPending || (mixed && !locked && (over || mixedEmpty))}
             className="w-full h-[54px] rounded-[14px] bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-[16px] font-bold shadow-glow transition-all flex items-center justify-center gap-2"
           >
             {updateStatus.isPending ? (

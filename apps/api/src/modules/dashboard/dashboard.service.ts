@@ -54,11 +54,22 @@ export class DashboardService {
       }),
       // KUTILAYOTGAN KLIK (snapshot): yetkazilgan, Karta (Click), operator hali
       // tasdiqlamagan — sanasidan qat'i nazar (12 soatda avto-nasiyaga o'tadi)
-      this.prisma.order.aggregate({
-        where: { status: OrderStatus.DELIVERED, paymentType: "CARD" as any, cardConfirmedAt: null },
-        _sum: { totalAmount: true },
-        _count: { id: true },
-      }),
+      // + aralash to'lovning tasdiqlanmagan Klik QISMI (MIXED, 2026-10-11)
+      Promise.all([
+        this.prisma.order.aggregate({
+          where: { status: OrderStatus.DELIVERED, paymentType: "CARD" as any, cardConfirmedAt: null },
+          _sum: { totalAmount: true },
+          _count: { id: true },
+        }),
+        this.prisma.order.aggregate({
+          where: { status: OrderStatus.DELIVERED, paymentType: "MIXED" as any, cardAmount: { gt: 0 }, cardConfirmedAt: null },
+          _sum: { cardAmount: true },
+          _count: { id: true },
+        }),
+      ]).then(([card, mixed]) => ({
+        count: card._count.id + mixed._count.id,
+        amount: Number(card._sum.totalAmount ?? 0) + Number(mixed._sum.cardAmount ?? 0),
+      })),
       this.prisma.customer.findMany({ where: { balance: { lt: 0 }, isActive: true }, select: { balance: true } }),
       this.prisma.customer.count({ where: { isActive: true } }),
       this.prisma.inventory.findFirst({ where: { type: "EMPTY_BOTTLE" } }),
@@ -99,8 +110,8 @@ export class DashboardService {
       todayRefills: todayDeliveredAgg._sum.refillCount ?? 0,
       todayNewBottles: todayDeliveredAgg._sum.newBottles ?? 0,
       // Kutilayotgan Klik — tasdiqlanmagan karta to'lovlari (snapshot)
-      pendingClickCount: pendingClickAgg._count.id,
-      pendingClickAmount: Number(pendingClickAgg._sum.totalAmount ?? 0),
+      pendingClickCount: pendingClickAgg.count,
+      pendingClickAmount: pendingClickAgg.amount,
       debtorCount: debtors.length,
       // Balanslar manfiy — qarz miqdori musbat ko'rsatiladi
       totalDebt: Math.abs(debtors.reduce((sum, d) => sum + Number(d.balance), 0)),

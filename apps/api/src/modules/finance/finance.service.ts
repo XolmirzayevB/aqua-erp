@@ -165,11 +165,22 @@ export class FinanceService {
       }),
       // KUTILAYOTGAN KLIK (snapshot, sanasidan qat'i nazar): yetkazilgan, Karta
       // (Click), operator hali tasdiqlamagan — Kirimга KIRMAGAN pul.
-      this.prisma.order.aggregate({
-        where: { status: "DELIVERED" as any, paymentType: "CARD" as any, cardConfirmedAt: null },
-        _sum: { totalAmount: true },
-        _count: { id: true },
-      }),
+      // + aralash to'lovning tasdiqlanmagan Klik QISMI (MIXED, 2026-10-11)
+      Promise.all([
+        this.prisma.order.aggregate({
+          where: { status: "DELIVERED" as any, paymentType: "CARD" as any, cardConfirmedAt: null },
+          _sum: { totalAmount: true },
+          _count: { id: true },
+        }),
+        this.prisma.order.aggregate({
+          where: { status: "DELIVERED" as any, paymentType: "MIXED" as any, cardAmount: { gt: 0 }, cardConfirmedAt: null },
+          _sum: { cardAmount: true },
+          _count: { id: true },
+        }),
+      ]).then(([card, mixed]) => ({
+        count: card._count.id + mixed._count.id,
+        amount: Number(card._sum.totalAmount ?? 0) + Number(mixed._sum.cardAmount ?? 0),
+      })),
       // IMTIYOZLI (bepul) yetkazilganlar — davr bo'yicha (tushumga kirmaydi,
       // lekin egasi qancha "sovg'a" ketganini bilib turishi kerak)
       this.prisma.order.aggregate({
@@ -227,8 +238,8 @@ export class FinanceService {
       pendingAmount: Number(pendingAgg._sum.totalAmount ?? 0),
       pendingCount: pendingAgg._count.id,
       // Kutilayotgan Klik — tasdiqlanmagan karta to'lovlari (Kirimga kirmagan)
-      pendingClickAmount: Number(pendingClickAgg._sum.totalAmount ?? 0),
-      pendingClickCount: pendingClickAgg._count.id,
+      pendingClickAmount: pendingClickAgg.amount,
+      pendingClickCount: pendingClickAgg.count,
       // Imtiyozli (bepul) berilganlar — shu davrda
       freeAmount: Number(freeAgg._sum.totalAmount ?? 0),
       freeCount: freeAgg._count.id,
