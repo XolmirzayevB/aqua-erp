@@ -206,19 +206,16 @@ curl -s -o /dev/null -w "%{http_code}\n" https://116-203-220-83.nip.io/login
 
 ## 7. HOZIRGI HOLAT (2026-yil iyun/iyul holatiga)
 
-✅ **ARALASH / QISMAN TO'LOV + "YANGI JOY" O'CHIRILDI (2026-10-11, DEPLOY QILINDI):**
+✅ **ARALASH / QISMAN TO'LOV + YOPISHDAGI "LOKATSIYANI SAQLASH" O'CHIRILDI (2026-10-11, DEPLOY QILINDI):**
 - **So'rov (egasi):** (1) zakaz yozayotganda lokatsiya qo'shishni hozircha olib
   tashlash; (2) zakaz yopishda mijoz to'liq bermasa yoki yarmini klik, yarmini
   naqd qilsa — yechim.
-- **1) "+ Yangi joy":** `order-form.tsx` boshida `ALLOW_ADD_LOCATION = false`
-  (qaytarish = true, kod joyida). Mijozda qo'shimcha manzil BO'LSA tanlash
-  ishlaydi; bo'lmasa "Qayerga yetkaziladi?" bloki umuman ko'rinmaydi.
-  ⚠️ Bu egasi so'raganidan BOSHQA narsa edi (noto'g'ri tushunilgan) — egasi
-  aslida pastdagi 1b ni nazarda tutgan. "Yangi joy" o'chiq QOLDIRILDI; egasi
-  qaytarishni so'rasa `true` qilinadi.
-- **1b) "Lokatsiyani saqlash" (haydovchi zakaz YOPAYOTGANDA GPS yozishi):**
-  `deliver-modal.tsx` boshida `ALLOW_SAVE_LOCATION = false` — egasi aynan
-  shuni "hozircha olib tashla" degan. Server tomoni (`driverLat/driverLng`)
+- **1) "+ Yangi joy" (zakaz yozishdagi) — TEGILMAGAN, ishlayapti.** Avval
+  noto'g'ri tushunilib o'chirilgan edi, egasi "qaytar" dedi — `order-form.tsx`
+  asl holiga to'liq qaytarildi (bayroq ham yo'q).
+- **1b) "Lokatsiyani saqlash" (haydovchi zakaz YOPAYOTGANDA GPS yozishi) —
+  HOZIRCHA O'CHIRILGAN:** `deliver-modal.tsx` boshida
+  `ALLOW_SAVE_LOCATION = false` — egasi aynan shuni "hozircha olib tashla" degan. Server tomoni (`driverLat/driverLng`)
   joyida, faqat tugma yashirilgan; qaytarish = `true`.
 - **2) `PaymentType.MIXED` ("Aralash")** + `orders.cash_amount / card_amount /
   debt_amount` (migratsiya `20261011090000_mixed_payment`, faqat DDL). Ustunlar
